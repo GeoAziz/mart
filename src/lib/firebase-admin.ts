@@ -5,29 +5,42 @@ import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getStorage as getAdminStorage, type Storage as AdminStorage } from 'firebase-admin/storage';
 
-// You must create a service account and download the JSON key file.
-// Replace the path below with the actual path to your service account key file.
-// DO NOT commit this key to your git repository.
-let serviceAccount: ServiceAccount;
-try {
+// Check if the required environment variables for the service account are set.
+const hasServiceAccountEnvVars = 
+  process.env.FIREBASE_PROJECT_ID &&
+  process.env.FIREBASE_CLIENT_EMAIL &&
+  process.env.FIREBASE_PRIVATE_KEY;
+
+let serviceAccount: ServiceAccount | undefined;
+
+if (hasServiceAccountEnvVars) {
+  // This block runs on Vercel/production where env vars are set
+  serviceAccount = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    // Vercel escapes newlines in multiline env vars, so we need to replace them back
+    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  } as ServiceAccount;
+} else {
+  // This block runs for local development, falling back to the JSON file
+  try {
     serviceAccount = require('../../../serviceAccountKey.json');
-} catch (error) {
-    console.error("--------------------------------------------------------------------------------");
-    console.error("### CRITICAL: 'serviceAccountKey.json' NOT FOUND. ###");
-    console.error("The Firebase Admin SDK requires this file for server-side authentication.");
-    console.error("Please download it from your Firebase project settings and place it in the root directory of your project.");
-    console.error("This is required for backend functionalities like user management and order processing.");
-    console.error("--------------------------------------------------------------------------------");
-    // We will allow the app to continue running so the frontend setup instructions can be displayed.
-    // The API routes will fail gracefully if the Admin SDK is not initialized.
+  } catch (error) {
+    console.warn("--------------------------------------------------------------------------------");
+    console.warn("### WARNING: Admin credentials not found via env vars or local file. ###");
+    console.warn("Server-side Firebase functionality (API routes) will likely fail.");
+    console.warn("For production (Vercel), set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.");
+    console.warn("For local dev, ensure 'serviceAccountKey.json' is in the project root.");
+    console.warn("--------------------------------------------------------------------------------");
+  }
 }
 
 let firebaseAdminAuth: Auth;
 let firestoreAdmin: Firestore;
 let storageAdmin: AdminStorage;
 
-// This pattern prevents re-initializing the app on every hot-reload
-if (!admin.apps.length) {
+// Initialize the app only if it hasn't been initialized and we have credentials
+if (!admin.apps.length && serviceAccount) {
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -35,7 +48,7 @@ if (!admin.apps.length) {
     });
   } catch (error: any) {
     if (error.code !== 'app/duplicate-app') {
-        console.error("Firebase Admin SDK initialization error:", error.message);
+      console.error("Firebase Admin SDK initialization error:", error.message);
     }
   }
 }
@@ -43,13 +56,13 @@ if (!admin.apps.length) {
 // These might not be initialized if the service account is missing.
 // API routes using these should have checks to handle this.
 try {
+  if (admin.apps.length > 0) {
     firebaseAdminAuth = getAuth();
     firestoreAdmin = getFirestore();
     storageAdmin = getAdminStorage();
+  }
 } catch (e) {
-    // This catch block might be redundant if the app crashes on initializeApp,
-    // but it's a safeguard.
-    console.error("Failed to get Firebase Admin services. The service account might be missing or invalid.");
+  console.error("Failed to get Firebase Admin services. The service account might be missing or invalid.");
 }
 
 
