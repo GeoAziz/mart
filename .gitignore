@@ -54,3 +54,4 @@ pnpm-debug.log*
 # sensitive files
 serviceAccountKey.json
 *.log
+.next/
