@@ -1,0 +1,89 @@
+# **App Name**: ZilaCart – Kenya’s Digital Marketplace
+
+## Core Features:
+
+- Homepage Carousel: Dynamic hero carousel with featured promos and offers.
+- Search Bar: Quick search bar with auto-suggest functionality.
+- Category Tiles: Category quick-access tiles for easy navigation.
+- Flash Sales Slider: Flash sales slider to showcase discounted products.
+- Featured Items: Display of featured vendors and products.
+- Auth Buttons: Login/Register buttons for user authentication.
+- Product Filters: Product listing page with category, price, brand, and ratings filters.
+- Product Sorting: Sorting options for product listings (popularity, price).
+- Animated Product Cards: Lazy-loaded animated product cards.
+- Product Image Carousel: High-quality image carousel with zoom functionality.
+- Animated CTAs: Animated Add to Cart/Buy Now buttons.
+- Product Reviews: Display of product reviews and ratings.
+- Seller Information: Display of seller info and vendor store link.
+- Shipping Calculator: Delivery estimation and shipping cost calculation.
+- Cart Drawer: Slide-in cart drawer with floating cart icon.
+- Cart Management: Cart management (quantity, remove, discount code).
+- Checkout CTA: Checkout CTA to proceed with the purchase.
+- Address Form: Address selection form with autocomplete.
+- Payment Options: Payment method selection (M-Pesa, Card, COD).
+- Order Summary: Order summary before placing the order.
+- Place Order Button: "Place Order" button with loading animation.
+- Order Tracking: Order tracking by order ID.
+- Order Status Animation: Animated status updates (ordered → delivered).
+- Account Info: Personal info management in account dashboard.
+- Order History: Order history accessible in account dashboard.
+- Wishlist: Wishlist management in account dashboard.
+- Address Book: Address book management in account dashboard.
+- Change Password: Password change functionality in account dashboard.
+- Sales Summary: Sales summary for vendors (daily/weekly/monthly).
+- Order Overview: Orders overview with statuses for vendors.
+- Top Products: Display of best-performing products for vendors.
+- Vendor Notifications: Vendor notifications.
+- Product Management: Add/edit/delete product functionality for vendors.
+- Bulk Product Import: Bulk product import via CSV for vendors.
+- Product Status: Product status management (in stock, out of stock).
+- Gallery Upload: Gallery upload with preview for vendors.
+- Incoming Orders: Incoming order management for vendors.
+- Order Status Update: Status update for orders (preparing, shipped).
+- Customer Communication: Customer communication module for vendors.
+- View Earnings: View earnings for vendors.
+- Withdrawal Request: Request withdrawal to M-Pesa or bank for vendors.
+- Payout History: Payout history for vendors.
+- Review Response: Respond to product reviews for vendors.
+- Seller Feedback: Seller ratings & feedback display for vendors.
+- Admin Overview: Overview panel with total users, sellers, and sales for admin.
+- Live Site Stats: Live site stats (orders now, traffic) for admin.
+- Site Health Monitor: Site health monitor for admin.
+- User Management: View all customers & vendors for admin.
+- Account Actions: Account management (ban, verify, suspend) for admin.
+- Commission Rates: Set vendor commission rates for admin.
+- Product Moderation: Approve/reject vendor uploads for admin.
+- Category Management: Manage categories, tags for admin.
+- Bulk Edit: Bulk edit tools for admin.
+- Order Overview (Admin): View all orders site-wide for admin.
+- Refund Management: Refund handling for admin.
+- Payment Logs: Payment logs & dispute handling for admin.
+- CMS - Home: Home banners, sliders, featured products CMS.
+- CMS - Content: Blog posts, help center, footer links CMS.
+- SEO Controls: SEO meta controls for admin.
+- Promo Creation: Promo creation (discounts, coupon codes) for admin.
+- Flash Sale Manager: Flash sale manager for admin.
+- Campaign Editor: Push/email campaign editor for admin.
+- AI Chatbot: AI chatbot for customer support. Uses a tool to determine if it has the answer.
+- Product Recommendations: ML-based product recommendations.
+- Image Search: Image search ('Snap & Shop'). Uses a tool to understand the image.
+
+## Style Guidelines:
+
+- Neon futuristic look (dark mode by default).
+- Fluid micro-animations using Framer Motion.
+- Snappy transitions (page loads, product hover, cart flyout).
+- Soft shadows, glowing edges.
+- Keyboard & screen reader accessible.
+- Fully responsive: desktop, tablet, and mobile.
+- Shared Layout Structure: Sticky header with animated scroll hide/show, logo, search bar (auto-suggest), cart icon (flyout preview), and auth/account menu. Footer with category links, About/Contact/Help, and Socials/Newsletter.
+- Homepage Layout: Stacked sections with scroll-reveal animations, animated Hero section, horizontally scrollable category buttons, flash sale carousel, featured products grid, top vendors cards, promo banners, and newsletter/app promo section.
+- Product Listing Page: Left sidebar with filters, main grid with products, sort dropdown. Skeleton loading animations, infinite scroll, animated product hover effects, and sticky filters on mobile.
+- Product Detail Page: Left image carousel with zoom, right info panel, tabs for description, reviews, shipping info, related products carousel, and floating Add to Cart button on mobile. Star rating fill-up on hover, buy button pulses subtly, and Add to cart shows success popup.
+- Cart Page: Left cart items list, right summary box, editable cart items, apply coupon input, slide-in drawer cart preview, and always-visible Proceed to Checkout CTA.
+- Checkout Page: 3-step wizard UI, delivery form, payment methods, order review. Progress bar updates per step, processing payment shimmer animation, and success page with confetti burst.
+- Customer Dashboard: Sidebar nav, main content area with recent orders list, tabs to view profile, change password, dark glassy look, hover glow effects on sidebar, and mobile collapses into drawer nav.
+- Vendor Dashboard: Top nav bar, sidebar, main panels with graphs, cards, dashboard widgets animate in, add product form includes image preview, auto-save draft, and real-time notifications for new orders.
+- Admin Dashboard: Admin sidebar with permissions, top status bar, main charts, and table views. Table rows expand to show more details, edit-in-place content, and role-based access.
+- Mobile Version: Adapts all layouts with a hamburger menu, sticky bottom cart bar, full-screen modals, touch-first interactions, and app-like feel with installable PWA and push notifications.
+- AI-style assistants in help/support.
