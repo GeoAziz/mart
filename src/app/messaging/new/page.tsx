@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,7 +12,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
-export default function NewMessagePage() {
+// The component that actually uses the hooks and contains the page logic
+function NewMessagePageComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -127,3 +128,28 @@ export default function NewMessagePage() {
   );
 }
 
+// Loading Fallback Component
+function LoadingFallback() {
+  return (
+    <Card className="max-w-2xl mx-auto bg-card border-border shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl font-headline text-glow-primary">New Message</CardTitle>
+        <CardDescription className="text-muted-foreground">
+          Loading conversation details...
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="h-[200px] flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// Main page export that wraps the logic in a Suspense boundary
+export default function NewMessagePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <NewMessagePageComponent />
+    </Suspense>
+  );
+}
