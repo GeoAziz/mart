@@ -11,7 +11,8 @@ const hasServiceAccountEnvVars =
   process.env.FIREBASE_CLIENT_EMAIL &&
   process.env.FIREBASE_PRIVATE_KEY;
 
-let serviceAccount: ServiceAccount | undefined;
+
+let serviceAccount: ServiceAccount | undefined = undefined;
 
 if (hasServiceAccountEnvVars) {
   // This block runs on Vercel/production where env vars are set
@@ -24,27 +25,42 @@ if (hasServiceAccountEnvVars) {
 } else {
   // This block runs for local development, falling back to the JSON file
   try {
-    serviceAccount = require('../../../serviceAccountKey.json');
+    // Use absolute path to avoid module resolution issues in Next.js
+    // __dirname points to the directory of this file (src/lib)
+    // serviceaccountkey.json is in the project root (mart/serviceaccountkey.json)
+    // So, resolve the path relative to the project root
+    // This works for both dev and build (server) environments
+    // Use fs.readFileSync to avoid require cache issues and support .json import restrictions
+    const path = require('path');
+    const fs = require('fs');
+    const keyPath = path.resolve(process.cwd(), 'serviceaccountkey.json');
+    if (fs.existsSync(keyPath)) {
+      const file = fs.readFileSync(keyPath, 'utf8');
+      serviceAccount = JSON.parse(file);
+    } else {
+      throw new Error('serviceaccountkey.json not found at project root');
+    }
   } catch (error) {
     console.warn("--------------------------------------------------------------------------------");
     console.warn("### WARNING: Admin credentials not found via env vars or local file. ###");
     console.warn("Server-side Firebase functionality (API routes) will likely fail.");
     console.warn("For production (Vercel), set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.");
-    console.warn("For local dev, ensure 'serviceAccountKey.json' is in the project root.");
+    console.warn("For local dev, ensure 'serviceaccountkey.json' is in the project root.");
     console.warn("--------------------------------------------------------------------------------");
   }
 }
 
-let firebaseAdminAuth: Auth;
-let firestoreAdmin: Firestore;
-let storageAdmin: AdminStorage;
+let firebaseAdminAuth: Auth | undefined = undefined;
+let firestoreAdmin: Firestore | undefined = undefined;
+let storageAdmin: AdminStorage | undefined = undefined;
+
 
 // Initialize the app only if it hasn't been initialized and we have credentials
 if (!admin.apps.length && serviceAccount) {
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      storageBucket: `${serviceAccount.projectId}.appspot.com`
+      storageBucket: serviceAccount.projectId ? `${serviceAccount.projectId}.appspot.com` : undefined
     });
   } catch (error: any) {
     if (error.code !== 'app/duplicate-app') {
@@ -53,18 +69,23 @@ if (!admin.apps.length && serviceAccount) {
   }
 }
 
-// These might not be initialized if the service account is missing.
-// API routes using these should have checks to handle this.
-try {
-  if (admin.apps.length > 0) {
+// Only assign services if the app is initialized and serviceAccount is defined
+if (admin.apps.length > 0 && serviceAccount) {
+  try {
     firebaseAdminAuth = getAuth();
     firestoreAdmin = getFirestore();
     storageAdmin = getAdminStorage();
+  } catch (e) {
+    console.error("Failed to get Firebase Admin services. The service account might be missing or invalid.");
+    firebaseAdminAuth = undefined;
+    firestoreAdmin = undefined;
+    storageAdmin = undefined;
   }
-} catch (e) {
-  console.error("Failed to get Firebase Admin services. The service account might be missing or invalid.");
+} else {
+  firebaseAdminAuth = undefined;
+  firestoreAdmin = undefined;
+  storageAdmin = undefined;
 }
-
 
 export { firebaseAdminAuth, firestoreAdmin, storageAdmin };
 export default admin;

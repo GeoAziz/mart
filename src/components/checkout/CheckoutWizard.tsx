@@ -1,8 +1,9 @@
-
-
 'use client';
 
 import { useState, useEffect } from 'react';
+import { PayPalScriptProvider, PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,6 +44,7 @@ const CheckoutWizard = () => {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mpesa');
+  const [paypalSdkError, setPaypalSdkError] = useState<string | null>(null);
 
   const { cart, clearCart, currentUser, userProfile, appliedPromotion } = useAuth();
   const router = useRouter();
@@ -85,39 +87,86 @@ const CheckoutWizard = () => {
   const tax = subtotalAfterDiscount * 0.16; 
   const total = subtotalAfterDiscount + shippingCost + tax;
 
-  const handlePlaceOrder = async () => {
+  // Stripe publishable key (replace with your actual key or use env variable)
+  const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_123');
+
+  // Stripe payment handler
+  const StripeCheckoutForm = () => {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [stripeError, setStripeError] = useState<string | null>(null);
+    const [processing, setProcessing] = useState(false);
+
+    const handleStripeSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!stripe || !elements) return;
+      setProcessing(true);
+      setStripeError(null);
+      try {
+        if (!currentUser) throw new Error('User not authenticated');
+        const token = await currentUser.getIdToken();
+        // Create payment intent on backend
+        const intentRes = await fetch('/api/payment/stripe/intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ amount: Math.round(total * 100), currency: 'KES' })
+        });
+        const { clientSecret } = await intentRes.json();
+        const result = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: elements.getElement(CardElement)!,
+          },
+        });
+        if (result.error) {
+          setStripeError(result.error.message || 'Payment failed');
+        } else if (result.paymentIntent?.status === 'succeeded') {
+          await handlePlaceOrder('card');
+        }
+      } catch (err: any) {
+        setStripeError(err.message || 'Stripe error');
+      } finally {
+        setProcessing(false);
+      }
+    };
+    return (
+      <form onSubmit={handleStripeSubmit} className="space-y-4">
+        <CardElement className="p-3 border rounded-md bg-background" />
+        {stripeError && <div className="text-destructive text-sm">{stripeError}</div>}
+        <Button type="submit" disabled={processing} className="bg-primary text-primary-foreground w-full">{processing ? 'Processing...' : 'Pay with Card'}</Button>
+      </form>
+    );
+  };
+
+  // PayPal payment handler
+  const handlePayPalApprove = async (orderId: string) => {
+    await handlePlaceOrder('paypal', orderId);
+  };
+
+  // Unified place order handler
+  const handlePlaceOrder = async (methodOverride?: string, paypalOrderId?: string) => {
     if (!currentUser || !userProfile) {
-        router.push('/auth/login?redirect=/checkout');
-        return;
+      router.push('/auth/login?redirect=/checkout');
+      return;
     }
     setIsPlacingOrder(true);
-    
     const orderPayload = {
-      items: cart.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-      })),
+      items: cart.map(item => ({ productId: item.productId, quantity: item.quantity })),
       shippingAddress: methods.getValues(),
-      paymentMethod: selectedPaymentMethod,
+      paymentMethod: methodOverride || selectedPaymentMethod,
       promotionCode: appliedPromotion?.code,
+      paypalOrderId,
     };
-
     try {
       const token = await currentUser.getIdToken();
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(orderPayload)
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to place order.');
       }
-      
       const createdOrder = await response.json();
       await clearCart();
       setPlacedOrderId(createdOrder.id);
@@ -135,14 +184,20 @@ const CheckoutWizard = () => {
       <Card className="w-full max-w-2xl mx-auto p-8 text-center bg-card border-primary shadow-2xl glow-edge-primary overflow-hidden">
         <div className="relative">
             {[...Array(30)].map((_,i) => ( 
-                <div key={i} className="absolute w-2 h-2 rounded-full animate-confetti-burst" style={{
-                    background: `hsl(${Math.random()*360}, 100%, ${50 + Math.random()*20}%)`, 
-                    left: `${Math.random()*100}%`,
-                    top: `${Math.random()*50 - 25}%`, 
-                    animationDelay: `${Math.random()*0.3}s`, 
-                    animationDuration: `${0.7 + Math.random()*0.8}s`, 
-                    transform: `scale(${0.5 + Math.random() * 0.8}) rotate(${Math.random() * 360}deg)` 
-                }}></div>
+                <div
+                  key={i}
+                  className="confetti-burst"
+                  style={{
+                    // Set CSS variables for dynamic styling
+                    // @ts-ignore
+                    '--confetti-bg': `hsl(${Math.random()*360}, 100%, ${50 + Math.random()*20}%)`,
+                    '--confetti-left': `${Math.random()*100}%`,
+                    '--confetti-top': `${Math.random()*50 - 25}%`,
+                    '--confetti-delay': `${Math.random()*0.3}s`,
+                    '--confetti-duration': `${0.7 + Math.random()*0.8}s`,
+                    '--confetti-transform': `scale(${0.5 + Math.random() * 0.8}) rotate(${Math.random() * 360}deg)`
+                  } as React.CSSProperties}
+                ></div>
             ))}
         </div>
         <CheckCircle className="h-20 w-20 text-green-400 mx-auto mb-6 animate-bounce relative z-10" /> 
@@ -245,43 +300,74 @@ const CheckoutWizard = () => {
                 />
                 <Label htmlFor="saveAddress" className="text-sm font-normal text-muted-foreground">Save this address for future orders</Label>
               </div>
+              {/* Move the Next button INSIDE the form so it triggers submit */}
+              <div className="flex justify-end">
+                <Button type="submit" disabled={!isValid || Object.keys(errors).length > 0} className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">Next</Button>
+              </div>
             </form>
           )}
 
           {currentStep === 1 && (
-            <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="space-y-4">
-              <Label className="text-lg font-medium">Select Payment Method</Label>
-              <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
-                <Label htmlFor="mpesa" className="flex items-center cursor-pointer">
-                  <RadioGroupItem value="mpesa" id="mpesa" className="mr-3 border-primary text-primary focus:ring-primary"/>
-                  <div className="flex-grow">
-                    <span className="font-semibold">M-Pesa</span>
-                    <p className="text-xs text-muted-foreground">Pay securely with M-Pesa.</p>
-                  </div>
-                  <img src="https://placehold.co/40x25.png" alt="M-Pesa Logo" className="ml-auto h-6" data-ai-hint="mpesa logo"/>
-                </Label>
+            <>
+              <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="space-y-4">
+                {/* M-Pesa */}
+                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                  <Label htmlFor="mpesa" className="flex items-center cursor-pointer">
+                    <RadioGroupItem value="mpesa" id="mpesa" className="mr-3 border-primary text-primary focus:ring-primary"/>
+                    <div className="flex-grow">
+                      <span className="font-semibold">M-Pesa</span>
+                      <p className="text-xs text-muted-foreground">Pay securely with M-Pesa.</p>
+                    </div>
+                    <img src="https://placehold.co/40x25.png" alt="M-Pesa Logo" className="ml-auto h-6" data-ai-hint="mpesa logo"/>
+                  </Label>
+                </div>
+                {/* Credit/Debit Card (Stripe) */}
+                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                  <Label htmlFor="card" className="flex items-center cursor-pointer">
+                    <RadioGroupItem value="card" id="card" className="mr-3 border-primary text-primary focus:ring-primary"/>
+                    <div className="flex-grow">
+                      <span className="font-semibold">Credit/Debit Card</span>
+                      <p className="text-xs text-muted-foreground">Visa, Mastercard, Amex. Powered by Stripe.</p>
+                    </div>
+                    <img src="https://cdn.worldvectorlogo.com/logos/stripe-3.svg" alt="Stripe Logo" className="ml-auto h-6 payment-logo-stripe" />
+                  </Label>
+                </div>
+                {/* PayPal */}
+                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                  <Label htmlFor="paypal" className="flex items-center cursor-pointer">
+                    <RadioGroupItem value="paypal" id="paypal" className="mr-3 border-primary text-primary focus:ring-primary"/>
+                    <div className="flex-grow">
+                      <span className="font-semibold">PayPal</span>
+                      <p className="text-xs text-muted-foreground">Pay securely with your PayPal account.</p>
+                    </div>
+                    <img src="https://www.paypalobjects.com/webstatic/icon/pp258.png" alt="PayPal Logo" className="ml-auto h-6" />
+                  </Label>
+                </div>
+                {/* Cash on Delivery */}
+                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                  <Label htmlFor="cod" className="flex items-center cursor-pointer">
+                    <RadioGroupItem value="cod" id="cod" className="mr-3 border-primary text-primary focus:ring-primary"/>
+                    <div className="flex-grow">
+                      <span className="font-semibold">Cash on Delivery</span>
+                      <p className="text-xs text-muted-foreground">Pay when your order arrives.</p>
+                    </div>
+                    <Package className="ml-auto h-6 w-6 text-orange-500"/>
+                  </Label>
+                </div>
+              </RadioGroup>
+              {/* Next button for payment method step */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    if (selectedPaymentMethod) handleNextStep();
+                  }}
+                  disabled={!selectedPaymentMethod}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary"
+                >
+                  Next
+                </Button>
               </div>
-              <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
-                <Label htmlFor="card" className="flex items-center cursor-pointer">
-                  <RadioGroupItem value="card" id="card" className="mr-3 border-primary text-primary focus:ring-primary"/>
-                  <div className="flex-grow">
-                    <span className="font-semibold">Credit/Debit Card</span>
-                    <p className="text-xs text-muted-foreground">Visa, Mastercard, Amex.</p>
-                  </div>
-                  <CreditCard className="ml-auto h-6 w-6 text-blue-500"/>
-                </Label>
-              </div>
-              <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
-                <Label htmlFor="cod" className="flex items-center cursor-pointer">
-                  <RadioGroupItem value="cod" id="cod" className="mr-3 border-primary text-primary focus:ring-primary"/>
-                  <div className="flex-grow">
-                    <span className="font-semibold">Cash on Delivery</span>
-                    <p className="text-xs text-muted-foreground">Pay when your order arrives.</p>
-                  </div>
-                  <Package className="ml-auto h-6 w-6 text-orange-500"/>
-                </Label>
-              </div>
-            </RadioGroup>
+            </>
           )}
 
           {currentStep === 2 && (
@@ -324,26 +410,192 @@ const CheckoutWizard = () => {
           <Button variant="outline" onClick={prevStep} disabled={currentStep === 0 || isPlacingOrder} className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
             Back
           </Button>
-          {currentStep === 0 && (
-             <Button onClick={handleSubmit(onAddressSubmit)} disabled={!isValid || Object.keys(errors).length > 0} className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">Next</Button>
-          )}
-          {currentStep === 1 && (
-            <Button onClick={handleNextStep} className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">Next</Button>
-          )}
+          {/* Remove Next button for step 0 and 1 here, as they are now inside the form/content above */}
           {currentStep === steps.length - 1 && (
-            <Button onClick={handlePlaceOrder} disabled={isPlacingOrder || cart.length === 0} className="bg-green-500 hover:bg-green-600 text-white animate-pulse-glow">
-              {isPlacingOrder ? (
-                  <>
+            <div className="w-full">
+              {selectedPaymentMethod === 'card' && (
+                <Elements stripe={stripePromise}>
+                  <StripeCheckoutForm />
+                </Elements>
+              )}
+              {selectedPaymentMethod === 'paypal' && (
+                <PayPalScriptProvider
+                  options={{
+                    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+                    currency: 'USD',
+                  }}
+                  onError={(err: unknown) => {
+                    setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
+                  }}
+                >
+                  <PayPalCheckoutWithConversion
+                    total={total}
+                    currentUser={currentUser}
+                    setPaypalSdkError={setPaypalSdkError}
+                    handlePayPalApprove={handlePayPalApprove}
+                  />
+                </PayPalScriptProvider>
+              )}
+              {(selectedPaymentMethod !== 'card' && selectedPaymentMethod !== 'paypal') && (
+                <Button onClick={() => handlePlaceOrder()} disabled={isPlacingOrder || cart.length === 0} className="bg-green-500 hover:bg-green-600 text-white animate-pulse-glow w-full">
+                  {isPlacingOrder ? (
+                    <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Processing...
-                  </>
-              ) : "Place Order"}
-            </Button>
+                    </>
+                  ) : "Place Order"}
+                </Button>
+              )}
+            </div>
           )}
         </CardFooter>
       </Card>
     </FormProvider>
   );
 };
+
+
+// Enhanced PayPal checkout component with currency conversion notice
+function PayPalCheckoutWithConversion({ total, currentUser, setPaypalSdkError, handlePayPalApprove }: any) {
+
+  // Track PayPal state
+  const [paypalCurrency, setPaypalCurrency] = useState('USD');
+  const [conversionNotice, setConversionNotice] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [orderAmount, setOrderAmount] = useState<string>('');
+  const [{ isPending, isRejected }] = usePayPalScriptReducer();
+  const [paypalError, setPaypalError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+
+  // Reset error and conversion notice on payment method change
+  useEffect(() => {
+    setPaypalError(null);
+    setConversionNotice(undefined);
+    setOrderAmount('');
+    setPaypalCurrency('USD');
+    setDebugInfo(null);
+  }, [total]);
+
+  // Only show loader if SDK is loading
+  useEffect(() => {
+    if (isRejected) {
+      setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
+    }
+  }, [isRejected, setPaypalSdkError]);
+
+  if (isRejected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 text-destructive">
+        <AlertCircle className="mr-2 h-5 w-5" />
+        Failed to load PayPal. Please check your connection or try again.
+        {debugInfo && process.env.NODE_ENV === 'development' && (
+          <pre className="mt-2 text-xs text-muted-foreground bg-muted/20 p-2 rounded max-w-xl overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
+        )}
+      </div>
+    );
+  }
+  if (isPending || isLoading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Loading PayPal...
+      </div>
+    );
+  }
+  return (
+    <>
+      {paypalError && (
+        <div className="mb-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-sm">
+          <span>{paypalError}</span>
+        </div>
+      )}
+      {conversionNotice && (
+        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-md text-blue-400 text-sm">
+          <span>{conversionNotice}</span>
+        </div>
+      )}
+      {debugInfo && process.env.NODE_ENV === 'development' && (
+        <details className="mb-2 bg-muted/20 p-2 rounded text-xs text-muted-foreground">
+          <summary className="cursor-pointer">PayPal Debug Info</summary>
+          <pre className="overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
+        </details>
+      )}
+      <PayPalButtons
+        style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' }}
+        forceReRender={[paypalCurrency, orderAmount]}
+        createOrder={
+          async (_data: Record<string, unknown>, _actions: any) => {
+            if (!currentUser) throw new Error('User not authenticated');
+            setIsLoading(true);
+            setPaypalError(null);
+            setDebugInfo(null);
+            try {
+              const token = await currentUser.getIdToken();
+              // Always send KES, backend will convert if needed
+              const res = await fetch('/api/payment/paypal/order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ amount: Number(total), currency: 'KES' })
+              });
+              const orderData = await res.json();
+              setIsLoading(false);
+              setDebugInfo({
+                status: res.status,
+                ok: res.ok,
+                orderData,
+                headers: Object.fromEntries(res.headers.entries()),
+              });
+              if (!res.ok || !orderData.id) {
+                setPaypalError(orderData.message || 'Failed to create PayPal order.');
+                setPaypalSdkError(orderData.message || 'Failed to create PayPal order.');
+                throw new Error(orderData.message || 'Failed to create PayPal order.');
+              }
+              setPaypalCurrency(orderData.currency || 'USD');
+              setOrderAmount(orderData.amount || '');
+              setConversionNotice(orderData.conversionNotice);
+              return orderData.id;
+            } catch (err: any) {
+              setIsLoading(false);
+              setPaypalError(err?.message || 'Failed to create PayPal order.');
+              setPaypalSdkError(err?.message || 'Failed to create PayPal order.');
+              setDebugInfo({ error: err?.message || String(err) });
+              throw err;
+            }
+          }
+        }
+        onApprove={async (data: Record<string, unknown>, actions: any) => {
+          setIsApproving(true);
+          setPaypalError(null);
+          try {
+            await handlePayPalApprove((data as any).orderID);
+          } catch (err: any) {
+            setPaypalError('PayPal approval error: ' + (err?.message || String(err)));
+            setPaypalSdkError('PayPal approval error: ' + (err?.message || String(err)));
+            setDebugInfo({ error: err?.message || String(err) });
+          } finally {
+            setIsApproving(false);
+          }
+        }}
+        onError={(err: unknown) => {
+          setPaypalError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
+          setPaypalSdkError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
+          setDebugInfo({ error: err instanceof Error ? err.message : String(err) });
+        }}
+        disabled={isApproving || isLoading}
+      />
+      {(isApproving || isLoading) && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {isApproving ? 'Finalizing payment...' : 'Loading PayPal...'}
+        </div>
+      )}
+      {/* Fallback for stuck modal */}
+      {paypalError && (
+        <div className="mt-2 text-xs text-muted-foreground">If the PayPal window is stuck, please refresh the page or try a different payment method.</div>
+      )}
+    </>
+  );
+}
 
 export default CheckoutWizard;

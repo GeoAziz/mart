@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -10,6 +9,7 @@ import { LogIn, Mail, Lock, Loader2 } from 'lucide-react'; // Added Loader2
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext'; // Updated import
 import { useRouter } from 'next/navigation';
+import { isFirebaseConfigured } from '@/lib/firebase-client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -21,6 +21,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isFirebaseConfigured) {
+      // Show error toast or alert
+      alert('Application is not configured. Please provide the Firebase API keys in the .env file and restart the server.');
+      return;
+    }
     setIsLoading(true);
     try {
       await logIn(email, password);

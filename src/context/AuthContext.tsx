@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { User } from 'firebase/auth';
@@ -95,6 +94,11 @@ function debounce<F extends (...args: any[]) => void>(func: F, waitFor: number) 
   };
 }
 
+// Helper to check if vendor needs onboarding (e.g., no storeName or firstLogin)
+function needsVendorOnboarding(userProfile: UserProfile, vendorSettings?: any) {
+  return userProfile.role === 'vendor' && (!vendorSettings?.storeName || vendorSettings?.onboardingIncomplete);
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -135,7 +139,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const fetchCart = useCallback(async (user: User) => {
+  // Fetch cart only for customers
+  const fetchCart = useCallback(async (user: User, profile: UserProfile | null) => {
+    if (profile && profile.role !== 'customer') {
+      setCart([]);
+      setIsCartLoading(false);
+      return;
+    }
     setIsCartLoading(true);
     try {
       const token = await user.getIdToken();
@@ -151,7 +161,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
   
-  const fetchWishlist = useCallback(async (user: User) => {
+  // Fetch wishlist only for customers
+  const fetchWishlist = useCallback(async (user: User, profile: UserProfile | null) => {
+    if (profile && profile.role !== 'customer') {
+      setWishlistItems([]);
+      setIsWishlistLoading(false);
+      return;
+    }
     setIsWishlistLoading(true);
     try {
       const token = await user.getIdToken();
@@ -176,11 +192,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setCurrentUser(user);
       if (user) {
-        await Promise.all([
-          fetchAndSetUserProfile(user),
-          fetchCart(user),
-          fetchWishlist(user)
-        ]);
+        const profile = await fetchAndSetUserProfile(user);
+        let vendorSettings = null;
+        if (profile && profile.role === 'vendor') {
+          try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/vendors/me/settings', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) vendorSettings = await res.json();
+          } catch {}
+        }
+        // Only fetch cart/wishlist for customers
+        await fetchCart(user, profile);
+        await fetchWishlist(user, profile);
+        // Guard against infinite redirect loop
+        if (
+          profile &&
+          needsVendorOnboarding(profile, vendorSettings) &&
+          window.location.pathname !== '/vendor/onboarding'
+        ) {
+          window.location.href = '/vendor/onboarding';
+        }
       } else {
         setUserProfile(null);
         setCart([]);
@@ -348,7 +379,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // On success, re-fetch the entire wishlist to ensure consistency with the backend.
       // This is more robust than patching the state manually and handles any backend-generated data.
-      await fetchWishlist(currentUser);
+      await fetchWishlist(currentUser, userProfile);
 
     } catch (error) {
       // If the API call fails, revert the optimistic UI update
@@ -362,7 +393,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email_param: string, password_param: string, fullName_param: string) => {
     if (!isFirebaseConfigured) {
       toast({ title: 'Application Not Configured', description: 'Please provide the Firebase API keys in the .env file and restart the server.', variant: 'destructive', duration: 10000 });
-      return;
+      throw new Error('Firebase is not configured');
     }
     setLoading(true);
     try {
@@ -391,13 +422,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logIn = async (email_param: string, password_param: string) => {
     if (!isFirebaseConfigured) {
       toast({ title: 'Application Not Configured', description: 'Please provide the Firebase API keys in the .env file and restart the server.', variant: 'destructive', duration: 10000 });
-      return;
+      throw new Error('Firebase is not configured');
     }
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(authClient, email_param, password_param);
+      const userCredential = await signInWithEmailAndPassword(authClient, email_param, password_param);
+      // Fetch user profile from Firestore
+      const user = userCredential.user;
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) {
+        toast({ title: 'Login Failed', description: 'User profile not found. Contact support.', variant: 'destructive' });
+        await signOut(authClient);
+        setUserProfile(null);
+        setCurrentUser(null);
+        setLoading(false);
+        return;
+      }
+      const profileData = userDocSnap.data();
+      const profile: UserProfile = {
+        uid: user.uid,
+        email: user.email,
+        fullName: profileData.fullName || user.displayName,
+        role: profileData.role || 'customer',
+        status: profileData.status || 'active',
+        createdAt: profileData.createdAt?.toDate ? profileData.createdAt.toDate() : new Date(profileData.createdAt),
+        updatedAt: profileData.updatedAt?.toDate ? profileData.updatedAt.toDate() : (profileData.updatedAt ? new Date(profileData.updatedAt) : undefined),
+      };
+      setUserProfile(profile);
+      // Handle suspended or inactive users
+      if (profile.status !== 'active') {
+        toast({ title: 'Account Suspended', description: 'Your account is not active. Please contact support.', variant: 'destructive' });
+        await signOut(authClient);
+        setUserProfile(null);
+        setCurrentUser(null);
+        setLoading(false);
+        return;
+      }
       toast({ title: 'Login Successful!', description: 'Welcome back!' });
-      router.push('/');
+      // Role-based navigation
+      if (profile.role === 'admin') {
+        router.push('/admin');
+      } else if (profile.role === 'vendor') {
+        router.push('/vendor');
+      } else {
+        router.push('/account');
+      }
     } catch (error: any) {
       toast({ title: 'Login Failed', description: error.message || 'Invalid credentials.', variant: 'destructive' });
       throw error; 

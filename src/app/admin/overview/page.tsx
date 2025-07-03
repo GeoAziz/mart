@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, ShoppingCart, DollarSign, Activity, CheckCircle, AlertTriangle, HeartPulse, ListOrdered, BarChartBig, Loader2 } from 'lucide-react';
+import { Users, ShoppingCart, DollarSign, Activity, CheckCircle, AlertTriangle, HeartPulse, ListOrdered, BarChartBig, Loader2, ShoppingBag, Mail } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -69,9 +69,18 @@ export default function AdminOverviewPage() {
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
+
+      // Helper to robustly convert Firestore Timestamp or Date to JS Date
+      function toJSDate(val: any): Date {
+        if (!val) return new Date(0);
+        if (val instanceof Date) return val;
+        if (val.toDate && typeof val.toDate === 'function') return val.toDate();
+        return new Date(val);
+      }
+
       const totalSalesMonth = orders
         .filter(o => {
-            const orderDate = new Date(o.createdAt);
+            const orderDate = toJSDate(o.createdAt);
             return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
         })
         .reduce((sum, o) => sum + o.totalAmount, 0);
@@ -87,7 +96,7 @@ export default function AdminOverviewPage() {
       }
       
       orders.forEach(o => {
-        const orderDate = new Date(o.createdAt);
+        const orderDate = toJSDate(o.createdAt);
         const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
         if (monthlySales.hasOwnProperty(monthKey)) {
           monthlySales[monthKey] += o.totalAmount;
@@ -202,6 +211,77 @@ export default function AdminOverviewPage() {
             </ResponsiveContainer>
           )}
           </div>
+        </CardContent>
+      </Card>
+      {/* Recent Orders Table */}
+      <Card className="bg-card border-border shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center">
+            <ListOrdered className="mr-2 h-5 w-5 text-primary" /> Recent Orders
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-2 text-left">Order ID</th>
+                  <th className="px-4 py-2 text-left">Customer</th>
+                  <th className="px-4 py-2 text-left">Date</th>
+                  <th className="px-4 py-2 text-left">Total</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Example row, replace with map over recent orders */}
+                <tr className="hover:bg-primary/5 transition-all">
+                  <td className="px-4 py-2 font-mono">#123456</td>
+                  <td className="px-4 py-2">Jane Doe</td>
+                  <td className="px-4 py-2">2025-06-30</td>
+                  <td className="px-4 py-2">KSh 2,500</td>
+                  <td className="px-4 py-2"><span className="bg-green-500/20 text-green-300 border border-green-400 rounded px-2 py-1">Delivered</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Low Stock Inventory List */}
+      <Card className="bg-card border-border shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center">
+            <ShoppingBag className="mr-2 h-5 w-5 text-primary" /> Low Stock Inventory
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            <li className="flex items-center gap-2">
+              <span className="font-semibold">Product A</span>
+              <span className="bg-yellow-500/20 text-yellow-300 border border-yellow-400 rounded px-2 py-1 ml-2">Low</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="font-semibold">Product B</span>
+              <span className="bg-red-500/20 text-red-300 border border-red-400 rounded px-2 py-1 ml-2">Out</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="font-semibold">Product C</span>
+              <span className="bg-green-500/20 text-green-300 border border-green-400 rounded px-2 py-1 ml-2">In Stock</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Newsletter Signup Count */}
+      <Card className="bg-card border-border shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center">
+            <Mail className="mr-2 h-5 w-5 text-primary" /> Newsletter Signups
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold text-primary">1,234</div>
+          <div className="text-muted-foreground">Total email captures</div>
         </CardContent>
       </Card>
     </div>

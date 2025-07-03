@@ -58,7 +58,7 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
   // Filter navItems based on user role
   const filteredNavItems = React.useMemo(() => {
     if (!userProfile) return navItems.filter(item => !item.adminOnly && !item.vendorOnly); // Show only general items if no profile
-    
+
     return navItems.map(item => {
       // Filter top-level item if it's role-restricted
       if (item.adminOnly && userProfile.role !== 'admin') return null;

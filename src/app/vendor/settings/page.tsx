@@ -238,7 +238,7 @@ export default function StoreSettingsPage() {
                   <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
                   <Label htmlFor="logo-upload" className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${(isSaving || isUploadingLogo) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <span>{isUploadingLogo ? 'Uploading...' : (logoPreview || settings.logoUrl ? 'Change Logo' : 'Upload Logo')}</span>
-                    <input id="logo-upload" name="logo" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageFileChange(e, 'logo')} disabled={isSaving || isUploadingLogo} />
+                    <input id="logo-upload" name="logo" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageFileChange(e, 'logo')} disabled={isSaving || isUploadingLogo} title="Upload store logo" />
                   </Label>
                   <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 5MB.</p>
                 </div>
@@ -260,7 +260,7 @@ export default function StoreSettingsPage() {
                     <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
                     <Label htmlFor="banner-upload" className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${(isSaving || isUploadingBanner) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <span>{isUploadingBanner ? 'Uploading...' : (bannerPreview || settings.bannerUrl ? 'Change Banner' : 'Upload Banner')}</span>
-                    <input id="banner-upload" name="banner" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageFileChange(e, 'banner')} disabled={isSaving || isUploadingBanner} />
+                    <input id="banner-upload" name="banner" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageFileChange(e, 'banner')} disabled={isSaving || isUploadingBanner} title="Upload store banner" />
                     </Label>
                     <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 5MB.</p>
                 </div>
@@ -286,7 +286,7 @@ export default function StoreSettingsPage() {
       <Card className="bg-card border-border shadow-md">
         <CardHeader><CardTitle className="text-xl font-semibold text-glow-accent">Payout Information</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-            <div className="space-y-1.5"> <Label htmlFor="payoutMpesaNumber" className="text-base">M-Pesa Payout Number</Label> <div className="relative"> <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> <Input id="payoutMpesaNumber" name="payoutMpesaNumber" type="tel" value={settings.payoutMpesaNumber || ''} onChange={handleInputChange} className="pl-10 bg-input border-primary focus:ring-accent" placeholder="07XX XXX XXX" disabled={isSaving}/> </div> <p className="text-xs text-muted-foreground">Ensure this number is registered for M-Pesa.</p> </div>
+            <div className="space-y-1.5"> <Label htmlFor="payoutMpesaNumber" className="text-base">M-Pesa Payout Number</Label> <div className="relative"> <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> <Input id="payoutMpesaNumber" name="payoutMpesaNumber" type="tel" value={settings.payoutMpesaNumber || ''} onChange={handleInputChange} className="pl-10 bg-input border-primary focus:ring-accent" placeholder="07XX XXX XXX" title="M-Pesa payout number" disabled={isSaving}/> </div> <p className="text-xs text-muted-foreground">Ensure this number is registered for M-Pesa.</p> </div>
             <Button type="button" variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground" disabled={isSaving}> Verify Payout Details (Coming Soon) </Button>
         </CardContent>
       </Card>

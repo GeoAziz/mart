@@ -7,12 +7,38 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   fullName: string | null;
-  role: 'customer' | 'vendor' | 'admin';
+  role: Role;
   status: 'active' | 'pending_approval' | 'suspended';
-  createdAt: Timestamp | Date; 
+  createdAt: Timestamp | Date;
   updatedAt?: Timestamp | Date;
 }
-export type Role = UserProfile['role'];
+
+export type Role = 'customer' | 'vendor' | 'admin';
+
+// Vendor-specific profile (extends UserProfile, but can be used for vendor-only data)
+export interface VendorProfile extends UserProfile {
+  storeName: string;
+  storeDescription?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+  socialFacebook?: string;
+  socialTwitter?: string;
+  socialInstagram?: string;
+  payoutMpesaNumber?: string;
+  // Add more vendor-specific fields as needed
+}
+
+// Admin-specific profile (can be extended in the future)
+export interface AdminProfile extends UserProfile {
+  // Add admin-specific fields if needed
+}
+
+// Customer/client-specific profile (can be extended in the future)
+export interface CustomerProfile extends UserProfile {
+  // Add customer-specific fields if needed
+}
 
 // New Category Type
 export interface Category {

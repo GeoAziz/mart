@@ -3,8 +3,10 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
-import type { Timestamp } from 'firebase-admin/firestore';
+// Remove type import for Timestamp to avoid duplicate/conflict
 import type { Product } from '@/lib/types';
+
+import { Timestamp } from 'firebase-admin/firestore';
 
 export interface WishlistItem {
   productId: string;
@@ -35,6 +37,9 @@ function mapWishlistItemDocument(doc: FirebaseFirestore.DocumentSnapshot): Wishl
 async function getWishlistHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
   try {
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
+    }
     const wishlistSnapshot = await firestoreAdmin
       .collection('users')
       .doc(authenticatedUser.uid)
@@ -61,6 +66,10 @@ async function addWishlistItemHandler(req: AuthenticatedRequest) {
 
     if (!productId) {
       return NextResponse.json({ message: 'Product ID is required.' }, { status: 400 });
+    }
+
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
     }
 
     // Check if item already in wishlist to prevent duplicates (optional, or allow and handle on frontend)

@@ -45,6 +45,66 @@ const categoriesData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[] = [
     { name: "Tools & Industrial", description: "Power tools, hand tools, and safety equipment for every job." },
 ];
 
+// --- ADMIN UI TEST DATA ENHANCEMENTS ---
+
+// Suspended user
+const suspendedUser = {
+  fullName: "Blocked User",
+  email: "blocked@example.com",
+  password: "Test1234!",
+  role: "customer",
+  status: "suspended"
+};
+
+// Example low/out of stock and discounted products
+const specialProducts = [
+  { name: "Budget Earphones", category: "Electronics", price: 499, stock: 2, status: "active", discount: 10 },
+  { name: "Rare Book", category: "Books & Stationery", price: 1200, stock: 0, status: "active" },
+  { name: "Promo T-Shirt", category: "Fashion", price: 999, stock: 10, status: "active", discount: 20 },
+];
+
+// Example reviews
+const reviews = [
+  { productId: "1", userId: "customer1", rating: 5, comment: "Excellent!", createdAt: new Date() },
+  { productId: "2", userId: "customer2", rating: 3, comment: "Average quality.", createdAt: new Date() },
+  { productId: "1", userId: "customer3", rating: 4, comment: "Good value.", createdAt: new Date() },
+];
+
+// Example payouts
+const payouts = [
+  { vendorId: "vendor1", amount: 5000, status: "pending", createdAt: new Date() },
+  { vendorId: "vendor2", amount: 12000, status: "completed", createdAt: new Date() },
+  { vendorId: "vendor1", amount: 3000, status: "failed", createdAt: new Date() },
+];
+
+// Example refunds
+const refunds = [
+  { orderId: "order1", userId: "customer1", amount: 2500, status: "pending", createdAt: new Date() },
+  { orderId: "order2", userId: "customer2", amount: 1200, status: "approved", createdAt: new Date() },
+  { orderId: "order3", userId: "customer3", amount: 800, status: "denied", createdAt: new Date() },
+];
+
+// Example promotions
+const promotions = [
+  { code: "WELCOME10", description: "10% off for new users", type: "percentage", value: 10, isActive: true, startDate: new Date(), endDate: new Date(Date.now() + 7*24*60*60*1000), usageLimit: 100, minPurchaseAmount: 1000 },
+  { code: "FIXED500", description: "KSh 500 off orders above 5k", type: "fixed_amount", value: 500, isActive: true, startDate: new Date(), endDate: new Date(Date.now() + 14*24*60*60*1000), usageLimit: 50, minPurchaseAmount: 5000 },
+  { code: "FEATURED20", description: "20% off featured offer", type: "percentage", value: 20, isActive: true, startDate: new Date(), endDate: new Date(Date.now() + 3*24*60*60*1000), usageLimit: 20, minPurchaseAmount: 2000 },
+];
+
+// Example newsletter signups
+const newsletterSignups = [
+  { email: "test1@email.com", createdAt: new Date() },
+  { email: "test2@email.com", createdAt: new Date() },
+  { email: "test3@email.com", createdAt: new Date() },
+];
+
+// Example promo banner for CMS
+const promoBanners = [
+  { id: "banner1", name: "Mega Sale", imageUrl: "https://placehold.co/1200x200/FF5733/E0E0E0?text=Mega+Sale", link: "/products", isActive: true, displayArea: "homepage_top" },
+];
+
+// ...existing code...
+
 const productsData = [
   // Electronics
   { category: "Electronics", name: "Infinix Smart 7 HD", priceRange: [10300, 11150], brand: "Infinix" },
@@ -107,44 +167,40 @@ const COMMISSION_RATE = 0.10; // 10% platform commission
  * DELETION FUNCTIONS
  */
 async function deleteAllAuthUsers(nextPageToken?: string): Promise<void> {
+  if (!firebaseAdminAuth) throw new Error('Firebase Admin Auth is not initialized.');
   const listUsersResult = await firebaseAdminAuth.listUsers(1000, nextPageToken);
-  
   const uidsToDelete = listUsersResult.users.map(userRecord => userRecord.uid);
-  
   if (uidsToDelete.length > 0) {
     await firebaseAdminAuth.deleteUsers(uidsToDelete);
     console.log(`Deleted ${uidsToDelete.length} authentication users.`);
   }
-
   if (listUsersResult.pageToken) {
     await deleteAllAuthUsers(listUsersResult.pageToken);
   }
 }
 
 async function deleteCollection(collectionPath: string, batchSize: number) {
+  if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
   const collectionRef = firestoreAdmin.collection(collectionPath);
   const query = collectionRef.orderBy('__name__').limit(batchSize);
-
   return new Promise((resolve, reject) => {
     deleteQueryBatch(query, resolve).catch(reject);
   });
 }
 
 async function deleteQueryBatch(query: FirebaseFirestore.Query, resolve: (value: unknown) => void) {
+  if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
   const snapshot = await query.get();
-
   const batchSize = snapshot.size;
   if (batchSize === 0) {
     resolve(0);
     return;
   }
-
   const batch = firestoreAdmin.batch();
   snapshot.docs.forEach((doc) => {
     batch.delete(doc.ref);
   });
   await batch.commit();
-
   process.nextTick(() => {
     deleteQueryBatch(query, resolve);
   });
@@ -195,6 +251,8 @@ async function seedUsers() {
         });
     }
     
+    if (!firebaseAdminAuth) throw new Error('Firebase Admin Auth is not initialized.');
+    if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     for (const user of users) {
         try {
             await firebaseAdminAuth.createUser({
@@ -221,6 +279,7 @@ async function seedUsers() {
 
 async function seedCategories() {
     console.log('Seeding categories...');
+    if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     const batch = firestoreAdmin.batch();
     const now = new Date();
     for (const category of categoriesData) {
@@ -263,6 +322,7 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
         allProducts.push(newProduct);
     }
     
+    if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     const batch = firestoreAdmin.batch();
     for (const product of allProducts) {
       const docRef = firestoreAdmin.collection('products').doc();
@@ -328,6 +388,7 @@ async function seedOrders(customers: UserProfile[], products: Product[]) {
       vendorIds: [...new Set(orderItems.map(item => item.vendorId).filter(Boolean) as string[])],
     };
 
+    if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     const orderRef = firestoreAdmin.collection('orders').doc();
     await orderRef.set(order);
 
@@ -400,6 +461,7 @@ async function seedCmsHomepage(products: Product[], vendors: UserProfile[]) {
         updatedAt: new Date(),
     };
 
+    if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     const docRef = firestoreAdmin.collection('cms').doc('homepage_content');
     await docRef.set(homepageData);
     console.log('CMS Homepage seeded with featured items.');

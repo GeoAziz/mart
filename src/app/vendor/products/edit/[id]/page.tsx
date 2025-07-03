@@ -353,7 +353,7 @@ export default function EditProductPage() {
                     <div className="flex text-sm text-muted-foreground">
                       <Label htmlFor="file-upload" className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         <span>Upload Images ({MAX_IMAGES - currentTotalImages} left)</span>
-                        <input id="file-upload" name="images" type="file" className="sr-only" multiple accept="image/png, image/jpeg, image/webp" onChange={handleImageFileChange} disabled={isSubmitting || currentTotalImages >= MAX_IMAGES}/>
+                        <input id="file-upload" name="images" type="file" className="sr-only" multiple accept="image/png, image/jpeg, image/webp" onChange={handleImageFileChange} disabled={isSubmitting || currentTotalImages >= MAX_IMAGES} title="Upload product images"/>
                       </Label>
                     </div>
                     <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 10MB each.</p>
