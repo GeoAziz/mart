@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import NodeCache from 'node-cache';
 import { SimpleLinearRegression } from 'ml-regression-simple-linear';
 import * as ss from 'simple-statistics';
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 // Cache for storing analytics data
 const analyticsCache = new NodeCache({ stdTTL: 3600 }); // 1 hour default TTL
@@ -11,7 +11,7 @@ const analyticsCache = new NodeCache({ stdTTL: 3600 }); // 1 hour default TTL
 interface ExportFormat {
   csv: 'csv';
   json: 'json';
-  excel: 'xlsx';
+  xlsx: 'xlsx';
 }
 
 interface AnalyticsData {
@@ -33,7 +33,7 @@ export class IntegrationService {
   }
 
   private initializeWebSocket() {
-    const wss = new WebSocket.Server({ port: 8080 });
+    const wss = new WebSocketServer({ port: 8080 });
     
     wss.on('connection', (ws) => {
       this.wsClients.add(ws);

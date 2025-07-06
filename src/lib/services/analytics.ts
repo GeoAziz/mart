@@ -1,39 +1,36 @@
-import { ProductAnalytics, AnalyticsFilter } from '@/lib/types/analytics';
-import { auth, db } from '@/lib/firebase-admin';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export async function fetchVendorAnalytics(
   vendorId: string,
-  filter?: AnalyticsFilter
-): Promise<ProductAnalytics> {
+  filter?: any // Use any or define a proper type for filter
+): Promise<any> { // Use any or define a proper type for ProductAnalytics
   try {
-    // Fetch base data
-    const ordersRef = collection(db, 'orders');
-    const productsRef = collection(db, 'products');
-    const analyticsRef = collection(db, 'analytics');
+    // Fetch base data using Admin SDK
+    const ordersRef = db.collection('orders');
+    const productsRef = db.collection('products');
+    const analyticsRef = db.collection('analytics');
 
     // Apply time frame filter
-    const timeFilter = filter?.timeframe 
-      ? [
-          where('createdAt', '>=', Timestamp.fromDate(filter.timeframe.startDate)),
-          where('createdAt', '<=', Timestamp.fromDate(filter.timeframe.endDate))
-        ]
-      : [];
+    let orderQuery = ordersRef.where('vendorId', '==', vendorId);
+    let analyticsQuery = analyticsRef.where('vendorId', '==', vendorId);
+    if (filter?.timeframe) {
+      orderQuery = orderQuery
+        .where('createdAt', '>=', Timestamp.fromDate(filter.timeframe.startDate))
+        .where('createdAt', '<=', Timestamp.fromDate(filter.timeframe.endDate));
+      analyticsQuery = analyticsQuery
+        .where('createdAt', '>=', Timestamp.fromDate(filter.timeframe.startDate))
+        .where('createdAt', '<=', Timestamp.fromDate(filter.timeframe.endDate));
+    }
 
     // Fetch orders for sales performance
-    const orderQuery = query(
-      ordersRef,
-      where('vendorId', '==', vendorId),
-      ...timeFilter
-    );
-    const orderDocs = await getDocs(orderQuery);
+    const orderDocs = await orderQuery.get();
 
     // Process orders into sales metrics
     const salesByDate = new Map();
-    orderDocs.forEach(doc => {
+    orderDocs.docs.forEach(doc => {
       const order = doc.data();
       const date = order.createdAt.toDate().toISOString().split('T')[0];
-      
       if (!salesByDate.has(date)) {
         salesByDate.set(date, { revenue: 0, units: 0 });
       }
@@ -45,17 +42,11 @@ export async function fetchVendorAnalytics(
     });
 
     // Fetch product analytics data
-    const analyticsQuery = query(
-      analyticsRef,
-      where('vendorId', '==', vendorId),
-      ...timeFilter
-    );
-    const analyticsDocs = await getDocs(analyticsQuery);
+    const analyticsDocs = await analyticsQuery.get();
 
     // Process product analytics
     const productViews = new Map();
-    const productSales = new Map();
-    analyticsDocs.forEach(doc => {
+    analyticsDocs.docs.forEach(doc => {
       const analytics = doc.data();
       if (!productViews.has(analytics.productId)) {
         productViews.set(analytics.productId, {
@@ -79,21 +70,19 @@ export async function fetchVendorAnalytics(
     }));
 
     // Fetch product details to get names and categories
-    const productsQuery = query(
-      productsRef,
-      where('vendorId', '==', vendorId)
-    );
-    const productDocs = await getDocs(productsQuery);
+    const productsQuery = productsRef.where('vendorId', '==', vendorId);
+    const productDocs = await productsQuery.get();
     const products = new Map();
-    productDocs.forEach(doc => {
-      products.set(doc.id, doc.data());
+    productDocs.docs.forEach(doc => {
+      products.set(doc.id, { ...doc.data(), id: doc.id });
     });
 
     // Calculate category performance
     const categoryRevenue = new Map();
+    const categoryUnits = new Map();
     let totalRevenue = 0;
-
-    orderDocs.forEach(doc => {
+    let totalUnits = 0;
+    orderDocs.docs.forEach(doc => {
       const order = doc.data();
       order.items.forEach((item: any) => {
         const product = products.get(item.productId);
@@ -101,17 +90,19 @@ export async function fetchVendorAnalytics(
           const category = product.category;
           const revenue = item.price * item.quantity;
           totalRevenue += revenue;
-          
+          totalUnits += item.quantity;
           if (!categoryRevenue.has(category)) {
             categoryRevenue.set(category, 0);
+            categoryUnits.set(category, 0);
           }
           categoryRevenue.set(category, categoryRevenue.get(category) + revenue);
+          categoryUnits.set(category, categoryUnits.get(category) + item.quantity);
         }
       });
     });
 
     // Format response data
-    const analytics: ProductAnalytics = {
+    const analytics: any = {
       salesPerformance: Array.from(salesByDate.entries()).map(([date, data]) => ({
         date,
         ...data
@@ -123,15 +114,17 @@ export async function fetchVendorAnalytics(
       inventoryTurnover: Array.from(products.values()).map(product => ({
         productId: product.id,
         name: product.name,
-        turnoverRate: calculateTurnoverRate(product, orderDocs),
+        turnoverRate: calculateTurnoverRate(product, orderDocs.docs),
         daysInStock: calculateDaysInStock(product)
       })),
       categoryPerformance: Array.from(categoryRevenue.entries()).map(([category, revenue]) => ({
-        category,
+        id: category,
+        name: category,
+        units: categoryUnits.get(category) || 0,
         revenue,
-        percentage: (revenue / totalRevenue) * 100
+        growth: 0 // Placeholder, implement growth calculation if needed
       })),
-      topProducts: calculateTopProducts(orderDocs, products)
+      topProducts: calculateTopProducts(orderDocs.docs, products)
     };
 
     return analytics;
@@ -148,19 +141,17 @@ function calculateTurnoverRate(product: any, orderDocs: any[]): number {
     const item = order.items.find((i: any) => i.productId === product.id);
     return sum + (item?.quantity || 0);
   }, 0);
-
   return totalSold / (product.stockLevel || 1);
 }
 
 function calculateDaysInStock(product: any): number {
-  const createdAt = product.createdAt?.toDate() || new Date();
+  const createdAt = product.createdAt?.toDate ? product.createdAt.toDate() : new Date();
   const now = new Date();
   return Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function calculateTopProducts(orderDocs: any[], products: Map<string, any>) {
   const productSales = new Map();
-
   orderDocs.forEach(doc => {
     const order = doc.data();
     order.items.forEach((item: any) => {
@@ -174,7 +165,6 @@ function calculateTopProducts(orderDocs: any[], products: Map<string, any>) {
       });
     });
   });
-
   return Array.from(productSales.entries())
     .map(([id, data]) => ({
       id,
