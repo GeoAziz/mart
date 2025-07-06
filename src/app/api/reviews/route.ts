@@ -1,10 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
-import type { Review } from '../vendors/me/reviews/route'; // Using existing Review type
-import type { Timestamp } from 'firebase-admin/firestore';
+import type { Review } from '@/types/review';
+import { convertToDate } from '@/types/firebase';
 
 // Helper to map Firestore doc to ReviewType
 function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): Review {
@@ -12,8 +11,8 @@ function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): Review {
   return {
     id: doc.id,
     ...data,
-    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
-    repliedAt: data.repliedAt ? (data.repliedAt instanceof Timestamp ? data.repliedAt.toDate() : new Date(data.repliedAt)) : undefined,
+    createdAt: convertToDate(data.createdAt),
+    repliedAt: data.repliedAt ? convertToDate(data.repliedAt) : undefined,
   };
 }
 

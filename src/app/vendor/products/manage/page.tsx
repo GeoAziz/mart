@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,13 +6,14 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit3, Trash2, PackageOpen, PackageSearch, MoreHorizontal, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, PackageOpen, PackageSearch, MoreVertical, Edit, Eye, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -150,47 +150,48 @@ export default function ManageProductsPage() {
               </TableHeader>
               <TableBody>
                 {products.map((product) => (
-                  <TableRow key={product.id} className="hover:bg-muted/50">
+                  <TableRow key={product.id}>
                     <TableCell className="hidden sm:table-cell">
                       <Image 
-                        src={product.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} 
-                        alt={product.name} 
-                        width={48} height={48} 
-                        className="rounded-md object-cover border border-border" 
-                        data-ai-hint={product.dataAiHint || product.category?.toLowerCase().split(' ')[0] || "product"}
+                        src={product.imageUrl || 'https://placehold.co/80x80/cccccc/E0E0E0?text=No+Image'} 
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="rounded object-cover"
+                        data-ai-hint={product.dataAiHint || product.category}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/products/${product.id}`} className="hover:text-primary hover:underline" target="_blank" title="View product page (opens new tab)">
-                        {product.name}
-                      </Link>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{product.name}</span>
+                        <span className="text-sm text-muted-foreground">KSh {product.price.toLocaleString()}</span>
+                      </div>
                     </TableCell>
-                    <TableCell>{product.sku || 'N/A'}</TableCell>
-                    <TableCell className={`text-center font-medium ${product.stock === 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {product.stock === undefined ? 'N/A' : product.stock}
-                    </TableCell>
-                    <TableCell className="text-right">{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-muted-foreground">{product.sku || 'N/A'}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={getStatusBadgeVariant(product.status || (product.stock && product.stock > 0 ? 'Active' : 'Out of Stock'))}>
-                        {product.status || (product.stock && product.stock > 0 ? 'Active' : 'Out of Stock')}
+                      <Badge variant="outline" className={!product.stock ? 'bg-red-500/20 text-red-300 border-red-400' : product.stock < 5 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400' : 'bg-green-500/20 text-green-300 border-green-400'}>
+                        {product.stock ?? 'N/A'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Product Actions</span>
-                          </Button>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-card border-primary shadow-lg">
-                          <DropdownMenuItem asChild className="hover:bg-primary/10 hover:text-primary cursor-pointer">
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
                             <Link href={`/vendor/products/edit/${product.id}`}>
-                              <Edit3 className="mr-2 h-4 w-4" /> Edit
+                              <Edit className="mr-2 h-4 w-4" /> Edit
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteProduct(product.id, product.name)} className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/20 focus:text-destructive cursor-pointer">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <DropdownMenuItem asChild>
+                            <Link href={`/products/${product.id}`}>
+                              <Eye className="mr-2 h-4 w-4" /> View
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteProduct(product.id, product.name)}>
+                            <Trash className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

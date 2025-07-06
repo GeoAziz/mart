@@ -1,6 +1,5 @@
-
 import type { NextRequest, NextResponse } from 'next/server';
-import { firebaseAdminAuth, firestoreAdmin } from './firebase-admin';
+import firebaseAdminAuth, { firestoreAdmin } from './firebase-admin';
 import type { UserRecord } from 'firebase-admin/auth';
 import type { UserProfile, Role } from './types'; // Import from centralized types file
 
@@ -29,7 +28,14 @@ export function withAuth(
     }
 
     try {
-      const decodedToken = await firebaseAdminAuth.verifyIdToken(idToken);
+      if (!firebaseAdminAuth) {
+        return NextResponse.json({ message: 'Internal Server Error: Firebase Admin Auth not initialized.' }, { status: 500 });
+      }
+      const decodedToken = await firebaseAdminAuth.auth().verifyIdToken(idToken);
+
+      if (!firestoreAdmin) {
+        return NextResponse.json({ message: 'Internal Server Error: Firestore Admin not initialized.' }, { status: 500 });
+      }
       
       const userDocRef = firestoreAdmin.collection('users').doc(decodedToken.uid);
       const userDocSnap = await userDocRef.get();
@@ -57,8 +63,11 @@ export function withAuth(
         }
       }
       
+      // Fetch the full UserRecord from Firebase Admin
+      const userRecord = await firebaseAdminAuth.auth().getUser(decodedToken.uid);
+
       const authenticatedReq = req as AuthenticatedRequest;
-      authenticatedReq.user = decodedToken as UserRecord; 
+      authenticatedReq.user = userRecord;
       authenticatedReq.userProfile = userProfile;
 
       return handler(authenticatedReq, context);

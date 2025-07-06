@@ -1,30 +1,23 @@
-
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { DollarSign, Package, ShoppingCart, Users, TrendingUp, BarChart3, AlertCircle, Loader2, Star, Bell } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import type { Order } from '@/lib/types';
-import type { Review } from '@/app/api/vendors/me/reviews/route';
-
-
-interface EarningsSummary {
-  totalAllTimeEarnings: number;
-  currentBalance: number;
-  lastPayoutAmount: number | null;
-  lastPayoutDate: string | null;
-  earningsChartData: { month: string; earnings: number }[];
-  totalOrders?: number;
-  totalProducts?: number;
-  totalReviews?: number;
-  avgRating?: number;
-  bestSellingProducts?: { name: string; sales: number }[];
-}
+import { Star, DollarSign, ShoppingBag, Wallet, Loader2 } from 'lucide-react';
+import type { DashboardData } from '@/lib/types';
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip
+} from 'recharts';
 
 const StatCard = ({ title, value, icon, isLoading }: { title: string, value: string, icon: React.ReactNode, isLoading?: boolean }) => (
   <Card className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow">
@@ -42,271 +35,293 @@ const StatCard = ({ title, value, icon, isLoading }: { title: string, value: str
   </Card>
 );
 
+// Add status badge variant helper
+function getStatusBadgeVariant(status: string) {
+  switch (status) {
+    case 'pending':
+      return 'warning';
+    case 'processing':
+      return 'default';
+    case 'shipped':
+      return 'info';
+    case 'delivered':
+      return 'success';
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+}
 
-export default function VendorDashboardPage() {
-  const [summary, setSummary] = useState<EarningsSummary | null>(null);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [recentReviews, setRecentReviews] = useState<Review[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<{orders: number; reviews: number}>({orders: 0, reviews: 0});
-  const { currentUser } = useAuth();
+// State type
+interface DashboardState {
+  data: DashboardData | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Add API function to fetch data
+async function fetchDashboardData(): Promise<DashboardData> {
+  const response = await fetch('/api/vendors/me/dashboard');
+  if (!response.ok) {
+    throw new Error('Failed to fetch dashboard data');
+  }
+  return response.json();
+}
+
+const VendorDashboardPage = () => {
+  const [dashboardState, setDashboardState] = useState<DashboardState>({
+    data: null,
+    isLoading: true,
+    error: null
+  });
+  const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
-  const lastOrderIdRef = useRef<string | null>(null);
-  const lastReviewIdRef = useRef<string | null>(null);
-
-  // Polling for notifications (new orders/reviews)
+  
   useEffect(() => {
-    if (!currentUser) return;
-    const poll = setInterval(async () => {
+    const loadDashboardData = async () => {
+      if (!currentUser) {
+        setDashboardState(prev => ({...prev, isLoading: false}));
+        return;
+      }
       try {
         const token = await currentUser.getIdToken();
-        const headers = { 'Authorization': `Bearer ${token}` };
-        const [ordersRes, reviewsRes] = await Promise.all([
-          fetch('/api/orders', { headers }),
-          fetch('/api/vendors/me/reviews', { headers })
-        ]);
-        if (ordersRes.ok) {
-          const orders: Order[] = await ordersRes.json();
-          if (orders.length && lastOrderIdRef.current && orders[0].id !== lastOrderIdRef.current) {
-            setNotifications(n => ({...n, orders: n.orders + 1}));
-            toast({ title: 'New Order', description: `🔔 You have a new order!`, variant: 'default' });
+        const response = await fetch('/api/vendors/me/dashboard', {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
           }
-          lastOrderIdRef.current = orders[0]?.id || null;
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to load dashboard data');
         }
-        if (reviewsRes.ok) {
-          const reviews: Review[] = await reviewsRes.json();
-          if (reviews.length && lastReviewIdRef.current && reviews[0].id !== lastReviewIdRef.current) {
-            setNotifications(n => ({...n, reviews: n.reviews + 1}));
-            toast({ title: 'New Review', description: `You received a new review!`, variant: 'default' });
-          }
-          lastReviewIdRef.current = reviews[0]?.id || null;
+        
+        const data = await response.json();
+        
+        // Validate required data fields
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid dashboard data received');
         }
-      } catch {}
-    }, 15000); // 15s
-    return () => clearInterval(poll);
-  }, [currentUser, toast]);
+        
+        setDashboardState({
+          data,
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        console.error('Dashboard loading error:', error);
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : 'Failed to load dashboard data';
+          
+        setDashboardState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage
+        }));
+        
+        toast({
+          title: 'Error loading dashboard',
+          description: errorMessage,
+          variant: 'destructive'
+        });
+      }
+    };
 
-  const fetchDashboardData = useCallback(async () => {
-    if (!currentUser) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const token = await currentUser.getIdToken();
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const [summaryRes, ordersRes, reviewsRes] = await Promise.all([
-        fetch('/api/vendors/me/earnings-summary', { headers }),
-        fetch('/api/orders', { headers }),
-        fetch('/api/vendors/me/reviews', { headers })
-      ]);
-      if (!summaryRes.ok) throw new Error((await summaryRes.json()).message || 'Failed to fetch earnings summary.');
-      if (!ordersRes.ok) throw new Error((await ordersRes.json()).message || 'Failed to fetch orders.');
-      if (!reviewsRes.ok) throw new Error((await reviewsRes.json()).message || 'Failed to fetch reviews.');
-      const summaryData: EarningsSummary = await summaryRes.json();
-      const ordersData: Order[] = await ordersRes.json();
-      const reviewsData: Review[] = await reviewsRes.json();
-      setSummary(summaryData);
-      setRecentOrders(ordersData.slice(0, 5));
-      setRecentReviews(reviewsData.slice(0, 5));
-      lastOrderIdRef.current = ordersData[0]?.id || null;
-      lastReviewIdRef.current = reviewsData[0]?.id || null;
-    } catch (err) {
-      console.error("Error fetching dashboard data:", err);
-      const errorMessage = err instanceof Error ? err.message : "Could not load dashboard data.";
-      setError(errorMessage);
-      toast({ title: 'Error', description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
+    loadDashboardData();
   }, [currentUser, toast]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return 'N/A';
     return `KSh ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const { data, isLoading } = dashboardState;
+
   return (
-    <div className="space-y-8">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Revenue (Net)" value={formatCurrency(summary?.totalAllTimeEarnings)} icon={<DollarSign className="h-5 w-5 text-green-400"/>} isLoading={isLoading}/>
-        <StatCard title="Available for Payout" value={formatCurrency(summary?.currentBalance)} icon={<ShoppingCart className="h-5 w-5 text-blue-400"/>} isLoading={isLoading} />
-        <StatCard title="Active Products" value={summary?.totalProducts?.toString() ?? '...'} icon={<Package className="h-5 w-5 text-purple-400"/>} isLoading={isLoading} />
-        <StatCard title="Total Orders" value={summary?.totalOrders?.toString() ?? '...'} icon={<Users className="h-5 w-5 text-accent"/>} isLoading={isLoading} />
-        <StatCard title="Reviews" value={summary?.totalReviews?.toString() ?? '...'} icon={<Star className="h-5 w-5 text-yellow-400"/>} isLoading={isLoading} />
-        <StatCard title="Avg. Rating" value={summary?.avgRating?.toFixed(2) ?? '...'} icon={<Star className="h-5 w-5 text-yellow-400"/>} isLoading={isLoading} />
-        <StatCard title="Notifications" value={`${notifications.orders + notifications.reviews}`} icon={<Bell className="h-5 w-5 text-primary"/>} isLoading={false} />
+    <div className="space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          title="Total Earnings"
+          value={formatCurrency(data?.totalAllTimeEarnings)}
+          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Current Balance"
+          value={formatCurrency(data?.currentBalance)}
+          icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Recent Orders"
+          value={data?.totalOrders?.toString() || '0'}
+          icon={<ShoppingBag className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="New Reviews"
+          value={data?.totalReviews?.toString() || '0'}
+          icon={<Star className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      {/* Charts and Tables Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Earnings Chart */}
         <Card className="bg-card border-border shadow-lg">
           <CardHeader>
-            <CardTitle className="text-xl font-headline text-glow-accent flex items-center">
-                 <BarChart3 className="mr-3 h-5 w-5 text-accent" /> Sales Performance
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">Your net earnings over recent months</CardDescription>
+            <CardTitle>Earnings Overview</CardTitle>
+            <CardDescription>Your earnings for the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-                 <div className="h-[300px] flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>
-            ) : error || !summary || summary.earningsChartData.length === 0 ? (
-                 <div className="h-[300px] flex flex-col justify-center items-center text-muted-foreground">
-                    <TrendingUp className="h-12 w-12 mb-4"/>
-                    <p>{error ? "Could not load chart data." : "No earnings data yet to display a chart."}</p>
-                </div>
+              <div className="flex justify-center items-center h-[300px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : data?.earningsChartData ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={data.earningsChartData}>
+                  <defs>
+                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      color: 'hsl(var(--foreground))'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="earnings"
+                    stroke="hsl(var(--primary))"
+                    fillOpacity={1}
+                    fill="url(#colorEarnings)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             ) : (
-             <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                    data={summary.earningsChartData}
-                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                >
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(value) => `KSh ${value/1000}k`} />
-                    <Tooltip
-                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--popover-foreground))', borderRadius: 'var(--radius)'}}
-                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                    cursor={{ fill: 'hsl(var(--accent) / 0.2)' }}
-                    formatter={(value: number) => [formatCurrency(value), "Net Earnings"]}
-                    />
-                    <Legend wrapperStyle={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, paddingTop: '10px' }} />
-                    <Line type="monotone" dataKey="earnings" stroke="hsl(var(--chart-1))" strokeWidth={2} activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'hsl(var(--card))' }} dot={{fill: 'hsl(var(--chart-1))', r:3}}/>
-                </LineChart>
-                </ResponsiveContainer>
+              <div className="flex justify-center items-center h-[300px] text-muted-foreground">
+                No earnings data available
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Recent Orders */}
         <Card className="bg-card border-border shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl font-headline text-glow-accent">Recent Orders</CardTitle>
-            <Button variant="outline" asChild className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-              <Link href="/vendor/orders/all">View All</Link>
-            </Button>
+            <div>
+              <CardTitle>Recent Orders</CardTitle>
+              <CardDescription>Latest orders from your store</CardDescription>
+            </div>
+            <Link href="/vendor/orders/all">
+              <Button variant="ghost" size="sm">View All</Button>
+            </Link>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>
-            ) : recentOrders.length > 0 ? (
-                <ul className="space-y-3">
-                {recentOrders.map(order => (
-                    <li key={order.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                        <div>
-                            <Link href={`/vendor/orders/${order.id}`} className="font-medium hover:underline text-foreground">Order #{order.id?.substring(0, 7)}...</Link>
-                            <p className="text-xs text-muted-foreground">{order.userFullName} - {(() => {
-                              const v = order.createdAt;
-                              // Firestore Timestamp check: has toDate function and seconds property
-                              if (v instanceof Date) return v.toLocaleDateString();
-                              if (v && typeof v.toDate === 'function') return v.toDate().toLocaleDateString();
-                              // fallback: try to parse as string/number, but guard against Timestamp
-                              if (v && typeof v === 'object' && 'seconds' in v && 'nanoseconds' in v && typeof v.toDate === 'function') {
-                                // Firestore Timestamp (from firebase/firestore or firebase-admin)
-                                return v.toDate().toLocaleDateString();
-                              }
-                              return new Date((v as unknown as string | number | Date)).toLocaleDateString();
-                            })()}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="font-semibold text-primary">{formatCurrency(order.totalAmount)}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
-                        </div>
-                    </li>
+              <div className="flex justify-center items-center h-[300px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : data?.recentOrders && data.recentOrders.length > 0 ? (
+              <div className="grid gap-4">
+                {data.recentOrders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-4 rounded-lg border border-border">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Order #{order.id.slice(-6)}</p>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(order.total)}</p>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      order.status === 'delivered' ? 'bg-green-500/20 text-green-300' :
+                      order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-blue-500/20 text-blue-300'
+                    }`}>
+                      {order.status}
+                    </div>
+                  </div>
                 ))}
-                </ul>
+              </div>
             ) : (
-                <p className="text-muted-foreground text-center py-10">No recent orders found.</p>
+              <div className="flex justify-center items-center h-[300px] text-muted-foreground">
+                No recent orders
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Reviews */}
+        <Card className="bg-card border-border shadow-lg lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Reviews</CardTitle>
+              <CardDescription>Latest customer feedback</CardDescription>
+            </div>
+            <Link href="/vendor/reviews">
+              <Button variant="ghost" size="sm">View All</Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-[200px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : data?.recentReviews && data.recentReviews.length > 0 ? (
+              <div className="grid gap-4">
+                {data.recentReviews.map((review) => (
+                  <div key={review.id} className="flex items-start space-x-4">
+                    <Avatar>
+                      {review.customerAvatar ? (
+                        <AvatarImage src={review.customerAvatar} alt={review.customerName} />
+                      ) : (
+                        <AvatarFallback>
+                          {review.customerName.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{review.customerName}</p>
+                        <time className="text-xs text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </time>
+                      </div>
+                      <p className="text-sm">{review.comment}</p>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-[200px] text-muted-foreground">
+                No recent reviews
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card className="bg-card border-border shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-headline text-glow-accent flex items-center">
-              <Star className="mr-3 h-5 w-5 text-yellow-400" /> Recent Reviews
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">Latest customer feedback</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>
-            ) : recentReviews.length > 0 ? (
-                <ul className="space-y-3">
-                {recentReviews.map(review => (
-                    <li key={review.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                        <div>
-                            <span className="font-medium text-foreground">{review.customerName}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">{review.rating}★</span>
-                            <p className="text-xs text-muted-foreground">{review.comment}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs text-muted-foreground">{(() => { 
-                              const v = review.createdAt; 
-                              if (v instanceof Date) return v.toLocaleDateString();
-                              if (v && typeof v.toDate === 'function') return v.toDate().toLocaleDateString();
-                              // Firestore Timestamp check: has seconds, nanoseconds, and toDate
-                              if (v && typeof v === 'object' && 'seconds' in v && 'nanoseconds' in v && typeof v.toDate === 'function') {
-                                return v.toDate().toLocaleDateString();
-                              }
-                              // fallback: try to parse as string/number
-                              return new Date(v as unknown as string | number | Date).toLocaleDateString();
-                            })()}</p>
-                        </div>
-                    </li>
-                ))}
-                </ul>
-            ) : (
-                <p className="text-muted-foreground text-center py-10">No recent reviews found.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-headline text-glow-accent flex items-center">
-              <PieChart className="mr-3 h-5 w-5 text-accent" /> Best Selling Products
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">Top products by sales</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>
-            ) : summary?.bestSellingProducts && summary.bestSellingProducts.length > 0 ? (
-              <PieChart width={250} height={250}>
-                <Pie data={summary.bestSellingProducts} dataKey="sales" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                  {summary.bestSellingProducts.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#8dd1e1"][idx % 5]} />
-                  ))}
-                </Pie>
-                <Legend />
-              </PieChart>
-            ) : (
-              <p className="text-muted-foreground text-center py-10">No sales data yet.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="bg-card border-border shadow-lg">
-        <CardHeader>
-            <CardTitle className="text-xl font-headline text-glow-accent">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"><Link href="/vendor/products/add">Add New Product</Link></Button>
-            <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground w-full"><Link href="/vendor/orders/incoming">Manage Incoming Orders</Link></Button>
-            <Button variant="outline" asChild className="border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground w-full"><Link href="/vendor/earnings">View Earnings</Link></Button>
-            <Button variant="outline" asChild className="border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground w-full"><Link href="/vendor/settings">Store Settings</Link></Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
+
+export default VendorDashboardPage;

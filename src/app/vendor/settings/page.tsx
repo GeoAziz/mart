@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent, useEffect } from 'react';
@@ -12,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image'; // Next.js Image component
 import { useAuth } from '@/context/AuthContext';
 import type { VendorSettings } from '@/app/api/vendors/me/settings/route';
+import { Switch } from '@/components/ui/switch';
 
 const DEFAULT_VENDOR_SETTINGS_FRONTEND: VendorSettings = {
   storeName: '',
@@ -24,6 +24,8 @@ const DEFAULT_VENDOR_SETTINGS_FRONTEND: VendorSettings = {
   socialTwitter: '',
   socialInstagram: '',
   payoutMpesaNumber: '',
+  reviewNotifications: false,
+  useAutoReply: false,
 };
 
 
@@ -75,6 +77,10 @@ export default function StoreSettingsPage() {
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    setSettings(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSettingChange = (name: keyof VendorSettings, value: any) => {
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
@@ -291,6 +297,42 @@ export default function StoreSettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="bg-card border-border shadow-md">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold text-glow-accent">Review Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <Label className="text-base">Review Notifications</Label>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="reviewNotifications" 
+                  checked={settings.reviewNotifications} 
+                  onCheckedChange={(checked) => handleSettingChange('reviewNotifications', checked)}
+                  disabled={isSaving}
+                  className="data-[state=checked]:bg-primary"
+                />
+                <Label htmlFor="reviewNotifications" className="text-sm text-muted-foreground">Get notified when you receive new reviews</Label>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-base">Auto-Reply Templates</Label>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="useAutoReply" 
+                  checked={settings.useAutoReply} 
+                  onCheckedChange={(checked) => handleSettingChange('useAutoReply', checked)}
+                  disabled={isSaving}
+                  className="data-[state=checked]:bg-primary"
+                />
+                <Label htmlFor="useAutoReply" className="text-sm text-muted-foreground">Use AI-powered response templates</Label>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <CardFooter className="border-t border-border/50 pt-6 flex justify-end">
         <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary" disabled={isSaving || isLoading || isUploadingLogo || isUploadingBanner}>
           {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
@@ -300,4 +342,4 @@ export default function StoreSettingsPage() {
     </form>
   );
 }
-    
+

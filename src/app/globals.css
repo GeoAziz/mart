@@ -51,6 +51,9 @@
   body {
     @apply bg-background text-foreground;
     @apply selection:bg-primary selection:text-primary-foreground;
+    /* Particle background for sci-fi effect */
+    position: relative;
+    overflow-x: hidden;
   }
 
   /* Custom scrollbar for a futuristic feel */
@@ -81,9 +84,59 @@
   .glow-edge-accent {
     box-shadow: 0 0 5px hsl(var(--accent) / 0.7), 0 0 10px hsl(var(--accent) / 0.5), 0 0 15px hsl(var(--accent) / 0.3);
   }
+  button, .btn, .Button, .sci-fi-nav-item, .holo-card, .glow-edge-primary, .glow-edge-accent {
+    transition: box-shadow 0.2s, background 0.2s, color 0.2s, transform 0.15s;
+    will-change: box-shadow, background, color, transform;
+  }
+  button:hover, .btn:hover, .Button:hover, .sci-fi-nav-item:hover, .holo-card:hover, .glow-edge-primary:hover, .glow-edge-accent:hover {
+    filter: brightness(1.08) drop-shadow(0 0 8px hsl(var(--primary) / 0.25));
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 16px 2px hsl(var(--accent) / 0.18), 0 0 8px 2px hsl(var(--primary) / 0.12);
+  }
+  button:active, .btn:active, .Button:active, .sci-fi-nav-item:active, .holo-card:active {
+    transform: scale(0.97);
+    filter: brightness(0.98);
+  }
+  .sci-fi-icon {
+    transition: filter 0.2s, color 0.2s, transform 0.2s;
+    filter: drop-shadow(0 0 4px hsl(var(--primary) / 0.25));
+  }
+  .sci-fi-nav-item:hover .sci-fi-icon, .sci-fi-nav-item:focus .sci-fi-icon {
+    color: hsl(var(--accent));
+    filter: drop-shadow(0 0 8px hsl(var(--accent)));
+    animation: pulse-glow 1.2s;
+  }
+  .holo-card:active {
+    box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.25);
+    border-color: hsl(var(--primary));
+  }
+  .glow-edge-primary:active, .glow-edge-accent:active {
+    box-shadow: 0 0 8px 2px hsl(var(--accent) / 0.25);
+  }
+  /* Loading spinner fade-in */
+  .smooth-spinner {
+    opacity: 0;
+    animation: fade-in 0.4s forwards;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 
 @layer utilities {
+  .tap-feedback {
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    will-change: background, box-shadow, transform;
+  }
+  .tap-feedback:active {
+    background: hsl(var(--primary) / 0.12) !important;
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.18);
+    transform: scale(0.97);
+  }
+  .micro-interaction {
+    animation: pulse-glow 1.2s;
+  }
   .text-glow-primary {
     text-shadow: 0 0 5px hsl(var(--primary) / 0.8), 0 0 10px hsl(var(--primary) / 0.6);
   }
@@ -129,4 +182,43 @@
        border-color: #dee2e6 !important;
     }
   }
+}
+
+body {
+  /* Particle background for sci-fi effect */
+  position: relative;
+  overflow-x: hidden;
+}
+
+.particle-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.holo-card {
+  background: linear-gradient(135deg, hsl(var(--card)) 80%, hsl(var(--primary) / 0.15) 100%);
+  box-shadow: 0 0 24px 2px hsl(var(--primary) / 0.25), 0 0 2px 1px hsl(var(--accent) / 0.15);
+  border: 1.5px solid hsl(var(--primary) / 0.18);
+  backdrop-filter: blur(8px) saturate(1.2);
+  border-radius: var(--radius);
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.holo-card:hover {
+  box-shadow: 0 0 32px 6px hsl(var(--accent) / 0.35), 0 0 8px 2px hsl(var(--primary) / 0.25);
+  border-color: hsl(var(--accent));
+}
+
+.neon-accent {
+  text-shadow: 0 0 8px hsl(var(--accent)), 0 0 16px hsl(var(--primary) / 0.7);
+  color: hsl(var(--accent));
+}
+
+/* Space-themed chart backgrounds */
+.chart-space-bg {
+  background: radial-gradient(ellipse at 60% 40%, hsl(var(--primary) / 0.12) 0%, transparent 80%);
 }

@@ -94,7 +94,15 @@ export default function AccountDashboardPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-headline text-glow-primary">Welcome back, {userProfile?.fullName || 'Valued Customer'}!</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Here's an overview of your account activity. Member since {userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : 'a while'}.
+            Here's an overview of your account activity. Member since {userProfile?.createdAt
+              ? (
+                  userProfile.createdAt instanceof Date
+                    ? userProfile.createdAt
+                    : typeof userProfile.createdAt === 'object' && userProfile.createdAt !== null && 'toDate' in userProfile.createdAt
+                      ? (userProfile.createdAt as { toDate: () => Date }).toDate()
+                      : new Date(userProfile.createdAt)
+                ).toLocaleDateString()
+              : 'a while'}.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-3 gap-4">
@@ -129,7 +137,13 @@ export default function AccountDashboardPage() {
                     <Package className="h-8 w-8 text-primary mr-4 hidden sm:block" />
                     <div>
                       <Link href={`/account/orders/${order.id}`} className="font-semibold text-foreground hover:text-primary hover:underline">Order #{order.id?.substring(0,7)}...</Link>
-                      <p className="text-sm text-muted-foreground">Date: {new Date(order.createdAt).toLocaleDateString()} &bull; {order.items.length} item(s)</p>
+                      <p className="text-sm text-muted-foreground">
+                        Date: {
+                          typeof order.createdAt === 'object' && order.createdAt !== null && 'toDate' in order.createdAt
+                            ? (order.createdAt as { toDate: () => Date }).toDate().toLocaleDateString()
+                            : new Date(order.createdAt as string | number | Date).toLocaleDateString()
+                        } &bull; {order.items.length} item(s)
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-col items-start sm:items-end mt-2 sm:mt-0">

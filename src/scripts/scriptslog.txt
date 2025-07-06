@@ -1,0 +1,226 @@
+PS F:\prototype\mart> npm run seed:vendor-dashboard
+
+> nextn@0.1.0 seed:vendor-dashboard
+> tsx src/scripts/seed-vendor-dashboard.ts
+
+✅ Firebase Admin initialized with service account from: serviceAccountKey.json
+🚀 Starting Vendor Dashboard Data Seeding...
+(node:23272) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Found 4 vendors to seed dashboard data for.
+
+Processing vendor: vendor1@zilacart.com
+Generating dashboard data for vendor: vendor_user_id_1
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+✅ Dashboard data generated for vendor: vendor_user_id_1
+Generated Metrics: {
+  totalOrders: 39,
+  totalSales: 'KSh 428,267',
+  totalProducts: 11,
+  activeCustomers: 37
+}
+
+Processing vendor: vendor2@zilacart.com
+Generating dashboard data for vendor: vendor_user_id_2
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+✅ Dashboard data generated for vendor: vendor_user_id_2
+Generated Metrics: {
+  totalOrders: 39,
+  totalSales: 'KSh 384,059',
+  totalProducts: 14,
+  activeCustomers: 36
+}
+
+Processing vendor: vendor3@zilacart.com
+Generating dashboard data for vendor: vendor_user_id_3
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+✅ Dashboard data generated for vendor: vendor_user_id_3
+Generated Metrics: {
+  totalOrders: 44,
+  totalSales: 'KSh 217,110',
+  totalProducts: 12,
+  activeCustomers: 75
+}
+
+Processing vendor: vendor4@zilacart.com
+Generating dashboard data for vendor: vendor_user_id_4
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+[@faker-js/faker]: faker.phone.number(format) is deprecated since v8.1 and will be removed in v9.0. Please use faker.phone.number(), faker.string.numeric() or faker.helpers.fromRegExp() instead.
+✅ Dashboard data generated for vendor: vendor_user_id_4
+Generated Metrics: {
+  totalOrders: 49,
+  totalSales: 'KSh 150,498',
+  totalProducts: 8,
+  activeCustomers: 21
+}
+
+✅ Vendor dashboard data seeding completed successfully!
+🎯 You can now view realistic data in vendor dashboards.
+PS F:\prototype\mart> 
+PS F:\prototype\mart> 

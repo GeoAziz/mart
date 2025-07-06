@@ -1,4 +1,3 @@
-
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -9,6 +8,7 @@ import AIChatbotButton from '@/components/ai/AIChatbotButton';
 import { AuthProvider } from '@/context/AuthContext';
 import { isFirebaseConfigured } from '@/lib/firebase-client';
 import SetupInstructions from '@/components/layout/SetupInstructions';
+import ParticleBackground from '@/components/ParticleBackground';
 
 // Configure font
 const inter = Inter({
@@ -38,19 +38,16 @@ export default function RootLayout({
         {/* Font links are now handled by next/font */}
       </head>
       <body className="antialiased flex flex-col min-h-screen">
-        {isFirebaseConfigured ? (
-            <AuthProvider>
-              <Header />
-              <main className="flex-grow container mx-auto px-4 py-8">
-                {children}
-              </main>
-              <Footer />
-              <Toaster />
-              <AIChatbotButton />
-            </AuthProvider>
-        ) : (
-          <SetupInstructions />
-        )}
+        <ParticleBackground />
+        <AuthProvider>
+          <Header />
+          <main className="flex-grow container mx-auto px-4 py-8">
+            {children}
+          </main>
+          <Footer />
+          <Toaster />
+          <AIChatbotButton />
+        </AuthProvider>
       </body>
     </html>
   );

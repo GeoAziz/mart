@@ -1,6 +1,5 @@
-
-
 import type { Timestamp } from 'firebase-admin/firestore';
+export type { Timestamp };
 
 // From authMiddleware
 export interface UserProfile {
@@ -58,6 +57,7 @@ export interface Product {
   price: number;
   category: string;
   stock?: number;
+  lowStockThreshold?: number;
   imageUrl?: string;
   additionalImageUrls?: string[];
   brand?: string;
@@ -88,6 +88,24 @@ export interface ShippingAddress {
   postalCode?: string;
   phone: string;
 }
+export type OrderStatus = 
+  | 'pending'       // Initial state when order is created
+  | 'processing'    // Payment confirmed, being prepared
+  | 'shipped'       // Order has been shipped
+  | 'out_for_delivery' // With delivery agent
+  | 'delivered'     // Successfully delivered
+  | 'cancelled'     // Cancelled by customer or vendor
+  | 'refunded'      // Fully refunded
+  | 'partially_refunded'; // Some items refunded
+
+export interface OrderTracking {
+  status: OrderStatus;
+  timestamp: Date;
+  note?: string;
+  location?: string;
+  updatedBy?: string;
+}
+
 export interface Order {
   id?: string;
   userId: string;
@@ -97,7 +115,8 @@ export interface Order {
   shippingAddress: ShippingAddress;
   paymentMethod: string;
   paymentDetails?: Record<string, any>; 
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+  status: OrderStatus;
+  statusHistory: OrderTracking[];
   subtotal: number;
   shippingCost: number;
   taxAmount: number;
@@ -108,6 +127,10 @@ export interface Order {
   // New promotion fields
   promotionCode?: string;
   discountAmount?: number;
+  estimatedDeliveryDate?: Date;
+  actualDeliveryDate?: Date;
+  trackingNumber?: string;
+  courierName?: string;
 }
 
 // From refunds/route.ts
@@ -185,6 +208,30 @@ export interface AppliedPromotion extends Promotion {
     discountAmount: number;
 }
 
+// Wishlist System Types
+export interface WishlistItemClient {
+  id: string;
+  productId: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  addedAt: Timestamp | Date;
+}
+
+// Address System Types
+export interface Address {
+  id?: string;
+  userId: string;
+  fullName: string;
+  address: string;
+  city: string;
+  postalCode?: string;
+  phone: string;
+  isDefault?: boolean;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+}
+
 // Messaging System Types
 export interface Conversation {
   id?: string; // Firestore document ID
@@ -212,4 +259,460 @@ export interface Message {
   senderId: string;
   text: string;
   timestamp: Timestamp | Date;
+}
+
+// Inventory Types
+export interface InventoryUpdateItem {
+  productId: string;
+  stockQuantity: number;
+  lastStockUpdate: Date;
+  lowStockThreshold?: number;
+  lastRestockDate?: Date;
+  reorderPoint?: number;
+  notes?: string;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock';
+  movementType: 'restock' | 'adjustment' | 'sale';
+  associatedOrderId?: string;
+}
+
+export interface InventoryHistory {
+  id?: string;
+  productId: string;
+  productName: string;
+  previousStock: number;
+  newStock: number;
+  changeType: 'increase' | 'decrease' | 'adjustment' | 'sale';
+  reason?: string;
+  updatedBy: string;
+  updatedAt: Date;
+}
+
+export interface ProductInventorySettings {
+  productId: string;
+  lowStockThreshold: number;
+  notificationsEnabled: boolean;
+  autoReorderPoint?: number;
+  autoReorderQuantity?: number;
+  lastNotificationSent?: Date;
+}
+
+// New Review System Type
+export interface Review {
+    id?: string;
+    productId: string;
+    productName?: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    rating: number;
+    comment: string;
+    createdAt: Timestamp | Date;
+    reply?: string;
+    repliedAt?: Timestamp | Date;
+    customerAvatar?: string;
+    customerInitials?: string;
+}
+
+// Updated VendorSettings interface
+export interface VendorSettings {
+  storeName?: string;
+  storeDescription?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+  socialFacebook?: string;
+  socialTwitter?: string;
+  socialInstagram?: string;
+  payoutMpesaNumber?: string;
+  reviewNotifications?: boolean;
+  useAutoReply?: boolean;
+  autoReplyMessage?: string;
+  updatedAt?: Timestamp | Date;
+}
+
+// New Analytics and Logging Types
+export interface VendorAnalytics {
+  storeViews: {
+    total: number;
+    unique: number;
+    bounceRate: number;
+    avgTimeSpent: number;
+  };
+  productViews: {
+    total: number;
+    unique: number;
+    conversionRate: number;
+  };
+  customerMetrics: {
+    total: number;
+    returning: number;
+    avgOrderValue: number;
+  };
+  lastUpdated: Timestamp | Date;
+}
+
+export interface InventoryLog {
+  productId: string;
+  type: 'restock' | 'adjustment' | 'sale';
+  quantity: number;
+  notes: string;
+  timestamp: Timestamp | Date;
+}
+
+export interface DashboardData {
+  totalAllTimeEarnings: number;
+  currentBalance: number;
+  lastPayoutAmount: number | null;
+  lastPayoutDate: string | null;
+  earningsChartData: { month: string; earnings: number }[];
+  totalOrders: number;
+  totalProducts: number;
+  totalReviews: number;
+  avgRating: number;
+  bestSellingProducts?: { name: string; sales: number }[];
+  recentReviews: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    rating: number;
+    comment: string;
+    customerName: string;
+    customerAvatar?: string;
+    createdAt: Date;
+    reply?: string;
+  }>;
+  recentOrders: Array<{
+    id: string;
+    status: string;
+    total: number;
+    createdAt: Date;
+  }>;
+}
+
+export interface ProductAnalytics {
+  productId: string;
+  productName: string;
+  salesMetrics: {
+    totalSales: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    totalQuantitySold: number;
+    salesByMonth: { month: string; sales: number; revenue: number }[];
+  };
+  inventoryMetrics: {
+    currentStock: number;
+    restockFrequency: number; // Average days between restocks
+    turnoverRate: number; // Sales velocity
+    stockoutCount: number; // Number of times product went out of stock
+  };
+  performanceMetrics: {
+    conversionRate: number; // Percentage of views that led to sales
+    views: number;
+    uniqueViewers: number;
+    addToCartCount: number;
+    wishlistCount: number;
+  };
+  categoryRanking: {
+    rank: number;
+    totalProductsInCategory: number;
+    percentileInCategory: number;
+  };
+  lastUpdated: Timestamp | Date;
+}
+
+// New enhanced analytics types
+export interface SalesMetrics {
+  daily: {
+    date: string;
+    revenue: number;
+    orders: number;
+    averageOrderValue: number;
+    uniqueCustomers: number;
+  }[];
+  weekly: {
+    weekStart: string;
+    revenue: number;
+    orders: number;
+    averageOrderValue: number;
+    uniqueCustomers: number;
+  }[];
+  monthly: {
+    month: string;
+    revenue: number;
+    orders: number;
+    averageOrderValue: number;
+    uniqueCustomers: number;
+    topProducts: Array<{
+      id: string;
+      name: string;
+      sales: number;
+      revenue: number;
+    }>;
+  }[];
+}
+
+export interface ProductPerformanceMetrics {
+  id: string;
+  name: string;
+  metrics: {
+    views: number;
+    uniqueViews: number;
+    purchases: number;
+    revenue: number;
+    conversionRate: number;
+    averageRating: number;
+    reviewCount: number;
+    inventory: {
+      current: number;
+      incoming: number;
+      reorderPoint: number;
+      turnoverRate: number;
+      daysToStockout: number | null;
+      restockPrediction: {
+        suggestedQuantity: number;
+        suggestedDate: Date;
+      };
+    };
+    trends: {
+      viewsTrend: number;
+      salesTrend: number;
+      ratingTrend: number;
+    };
+  };
+  historicalData: {
+    date: string;
+    views: number;
+    sales: number;
+    revenue: number;
+  }[];
+}
+
+export interface CategoryAnalytics {
+  id: string;
+  name: string;
+  metrics: {
+    totalRevenue: number;
+    totalSales: number;
+    averageOrderValue: number;
+    productCount: number;
+    topProducts: Array<{
+      id: string;
+      name: string;
+      sales: number;
+      revenue: number;
+    }>;
+    growth: {
+      revenue: number;
+      sales: number;
+      products: number;
+    };
+    trends: {
+      daily: Array<{ date: string; revenue: number; sales: number }>;
+      weekly: Array<{ week: string; revenue: number; sales: number }>;
+      monthly: Array<{ month: string; revenue: number; sales: number }>;
+    };
+  };
+}
+
+// Add to the types.ts file
+export interface CategoryMetric {
+  id: string;
+  name: string;
+  units: number;
+  revenue: number;
+  growth: number;
+}
+
+export interface InventoryAlerts {
+  id: string;
+  productId: string;
+  productName: string;
+  type: 'low_stock' | 'out_of_stock' | 'reorder_suggested' | 'overstock';
+  currentStock: number;
+  reorderPoint: number;
+  suggestedAction: string;
+  priority: 'high' | 'medium' | 'low';
+  createdAt: Date;
+}
+
+export interface PredictiveAnalytics {
+  sales: {
+    nextMonth: {
+      predictedRevenue: number;
+      predictedOrders: number;
+      confidence: number;
+      factors: string[];
+    };
+    seasonalTrends: Array<{
+      season: string;
+      expectedGrowth: number;
+      topCategories: string[];
+    }>;
+    productProjections: Array<{
+      productId: string;
+      productName: string;
+      projectedDemand: number;
+      growthRate: number;
+      confidenceScore: number;
+    }>;
+  };
+  inventory: {
+    restockRecommendations: Array<{
+      productId: string;
+      productName: string;
+      suggestedQuantity: number;
+      recommendedDate: Date;
+      reason: string;
+    }>;
+    demandForecasts: Array<{
+      productId: string;
+      productName: string;
+      expectedDemand: number;
+      peakPeriods: string[];
+    }>;
+  };
+}
+
+export interface AIInsights {
+  overview: {
+    summary: string;
+    keyFindings: string[];
+    actionableInsights: string[];
+    riskFactors: string[];
+  };
+  productInsights: Array<{
+    productId: string;
+    productName: string;
+    insights: string[];
+    opportunities: string[];
+    risks: string[];
+    recommendations: string[];
+  }>;
+  marketTrends: {
+    emergingCategories: string[];
+    decliningCategories: string[];
+    seasonalOpportunities: string[];
+    competitiveAnalysis: string[];
+  };
+  customerBehavior: {
+    segments: Array<{
+      name: string;
+      characteristics: string[];
+      preferences: string[];
+      recommendations: string[];
+    }>;
+    buyingPatterns: string[];
+    loyaltyFactors: string[];
+  };
+}
+
+export interface PerformanceBenchmarks {
+  industry: {
+    averageRevenue: number;
+    averageOrderValue: number;
+    averageConversionRate: number;
+    topPerformerThresholds: {
+      revenue: number;
+      orderValue: number;
+      conversionRate: number;
+    };
+  };
+  competitive: {
+    marketPosition: string;
+    strengthAreas: string[];
+    improvementAreas: string[];
+    opportunities: string[];
+  };
+  historical: {
+    yearOverYear: {
+      revenueGrowth: number;
+      orderGrowth: number;
+      customerGrowth: number;
+    };
+    bestPeriods: Array<{
+      period: string;
+      revenue: number;
+      orders: number;
+      factors: string[];
+    }>;
+  };
+}
+
+export interface AutomatedRecommendations {
+  priority: Array<{
+    type: 'pricing' | 'inventory' | 'marketing' | 'product';
+    action: string;
+    impact: 'high' | 'medium' | 'low';
+    reasoning: string;
+    potentialBenefit: string;
+  }>;
+  products: Array<{
+    productId: string;
+    productName: string;
+    suggestions: Array<{
+      type: string;
+      action: string;
+      expectedImpact: string;
+    }>;
+  }>;
+  marketing: {
+    suggestedCampaigns: Array<{
+      type: string;
+      targetAudience: string;
+      timing: string;
+      expectedROI: number;
+    }>;
+    crossSellOpportunities: Array<{
+      sourceProduct: string;
+      recommendedProducts: string[];
+      conversionProbability: number;
+    }>;
+  };
+  optimization: {
+    pricing: Array<{
+      productId: string;
+      currentPrice: number;
+      suggestedPrice: number;
+      reasoning: string;
+    }>;
+    inventory: Array<{
+      productId: string;
+      action: string;
+      suggestedQuantity: number;
+      timing: string;
+    }>;
+  };
+}
+
+// Update AnalyticsDashboard interface to include new advanced features
+export interface AnalyticsDashboard extends DashboardData {
+  salesPerformance: SalesMetrics;
+  topProducts: ProductPerformanceMetrics[];
+  categoryInsights: CategoryAnalytics[];
+  inventoryAlerts: InventoryAlerts[];
+  performanceSummary: {
+    currentPeriod: {
+      revenue: number;
+      orders: number;
+      averageOrderValue: number;
+      conversionRate: number;
+    };
+    previousPeriod: {
+      revenue: number;
+      orders: number;
+      averageOrderValue: number;
+      conversionRate: number;
+    };
+    trends: {
+      revenue: number;
+      orders: number;
+      averageOrderValue: number;
+      conversionRate: number;
+    };
+  };
+  predictiveAnalytics: PredictiveAnalytics;
+  aiInsights: AIInsights;
+  benchmarks: PerformanceBenchmarks;
+  recommendations: AutomatedRecommendations;
 }

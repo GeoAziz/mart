@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Order } from '@/app/api/orders/route'; // Import the Order type
+import type { Order } from '@/lib/types'; // Import the Order type
 
 const INCOMING_STATUSES: Order['status'][] = ['pending', 'processing'];
 
@@ -64,11 +63,22 @@ export default function IncomingOrdersPage() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch orders');
+        throw new Error('Failed to fetch orders');
       }
       const data: Order[] = await response.json();
-      setAllVendorOrders(data.map(o => ({...o, createdAt: new Date(o.createdAt)})));
+      setAllVendorOrders(
+        data.map(o => ({
+          ...o,
+          createdAt:
+            o.createdAt && typeof (o.createdAt as { toDate?: unknown }).toDate === 'function'
+              ? (o.createdAt as { toDate: () => Date }).toDate()
+              : (o.createdAt instanceof Date
+                  ? o.createdAt
+                  : typeof o.createdAt === 'object' && typeof (o.createdAt as { toDate?: unknown }).toDate === 'function'
+                    ? (o.createdAt as { toDate: () => Date }).toDate()
+                    : new Date(o.createdAt as unknown as string | number)),
+        }))
+      );
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Could not load orders.', variant: 'destructive' });
@@ -155,7 +165,22 @@ export default function IncomingOrdersPage() {
                       </Link>
                     </TableCell>
                     <TableCell>{order.userFullName || 'N/A'}</TableCell>
-                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        // Firestore Timestamp compatibility
+                        let createdAtDate: Date;
+                        if (
+                          order.createdAt &&
+                          typeof order.createdAt === 'object' &&
+                          typeof (order.createdAt as { toDate?: unknown }).toDate === 'function'
+                        ) {
+                          createdAtDate = (order.createdAt as { toDate: () => Date }).toDate();
+                        } else {
+                          createdAtDate = new Date(order.createdAt as string | number | Date);
+                        }
+                        return createdAtDate.toLocaleDateString();
+                      })()}
+                    </TableCell>
                     <TableCell className="text-center">{order.items.length}</TableCell>
                     <TableCell className="text-right">{order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">

@@ -52,7 +52,7 @@ const ChartContainer = React.forwardRef<
         data-chart={chartId}
         ref={ref}
         className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
+          "flex aspect-video justify-center text-xs chart-space-bg rounded-xl shadow-xl holo-card",
           className
         )}
         {...props}
@@ -363,3 +363,51 @@ export {
   ChartLegendContent,
   ChartStyle,
 }
+
+import {
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart as RechartsLineChart,
+  BarChart as RechartsBarChart
+} from 'recharts';
+
+interface ChartProps {
+  data: any[];
+  height?: number;
+}
+
+export const LineChart: React.FC<ChartProps> = ({ data, height = 350 }) => {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <RechartsLineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Line type="monotone" dataKey="value" stroke="#8884d8" />
+      </RechartsLineChart>
+    </ResponsiveContainer>
+  );
+};
+
+export const BarChart: React.FC<ChartProps> = ({ data, height = 350 }) => {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <RechartsBarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="value" fill="#8884d8" />
+      </RechartsBarChart>
+    </ResponsiveContainer>
+  );
+};

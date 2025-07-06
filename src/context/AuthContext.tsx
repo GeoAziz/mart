@@ -190,35 +190,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     const unsubscribe = onAuthStateChanged(authClient, async (user) => {
       setLoading(true);
-      setCurrentUser(user);
-      if (user) {
-        const profile = await fetchAndSetUserProfile(user);
-        let vendorSettings = null;
-        if (profile && profile.role === 'vendor') {
-          try {
-            const token = await user.getIdToken();
-            const res = await fetch('/api/vendors/me/settings', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) vendorSettings = await res.json();
-          } catch {}
+      try {
+        setCurrentUser(user);
+        if (user) {
+          // Set user properties in analytics
+          // (analytics integration is not configured)
+          // If you want to use analytics, import and initialize it above.
+
+          const profile = await fetchAndSetUserProfile(user);
+          let vendorSettings = null;
+          
+          if (profile && profile.role === 'vendor') {
+            try {
+              const token = await user.getIdToken();
+              const res = await fetch('/api/vendors/me/settings', { 
+                headers: { 
+                  'Authorization': `Bearer ${token}`,
+                  'Cache-Control': 'no-cache'
+                } 
+              });
+              if (res.ok) {
+                vendorSettings = await res.json();
+              } else {
+                console.warn('Failed to fetch vendor settings:', await res.text());
+              }
+            } catch (error) {
+              console.error('Error fetching vendor settings:', error);
+            }
+          }
+          
+          // Only fetch cart/wishlist for customers
+          await fetchCart(user, profile);
+          await fetchWishlist(user, profile);
+          
+          // Guard against infinite redirect loop
+          if (
+            profile &&
+            needsVendorOnboarding(profile, vendorSettings) &&
+            window.location.pathname !== '/vendor/onboarding'
+          ) {
+            window.location.href = '/vendor/onboarding';
+          }
+        } else {
+          setUserProfile(null);
+          setCart([]);
+          setWishlistItems([]);
+          setAppliedPromotion(null);
         }
-        // Only fetch cart/wishlist for customers
-        await fetchCart(user, profile);
-        await fetchWishlist(user, profile);
-        // Guard against infinite redirect loop
-        if (
-          profile &&
-          needsVendorOnboarding(profile, vendorSettings) &&
-          window.location.pathname !== '/vendor/onboarding'
-        ) {
-          window.location.href = '/vendor/onboarding';
-        }
-      } else {
-        setUserProfile(null);
-        setCart([]);
-        setWishlistItems([]);
-        setAppliedPromotion(null);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error in onAuthStateChanged:', error);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, [fetchAndSetUserProfile, fetchCart, fetchWishlist]);

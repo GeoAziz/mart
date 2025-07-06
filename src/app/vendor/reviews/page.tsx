@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,19 +7,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Star, MessageSquare, Send, Filter, ThumbsUp, ThumbsDown, Loader2, Inbox } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
+import { format } from 'date-fns';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
-import type { Review as ReviewType } from '@/app/api/vendors/me/reviews/route'; // Import type
+import { convertToDate } from '@/types/firebase';
+import type { Review } from '@/types/review';
 
-const calculateAverageRating = (reviews: ReviewType[]) => {
+// Add timestamp conversion utility
+const calculateAverageRating = (reviews: Review[]) => {
   if (reviews.length === 0) return 0;
   const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
   return parseFloat((totalRating / reviews.length).toFixed(1));
 };
 
 export default function VendorReviewsPage() {
-  const [reviews, setReviews] = useState<ReviewType[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -41,15 +51,13 @@ export default function VendorReviewsPage() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch reviews');
+        throw new Error('Failed to fetch reviews');
       }
-      const data: ReviewType[] = await response.json();
-      // Ensure dates are Date objects
+      const data: Review[] = await response.json();
       setReviews(data.map(r => ({
         ...r,
-        createdAt: new Date(r.createdAt),
-        repliedAt: r.repliedAt ? new Date(r.repliedAt) : undefined,
+        createdAt: convertToDate(r.createdAt),
+        repliedAt: r.repliedAt ? convertToDate(r.repliedAt) : undefined,
       })));
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -66,6 +74,7 @@ export default function VendorReviewsPage() {
   const averageRating = calculateAverageRating(reviews);
 
   const handleReplyToggle = (reviewId: string) => {
+    if (!reviewId) return;
     setReplyingTo(replyingTo === reviewId ? null : reviewId);
     setReplyText(reviews.find(r => r.id === reviewId)?.reply || '');
   };
@@ -89,10 +98,10 @@ export default function VendorReviewsPage() {
         throw new Error(errorData.message || 'Failed to post reply');
       }
       
-      const updatedReview: ReviewType = await response.json();
+      const updatedReview: Review = await response.json();
       setReviews(prevReviews =>
         prevReviews.map(review =>
-          review.id === reviewId ? { ...updatedReview, createdAt: new Date(updatedReview.createdAt), repliedAt: updatedReview.repliedAt ? new Date(updatedReview.repliedAt) : undefined } : review
+          review.id === reviewId ? { ...updatedReview, createdAt: convertToDate(updatedReview.createdAt), repliedAt: updatedReview.repliedAt ? convertToDate(updatedReview.repliedAt) : undefined } : review
         )
       );
       toast({ title: 'Reply Posted', description: 'Your reply has been successfully posted.' });
@@ -155,7 +164,7 @@ export default function VendorReviewsPage() {
                             <div>
                                 <CardTitle className="text-md font-semibold text-foreground">{review.customerName || 'Anonymous User'}</CardTitle>
                                 <CardDescription className="text-xs text-muted-foreground">
-                                Reviewed <Link href={`/products/${review.productId}`} className="text-primary hover:underline" target="_blank">{review.productName}</Link> on {new Date(review.createdAt).toLocaleDateString()}
+                                Reviewed <Link href={`/products/${review.productId}`} className="text-primary hover:underline" target="_blank">{review.productName || 'Product ' + review.productId}</Link> on {convertToDate(review.createdAt).toLocaleDateString()}
                                 </CardDescription>
                             </div>
                         </div>
@@ -169,18 +178,27 @@ export default function VendorReviewsPage() {
                   <CardContent className="pb-4">
                     <p className="text-sm text-foreground/90 leading-relaxed">{review.comment}</p>
                   </CardContent>
+                  <div className="px-4 pb-4">
+                    {/* <Badge variant="outline" className="text-accent border-accent/50">
+                      {review.status}
+                    </Badge> */}
+                  </div>
                   <CardFooter className="flex flex-col items-start gap-3 pt-3 border-t border-border/50">
                     {review.reply && (
                       <div className="w-full p-3 bg-muted/70 rounded-md border border-primary/30">
                         <div className="flex justify-between items-center mb-1">
                           <p className="text-sm font-semibold text-primary">Your Reply:</p>
-                          {review.repliedAt && <p className="text-xs text-muted-foreground/70">Replied on: {new Date(review.repliedAt).toLocaleDateString()}</p>}
+                          {review.repliedAt && (
+                            <p className="text-xs text-muted-foreground/70">
+                              Replied on: {convertToDate(review.repliedAt).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground whitespace-pre-line">{review.reply}</p>
                       </div>
                     )}
                     {replyingTo !== review.id && (
-                      <Button variant="outline" size="sm" onClick={() => handleReplyToggle(review.id)} className="text-accent border-accent hover:bg-accent hover:text-accent-foreground">
+                      <Button variant="outline" size="sm" onClick={() => handleReplyToggle(review.id ?? '')} className="text-accent border-accent hover:bg-accent hover:text-accent-foreground">
                         <MessageSquare className="mr-2 h-4 w-4" /> {review.reply ? 'Edit Reply' : 'Reply to Review'}
                       </Button>
                     )}
@@ -199,8 +217,8 @@ export default function VendorReviewsPage() {
                           disabled={isSubmittingReply}
                         />
                         <div className="flex justify-end space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleReplyToggle(review.id)} disabled={isSubmittingReply}>Cancel</Button>
-                          <Button size="sm" onClick={() => handlePostReply(review.id)} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingReply || !replyText.trim()}>
+                          <Button variant="ghost" size="sm" onClick={() => review.id && handleReplyToggle(review.id)} disabled={isSubmittingReply}>Cancel</Button>
+                          <Button size="sm" onClick={() => review.id && handlePostReply(review.id)} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingReply || !replyText.trim()}>
                             {isSubmittingReply ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                             {isSubmittingReply ? 'Submitting...' : (review.reply ? 'Update Reply' : 'Post Reply')}
                           </Button>

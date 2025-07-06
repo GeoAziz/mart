@@ -1,10 +1,10 @@
-
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import type { Payout, LedgerEntry } from '@/lib/types';
+export type { Payout };
 
 function safeParseDate(value: any): Date | undefined {
     if (!value) return undefined;
@@ -28,6 +28,9 @@ function mapPayoutDocument(doc: FirebaseFirestore.DocumentSnapshot): Payout {
 async function getVendorPayoutsHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
   try {
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
+    }
     const payoutsSnapshot = await firestoreAdmin
       .collection('payouts')
       .where('vendorId', '==', vendorId)
@@ -50,6 +53,9 @@ const requestPayoutSchema = z.object({
 async function requestPayoutHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
   try {
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
+    }
     const body = await req.json();
     const validationResult = requestPayoutSchema.safeParse(body);
 

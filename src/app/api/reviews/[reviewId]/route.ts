@@ -1,10 +1,10 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
-import type { Review } from '../../vendors/me/reviews/route'; // Import Review type
+import type { Review } from '@/types/review';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { convertToDate } from '@/types/firebase';
 
 
 // PUT handler to update a review (e.g., add a reply)
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest, { params }: { params: { reviewId
         customerInitials: data.customerInitials,
         rating: data.rating,
         comment: data.comment,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+        createdAt: convertToDate(data.createdAt),
         reply: data.reply,
-        repliedAt: data.repliedAt ? (data.repliedAt.toDate ? data.repliedAt.toDate() : new Date(data.repliedAt)) : undefined,
+        repliedAt: data.repliedAt ? convertToDate(data.repliedAt) : undefined,
     };
     return NextResponse.json(review);
   } catch (error) {

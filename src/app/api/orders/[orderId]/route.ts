@@ -1,21 +1,47 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware'; 
 import type { Order, LedgerEntry } from '@/lib/types';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 
-const ALLOWED_ORDER_STATUSES_FOR_UPDATE: Order['status'][] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-const COMMISSION_RATE = 0.10; // 10% platform commission
+// Define OrderTracking type if not already imported
+type OrderTracking = {
+  status: Order['status'];
+  timestamp: Date;
+  note: string;
+  updatedBy: string;
+};
+
+const ALLOWED_ORDER_STATUSES_FOR_UPDATE: Order['status'][] = [
+  'pending',
+  'processing',
+  'shipped',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+  'refunded',
+  'partially_refunded'
+];
+
+const ADMIN_ONLY_STATUSES: Order['status'][] = [
+  'refunded',
+  'partially_refunded'
+];
+
+const VENDOR_ALLOWED_STATUSES: Order['status'][] = [
+  'processing',
+  'shipped',
+  'delivered'
+];
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
   const data = doc.data() as Omit<Order, 'id'>;
   return {
     id: doc.id,
     ...data,
-    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt),
     items: data.items || [],
     vendorIds: data.vendorIds || [],
   };
@@ -74,63 +100,91 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
   }
 
   try {
-    const body = await req.json() as { status: Order['status'] };
-    const newStatus = body.status;
+    const body = await req.json() as { status: Order['status'], note?: string };
+    const { status, note } = body;
 
-    if (!newStatus || !ALLOWED_ORDER_STATUSES_FOR_UPDATE.includes(newStatus)) {
+    if (!status || !ALLOWED_ORDER_STATUSES_FOR_UPDATE.includes(status)) {
       return NextResponse.json({ message: `Invalid status value.`, status: 400 });
+    }
+
+    // Admin can update to any status
+    if (authenticatedUser.role !== 'admin') {
+      if (ADMIN_ONLY_STATUSES.includes(status)) {
+        return NextResponse.json({ message: 'This status update requires admin privileges.' }, { status: 403 });
+      }
     }
 
     const orderDocRef = firestoreAdmin.collection('orders').doc(orderId);
     
     await firestoreAdmin.runTransaction(async (transaction) => {
-        const orderDocSnap = await transaction.get(orderDocRef);
-        if (!orderDocSnap.exists) {
-            throw new Error('Order not found.');
+      const orderDocSnap = await transaction.get(orderDocRef);
+      if (!orderDocSnap.exists) {
+        throw new Error('Order not found.');
+      }
+      
+      const orderData = mapOrderDocument(orderDocSnap);
+
+      // Authorization checks
+      if (authenticatedUser.role === 'vendor') {
+        // Vendor can only update their own items' status
+        if (!orderData.vendorIds?.includes(authenticatedUser.uid)) {
+          throw new Error('Forbidden: This order does not contain items from your store.');
         }
-        
-        const orderData = mapOrderDocument(orderDocSnap);
-
-        // Authorization logic remains the same
-        if (authenticatedUser.role === 'vendor') {
-          // ... (existing vendor authorization logic)
-        } else if (authenticatedUser.role !== 'admin') {
-            throw new Error('Forbidden: You do not have permission to update this order status.');
+        // Vendors can only update to certain statuses
+        if (!VENDOR_ALLOWED_STATUSES.includes(status)) {
+          throw new Error('Forbidden: Vendors cannot set this status.');
         }
+      } else if (authenticatedUser.role !== 'admin') {
+        throw new Error('Forbidden: You do not have permission to update order status.');
+      }
 
-        // --- NEW FINANCIAL LOGIC ---
-        // If order is being marked as 'delivered', create ledger entries for vendor earnings
-        if (newStatus === 'delivered' && orderData.status !== 'delivered') {
-          for (const item of orderData.items) {
-            if (item.vendorId) {
-              const grossSaleAmount = item.price * item.quantity;
-              const commissionAmount = grossSaleAmount * COMMISSION_RATE;
-              const netAmount = grossSaleAmount - commissionAmount;
+      // Add tracking entry
+      const tracking: OrderTracking = {
+        status,
+        timestamp: new Date(),
+        note: note || `Status updated to ${status}`,
+        updatedBy: authenticatedUser.uid,
+      };
 
-              const ledgerEntry: Omit<LedgerEntry, 'id'> = {
-                vendorId: item.vendorId,
-                type: 'sale_credit',
-                amount: grossSaleAmount,
-                commissionRate: COMMISSION_RATE,
-                commissionAmount: commissionAmount,
-                netAmount: netAmount,
-                orderId: orderId,
-                productId: item.productId,
-                createdAt: new Date(),
-                description: `Sale of ${item.quantity} x ${item.name}`,
-              };
+      // If order is being delivered, create financial transactions
+      if (status === 'delivered' && orderData.status !== 'delivered') {
+        for (const item of orderData.items) {
+          if (item.vendorId) {
+            const grossSaleAmount = item.price * item.quantity;
+            const commissionAmount = grossSaleAmount * 0.10; // 10% platform fee
+            const netAmount = grossSaleAmount - commissionAmount;
 
-              const ledgerRef = firestoreAdmin.collection('users').doc(item.vendorId).collection('ledgerEntries').doc();
-              transaction.set(ledgerRef, ledgerEntry);
-            }
+            // Create ledger entry for the vendor
+            const ledgerEntry = {
+              vendorId: item.vendorId,
+              type: 'sale_credit',
+              amount: grossSaleAmount,
+              commissionRate: 0.10,
+              commissionAmount,
+              netAmount,
+              orderId,
+              productId: item.productId,
+              createdAt: new Date(),
+              description: `Sale of ${item.quantity}x ${item.name}`,
+            };
+
+            const ledgerRef = firestoreAdmin
+              .collection('users')
+              .doc(item.vendorId)
+              .collection('ledgerEntries')
+              .doc();
+
+            transaction.set(ledgerRef, ledgerEntry);
           }
         }
+      }
 
-        // Update the order status
-        transaction.update(orderDocRef, {
-          status: newStatus,
-          updatedAt: new Date(),
-        });
+      // Update the order
+      transaction.update(orderDocRef, {
+        status,
+        statusHistory: FieldValue.arrayUnion(tracking),
+        updatedAt: new Date(),
+      });
     });
 
     const updatedOrderSnap = await orderDocRef.get();
@@ -140,9 +194,16 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
 
   } catch (error: any) {
     console.error(`Error updating status for order ${orderId}:`, error);
-    if (error.message.includes('Forbidden')) return NextResponse.json({ message: error.message }, { status: 403 });
-    if (error.message.includes('Order not found')) return NextResponse.json({ message: error.message }, { status: 404 });
-    return NextResponse.json({ message: 'Internal Server Error while updating order status.' }, { status: 500 });
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json({ message: error.message }, { status: 403 });
+    }
+    if (error.message.includes('Order not found')) {
+      return NextResponse.json({ message: error.message }, { status: 404 });
+    }
+    return NextResponse.json(
+      { message: 'Internal Server Error while updating order status.' },
+      { status: 500 }
+    );
   }
 }
 

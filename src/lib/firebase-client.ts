@@ -24,8 +24,7 @@ export const isFirebaseConfigured = !!(
 let app: FirebaseApp;
 let authClient: Auth;
 let db: Firestore;
-let analytics: Analytics | null = null;
-
+let analytics: Analytics | undefined;
 
 if (isFirebaseConfigured) {
     if (getApps().length === 0) {
@@ -37,17 +36,18 @@ if (isFirebaseConfigured) {
     authClient = getAuth(app);
     db = getFirestore(app);
 
-    // Initialize Analytics only on the client side and if measurementId is present
-    if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+    // Only initialize analytics in production and on client side
+    if (typeof window !== 'undefined') {
       try {
         analytics = getAnalytics(app);
+        console.log('Analytics initialized successfully');
       } catch (error) {
-        console.warn("Firebase Analytics initialization failed:", error);
+        console.warn('Analytics initialization failed:', error);
+        analytics = undefined;
       }
     }
 } else {
-    console.warn("Firebase is not configured. The app will show setup instructions.");
-    // Assign dummy objects to prevent crashes if code is somehow accessed
+    console.warn("Firebase is not configured.");
     app = {} as FirebaseApp;
     authClient = {} as Auth;
     db = {} as Firestore;

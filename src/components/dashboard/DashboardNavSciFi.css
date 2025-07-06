@@ -1,0 +1,27 @@
+```css
+/* Add sci-fi nav and icon styles */
+.sci-fi-glow {
+  text-shadow: 0 0 6px #00ffe7, 0 0 2px #00ffe7;
+}
+.sci-fi-nav-item {
+  transition: box-shadow 0.2s, transform 0.2s;
+  box-shadow: 0 0 0 transparent;
+}
+.sci-fi-nav-item:hover, .sci-fi-nav-item:focus {
+  box-shadow: 0 0 8px 2px #00ffe7aa;
+  background: linear-gradient(90deg, #0f2027 0%, #2c5364 100%);
+  color: #00ffe7;
+}
+.sci-fi-icon {
+  filter: drop-shadow(0 0 4px #00ffe7cc);
+  transition: filter 0.2s, transform 0.2s;
+}
+.sci-fi-nav-item:hover .sci-fi-icon, .sci-fi-nav-item:focus .sci-fi-icon {
+  filter: drop-shadow(0 0 8px #00ffe7ff);
+  transform: scale(1.15) rotate(-6deg);
+}
+.sci-fi-bottom-nav {
+  box-shadow: 0 0 16px 2px #00ffe733;
+  backdrop-filter: blur(8px);
+}
+```

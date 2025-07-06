@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react'; 
@@ -27,6 +26,7 @@ import {
 import Logo from '@/components/layout/Logo';
 import { UserCircle, LogOut as LogOutIcon, Loader2 } from 'lucide-react'; // Renamed LogOut to LogOutIcon
 import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import './DashboardNavSciFi.css'; // Add sci-fi styles
 
 export interface NavItem {
   href: string;
@@ -81,14 +81,14 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
     }).filter(item => item !== null) as NavItem[]; // Type assertion after filtering nulls
   }, [navItems, userProfile]);
 
+  // Responsive bottom nav for mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <>
-      <Sidebar collapsible="icon" className="border-r border-border">
+      <Sidebar collapsible="icon" className="border-r border-border shadow-lg transition-all duration-300">
         <SidebarHeader className="p-4 items-center justify-between">
-           <div className={cn("transition-opacity duration-200", !open && "opacity-0 pointer-events-none delay-0", open && "opacity-100 delay-200")}>
-            <Logo />
-          </div>
+           <div className={cn("transition-opacity duration-200", !open && "opacity-0 pointer-events-none delay-0", open && "opacity-100 delay-200")}> <Logo /> </div>
           <SidebarTrigger className={cn(open && "hidden")} />
         </SidebarHeader>
         <SidebarContent className="p-2">
@@ -108,7 +108,7 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
                   <React.Fragment key={`section-${item.sectionTitle}-${index}`}>
                     {/* Add separator only if it's not the first item and the previous item was not a section title or had content */}
                     {index > 0 && (filteredNavItems[index-1] && (!filteredNavItems[index-1].sectionTitle || filteredNavItems[index-1].href !== "#" || (filteredNavItems[index-1].subItems && filteredNavItems[index-1].subItems!.length > 0) )) && <SidebarSeparator className="my-2" />}
-                    <SidebarGroupLabel className={cn("px-2 pt-2 pb-1 text-xs uppercase text-muted-foreground", !open && "hidden")}>
+                    <SidebarGroupLabel className={cn("px-2 pt-2 pb-1 text-xs uppercase text-muted-foreground tracking-widest sci-fi-glow", !open && "hidden")}>
                         {item.sectionTitle}
                     </SidebarGroupLabel>
                   </React.Fragment>
@@ -123,9 +123,10 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
                     asChild 
                     isActive={pathname === item.href || (item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)))}
                     tooltip={{children: item.label, hidden: open }}
+                    className="transition-all duration-200 hover:scale-105 hover:bg-accent/20 hover:text-accent sci-fi-nav-item"
                   >
                     <Link href={item.href === "#" && item.subItems && item.subItems.length > 0 ? item.subItems[0].href : item.href}>
-                      <item.icon />
+                      <span className="sci-fi-icon group-hover:animate-pulse"><item.icon /></span>
                       <span className={cn(!open && "hidden")}>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -135,7 +136,7 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
                         <SidebarMenuSubItem key={subItem.href}>
                           <SidebarMenuSubButton asChild isActive={pathname.startsWith(subItem.href)}>
                             <Link href={subItem.href}>
-                              <subItem.icon />
+                              <span className="sci-fi-icon group-hover:animate-pulse"><subItem.icon /></span>
                               {subItem.label}
                             </Link>
                           </SidebarMenuSubButton>
@@ -174,6 +175,12 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
            )}
         </SidebarFooter>
       </Sidebar>
+      {/* Responsive bottom nav for mobile */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 border-t border-border flex justify-around py-2 sci-fi-bottom-nav">
+        {filteredNavItems.filter(item => !item.sectionTitle && item.href !== "#").slice(0,5).map(item => (
+          <Link key={item.href} href={item.href} className={cn("flex flex-col items-center text-xs px-2 py-1 transition-all duration-200 hover:text-accent", pathname === item.href && "text-accent font-bold")}> <span className="sci-fi-icon mb-1"><item.icon className="h-5 w-5" /></span> {item.label} </Link>
+        ))}
+      </div>
       <SidebarInset className="bg-background">
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur px-6 shadow-sm">
             <SidebarTrigger className={cn("md:hidden", !open && "md:inline-flex")}/>

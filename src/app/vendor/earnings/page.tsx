@@ -1,13 +1,12 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Clock, Banknote, Download, BarChart3, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+import { DollarSign, Clock, Banknote, Download, BarChart3, TrendingUp, Loader2, AlertCircle, Wallet, Receipt, CreditCard, Coins } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import type { Payout } from '@/app/api/vendors/me/payouts/route'; // Import Payout type
@@ -37,7 +36,11 @@ const StatCard = ({ title, value, icon, trend, period, isLoading }: { title: str
       ) : (
         <>
           <div className="text-2xl font-bold text-glow-primary">{value}</div>
-          {trend && <p className={`text-xs ${trend.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>{trend} {period || 'vs. last month'}</p>}
+          {trend && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {trend} {period && <span className="text-muted-foreground/50">· {period}</span>}
+            </p>
+          )}
         </>
       )}
     </CardContent>
@@ -78,8 +81,7 @@ export default function VendorEarningsPage() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch earnings summary.');
+        throw new Error('Failed to fetch earnings summary');
       }
       const data: EarningsSummary = await response.json();
       setEarningsSummary(data);
@@ -106,7 +108,7 @@ export default function VendorEarningsPage() {
         throw new Error(errorData.message || 'Failed to fetch payout history.');
       }
       const data: Payout[] = await response.json();
-      setPayouts(data.map(p => ({...p, date: new Date(p.date), requestedAt: new Date(p.requestedAt), processedAt: p.processedAt ? new Date(p.processedAt) : undefined })));
+      setPayouts(data);
     } catch (error) {
       console.error("Error fetching payouts:", error);
       setErrorPayouts(error instanceof Error ? error.message : "Could not load payout history.");
@@ -158,131 +160,127 @@ export default function VendorEarningsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          title="Total Earnings (All Time)"
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard 
+          title="Total Earnings"
           value={formatCurrency(earningsSummary?.totalAllTimeEarnings)}
-          icon={<DollarSign className="h-5 w-5 text-green-400"/>}
+          icon={<DollarSign className="h-4 w-4 text-primary" />}
           isLoading={isLoadingSummary}
         />
-        <StatCard
-          title="Current Available Balance"
+        <StatCard 
+          title="Current Balance"
           value={formatCurrency(earningsSummary?.currentBalance)}
-          icon={<Clock className="h-5 w-5 text-yellow-400"/>}
+          icon={<Wallet className="h-4 w-4 text-primary" />}
           isLoading={isLoadingSummary}
         />
-        <StatCard
-          title="Last Payout Amount"
+        <StatCard 
+          title="Last Payout"
           value={formatCurrency(earningsSummary?.lastPayoutAmount)}
-          icon={<Banknote className="h-5 w-5 text-blue-400"/>}
-          period={earningsSummary?.lastPayoutDate ? `on ${new Date(earningsSummary.lastPayoutDate).toLocaleDateString()}` : ''}
+          icon={<CreditCard className="h-4 w-4 text-primary" />}
+          period={earningsSummary?.lastPayoutDate ? new Date(earningsSummary.lastPayoutDate).toLocaleDateString() : 'No payouts yet'}
           isLoading={isLoadingSummary}
         />
+        <Card className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Request Payout</CardTitle>
+            <Button
+              onClick={handleRequestPayout}
+              disabled={isRequestingPayout || !earningsSummary?.currentBalance || earningsSummary.currentBalance <= 0}
+              className="w-full"
+            >
+              {isRequestingPayout ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Request Payout
+                </>
+              )}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              {earningsSummary?.currentBalance && earningsSummary.currentBalance > 0
+                ? 'Click to request a payout of your current balance'
+                : 'No balance available for payout'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Earnings Chart */}
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
-          <CardTitle className="text-xl font-headline text-glow-accent flex items-center">
-            <BarChart3 className="mr-3 h-5 w-5 text-accent" /> Earnings Trend
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">Your earnings performance over recent months.</CardDescription>
+          <CardTitle>Monthly Earnings</CardTitle>
+          <CardDescription>Your earnings over the last 6 months</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingSummary ? (
-            <div className="h-[350px] flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>
-          ) : errorSummary ? (
-             <div className="h-[350px] flex flex-col justify-center items-center text-destructive">
-                <AlertCircle className="h-8 w-8 mb-2"/>
-                <p>Could not load chart data: {errorSummary}</p>
+            <div className="flex justify-center items-center h-[300px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : !earningsSummary || earningsSummary.earningsChartData.length === 0 ? (
-            <div className="h-[350px] flex flex-col justify-center items-center text-muted-foreground">
-                <TrendingUp className="h-12 w-12 mb-4"/>
-                <p>No earnings data available yet to display a chart.</p>
-            </div>
-          ) : (
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={earningsSummary.earningsChartData}
-                margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(value) => `KSh ${value/1000}k`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--popover-foreground))', borderRadius: 'var(--radius)'}}
-                  itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                  cursor={{ fill: 'hsl(var(--accent) / 0.2)' }}
-                  formatter={(value: number) => [formatCurrency(value), "Earnings"]}
+          ) : earningsSummary?.earningsChartData ? (
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={earningsSummary.earningsChartData}>
+                <XAxis dataKey="month" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `KSh${value}`} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,255,255,0.1)' }}
+                  contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                  labelStyle={{ color: '#e5e7eb' }}
+                  formatter={(value: number) => [`KSh${value.toLocaleString()}`, 'Earnings']}
                 />
-                <Legend wrapperStyle={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, paddingTop: '10px' }} />
-                <Line type="monotone" dataKey="earnings" stroke="hsl(var(--chart-1))" strokeWidth={2} activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'hsl(var(--card))' }} dot={{fill: 'hsl(var(--chart-1))', r:3}}/>
-              </LineChart>
+                <Bar dataKey="earnings" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          </div>
+          ) : (
+            <div className="flex justify-center items-center h-[300px] text-muted-foreground">
+              No earnings data available
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Recent Payouts Table */}
       <Card className="bg-card border-border shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-headline text-glow-accent flex items-center">
-              <Banknote className="mr-3 h-5 w-5 text-accent" /> Payout History
-            </CardTitle>
-            <CardDescription className="text-muted-foreground"> View your past and pending payouts. </CardDescription>
-          </div>
-           <Button onClick={handleRequestPayout} className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary" disabled={isLoadingSummary || isRequestingPayout || (earningsSummary?.currentBalance || 0) <= 0}>
-            {isRequestingPayout ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <DollarSign className="mr-2 h-5 w-5" />}
-            {isRequestingPayout ? 'Requesting...' : 'Request Payout'}
-          </Button>
+        <CardHeader>
+          <CardTitle>Recent Payouts</CardTitle>
+          <CardDescription>History of your payout requests</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingPayouts ? (
-            <div className="text-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto"/> <p className="mt-2 text-muted-foreground">Loading payout history...</p></div>
-          ) : errorPayouts ? (
-            <div className="text-center py-12 text-destructive"><AlertCircle className="h-8 w-8 mx-auto mb-2"/> <p>{errorPayouts}</p></div>
+            <div className="flex justify-center items-center h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : payouts.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date Requested</TableHead>
-                  <TableHead>Payout Date</TableHead>
-                  <TableHead className="text-right">Amount (KSh)</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payouts.map((payout) => (
-                  <TableRow key={payout.id} className="hover:bg-muted/50">
-                    <TableCell>{new Date(payout.requestedAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{payout.status === 'Completed' && payout.processedAt ? new Date(payout.processedAt).toLocaleDateString() : 'N/A'}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(payout.amount)}</TableCell>
-                    <TableCell className="text-center">
+                {payouts.map(payout => (
+                  <TableRow key={payout.id}>
+                    <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
+                    <TableCell>KSh {payout.amount.toLocaleString()}</TableCell>
+                    <TableCell>{payout.method}</TableCell>
+                    <TableCell>
                       <Badge variant="outline" className={getStatusBadgeVariant(payout.status)}>
                         {payout.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>{payout.method}</TableCell>
-                    <TableCell className="text-xs">{payout.transactionId || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10" onClick={() => toast({title: "Coming Soon", description: "Downloadable statements will be available soon."})}>
-                        <Download className="mr-1 h-4 w-4" /> Statement
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <Banknote className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
-              <p className="text-xl font-semibold text-muted-foreground">No payout history found.</p>
-              <p className="text-sm text-muted-foreground">Your completed payouts will appear here.</p>
+            <div className="text-center py-4 text-muted-foreground">
+              No payout history available
             </div>
           )}
         </CardContent>

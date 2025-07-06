@@ -2,8 +2,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
-import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
-import type { Timestamp } from 'firebase-admin/firestore';
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import type { UserProfile } from '@/lib/types';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export interface VendorSettings {
   storeName?: string;
@@ -16,6 +17,9 @@ export interface VendorSettings {
   socialTwitter?: string;
   socialInstagram?: string;
   payoutMpesaNumber?: string;
+  reviewNotifications?: boolean;
+  useAutoReply?: boolean;
+  autoReplyMessage?: string;
   updatedAt?: Timestamp | Date;
 }
 
@@ -38,6 +42,9 @@ async function getVendorSettingsHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore admin is not initialized.' }, { status: 500 });
+    }
     const settingsDocRef = firestoreAdmin.collection('vendorSettings').doc(vendorId);
     const settingsDocSnap = await settingsDocRef.get();
 
@@ -85,6 +92,9 @@ async function updateVendorSettingsHandler(req: AuthenticatedRequest) {
       updatedAt: new Date(), // Firestore will convert to Timestamp
     };
 
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore admin is not initialized.' }, { status: 500 });
+    }
     const settingsDocRef = firestoreAdmin.collection('vendorSettings').doc(vendorId);
     // Use set with merge: true to create if not exists or update if exists
     await settingsDocRef.set(settingsDataToUpdate, { merge: true });
