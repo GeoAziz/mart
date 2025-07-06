@@ -27,7 +27,6 @@ const nextConfig: NextConfig = {
   // Server-side packages
   experimental: {
     serverActions: {},
-    serverExternalPackages: ['firebase-admin']
   },
   
   webpack: (config, { isServer }) => {
