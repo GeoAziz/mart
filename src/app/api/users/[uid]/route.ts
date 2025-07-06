@@ -2,7 +2,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin, firebaseAdminAuth } from '@/lib/firebase-admin';
-import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import type { UserProfile } from '@/lib/types';
 import type { Timestamp } from 'firebase-admin/firestore';
 
 

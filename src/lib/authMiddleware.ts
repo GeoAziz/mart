@@ -8,6 +8,8 @@ export interface AuthenticatedRequest extends NextRequest {
   userProfile: UserProfile; // Your Firestore user profile
 }
 
+export type { UserProfile };
+
 type ApiHandler = (req: AuthenticatedRequest, context: { params: any }) => Promise<NextResponse> | NextResponse;
 
 

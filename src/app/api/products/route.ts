@@ -1,9 +1,8 @@
-
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
 import type { NextRequest } from 'next/server'; // Ensure NextRequest is imported
-import type { Product, ProductStatus } from '@/lib/types';
+export type Product = import('@/lib/types').Product;
 import type { Timestamp } from 'firebase-admin/firestore';
 
 // Helper to map Firestore doc to a client-friendly Product type
@@ -19,8 +18,24 @@ function mapProductDocument(doc: FirebaseFirestore.DocumentSnapshot): Product {
     imageUrl: data.imageUrl || 'https://placehold.co/400x300/cccccc/E0E0E0?text=No+Image',
     additionalImageUrls: data.additionalImageUrls || [],
     brand: data.brand || 'Unknown Brand',
-    dateAdded: data.dateAdded?.toDate ? data.dateAdded.toDate() : new Date(data.dateAdded || Date.now()),
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt || Date.now()),
+    dateAdded: data.dateAdded instanceof Date
+      ? data.dateAdded
+      : (data.dateAdded && typeof (data.dateAdded as Timestamp).toDate === 'function'
+          ? (data.dateAdded as Timestamp).toDate()
+          : new Date(
+              typeof data.dateAdded === 'string' || typeof data.dateAdded === 'number'
+                ? data.dateAdded
+                : Date.now()
+            )),
+    updatedAt: data.updatedAt instanceof Date
+      ? data.updatedAt
+      : (data.updatedAt && typeof data.updatedAt.toDate === 'function'
+          ? data.updatedAt.toDate()
+          : new Date(
+              typeof data.updatedAt === 'string' || typeof data.updatedAt === 'number'
+                ? data.updatedAt
+                : Date.now()
+            )),
     dataAiHint: data.dataAiHint || data.category?.toLowerCase().split(' ')[0] || "product",
     vendorId: data.vendorId,
     status: data.status || 'pending_approval',
@@ -75,8 +90,20 @@ export async function GET(request: NextRequest) {
             case 'price-desc':
                 return b.price - a.price;
             case 'newest':
-                const dateA = a.dateAdded instanceof Date ? a.dateAdded.getTime() : new Date(a.dateAdded || 0).getTime();
-                const dateB = b.dateAdded instanceof Date ? b.dateAdded.getTime() : new Date(b.dateAdded || 0).getTime();
+                const dateA = a.dateAdded instanceof Date
+                    ? a.dateAdded.getTime()
+                    : (a.dateAdded && typeof (a.dateAdded as any).toDate === 'function'
+                        ? (a.dateAdded as any).toDate().getTime()
+                        : (typeof a.dateAdded === 'string' || typeof a.dateAdded === 'number'
+                            ? new Date(a.dateAdded).getTime()
+                            : 0));
+                const dateB = b.dateAdded instanceof Date
+                    ? b.dateAdded.getTime()
+                    : (b.dateAdded && typeof (b.dateAdded as any).toDate === 'function'
+                        ? (b.dateAdded as any).toDate().getTime()
+                        : (typeof b.dateAdded === 'string' || typeof b.dateAdded === 'number'
+                            ? new Date(b.dateAdded).getTime()
+                            : 0));
                 return dateB - dateA;
             case 'rating':
                 return (b.rating || 0) - (a.rating || 0);

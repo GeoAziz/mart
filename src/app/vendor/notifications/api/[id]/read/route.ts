@@ -7,7 +7,6 @@ export const PUT = withAuth(
   async (req: AuthenticatedRequest, { params }: { params: { id: string } }) => {
     try {
       const notificationRef = db
-        .firestore()
         .collection('vendors')
         .doc(req.userProfile.uid)
         .collection('notifications')

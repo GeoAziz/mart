@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
-import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import type { UserProfile } from '@/lib/types';
 import type { Product } from '@/app/api/products/route'; // Assuming Product type is exported from here
 
 async function getVendorProductsHandler(req: AuthenticatedRequest) {
@@ -35,6 +36,7 @@ async function getVendorProductsHandler(req: AuthenticatedRequest) {
         dataAiHint: data.dataAiHint || data.category?.toLowerCase().split(' ')[0] || "product",
         vendorId: data.vendorId,
         sku: data.sku || '', // Ensure SKU is part of the Product type if used
+        status: data.status || 'active', // Default to 'active' or another appropriate default
       };
     });
     return NextResponse.json(products);

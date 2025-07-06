@@ -2,9 +2,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin, firebaseAdminAuth } from '@/lib/firebase-admin';
-import { withAuth, type AuthenticatedRequest, type UserProfile, type Role } from '@/lib/authMiddleware';
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import type { UserProfile, Role } from '@/lib/types';
 import { z } from 'zod';
-import type { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 
 const createUserSchema = z.object({
   email: z.string().email("Invalid email address."),
