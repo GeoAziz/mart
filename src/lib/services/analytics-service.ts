@@ -1,4 +1,4 @@
-import { db } from '../firebase-admin';
+import { db } from '@/lib/firebase-admin';
 import {
   SalesMetrics,
   ProductPerformanceMetrics,

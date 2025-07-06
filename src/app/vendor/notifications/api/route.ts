@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { authMiddleware } from '@/lib/authMiddleware';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { user } = await authMiddleware(req);
+    const authResult = await authMiddleware(req, { params: {} });
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { user } = authResult as { user: { uid: string } };
     if (!user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
@@ -30,9 +34,13 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
-    const { user } = await authMiddleware(req);
+    const authResult = await authMiddleware(req, { params: {} });
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { user } = authResult as { user: { uid: string } };
     if (!user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }

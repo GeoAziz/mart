@@ -1,3 +1,4 @@
+
 import admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
@@ -35,8 +36,11 @@ if (typeof window === 'undefined' && !admin.apps.length) {
   }
 }
 
+
+// Named exports for compatibility
 export const firestoreAdmin = getFirestore();
+export const db = firestoreAdmin; // Alias for legacy code
 export const storageAdmin = getStorage();
-export const auth = getAuth();
+export const firebaseAdminAuth = admin.auth();
 
 export default admin;

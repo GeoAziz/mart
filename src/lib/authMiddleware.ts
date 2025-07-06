@@ -10,12 +10,13 @@ export interface AuthenticatedRequest extends NextRequest {
 
 type ApiHandler = (req: AuthenticatedRequest, context: { params: any }) => Promise<NextResponse> | NextResponse;
 
+
 export function withAuth(
   handler: ApiHandler,
   requiredRole?: Role | Role[]
 ) {
   return async (req: NextRequest, context: { params: any }): Promise<NextResponse> => {
-    const { NextResponse } = await import('next/server'); // Import dynamically for Next.js edge runtime compatibility
+    const { NextResponse } = await import('next/server');
     const authorization = req.headers.get('Authorization');
 
     if (!authorization || !authorization.startsWith('Bearer ')) {
@@ -28,15 +29,16 @@ export function withAuth(
     }
 
     try {
+      // Use firebaseAdminAuth directly
+      const { firebaseAdminAuth, firestoreAdmin } = await import('./firebase-admin');
       if (!firebaseAdminAuth) {
         return NextResponse.json({ message: 'Internal Server Error: Firebase Admin Auth not initialized.' }, { status: 500 });
       }
-      const decodedToken = await firebaseAdminAuth.auth().verifyIdToken(idToken);
+      const decodedToken = await firebaseAdminAuth.verifyIdToken(idToken);
 
       if (!firestoreAdmin) {
         return NextResponse.json({ message: 'Internal Server Error: Firestore Admin not initialized.' }, { status: 500 });
       }
-      
       const userDocRef = firestoreAdmin.collection('users').doc(decodedToken.uid);
       const userDocSnap = await userDocRef.get();
 
@@ -44,15 +46,15 @@ export function withAuth(
         console.error(`User profile not found in Firestore for UID: ${decodedToken.uid}`);
         return NextResponse.json({ message: 'Forbidden: User account not fully set up.' }, { status: 403 });
       }
-      
+
       const firestoreData = userDocSnap.data();
       const userProfile: UserProfile = {
         uid: decodedToken.uid,
         email: firestoreData?.email || decodedToken.email || null,
         fullName: firestoreData?.fullName || decodedToken.name || null,
-        role: firestoreData?.role || 'customer', 
-        status: firestoreData?.status || 'active', 
-        createdAt: firestoreData?.createdAt, 
+        role: firestoreData?.role || 'customer',
+        status: firestoreData?.status || 'active',
+        createdAt: firestoreData?.createdAt,
         updatedAt: firestoreData?.updatedAt,
       };
 
@@ -62,9 +64,9 @@ export function withAuth(
           return NextResponse.json({ message: 'Forbidden: Insufficient permissions for this resource.' }, { status: 403 });
         }
       }
-      
+
       // Fetch the full UserRecord from Firebase Admin
-      const userRecord = await firebaseAdminAuth.auth().getUser(decodedToken.uid);
+      const userRecord = await firebaseAdminAuth.getUser(decodedToken.uid);
 
       const authenticatedReq = req as AuthenticatedRequest;
       authenticatedReq.user = userRecord;
@@ -83,8 +85,15 @@ export function withAuth(
         message = 'Unauthorized: Invalid token.';
         status = 401;
       }
-      
+
       return NextResponse.json({ message }, { status });
     }
   };
 }
+
+// Legacy compatibility: export authMiddleware as a wrapper for withAuth
+export const authMiddleware = withAuth(async (req, ctx) => {
+  const { NextResponse } = await import('next/server');
+  // Just return the user info for compatibility
+  return NextResponse.json({ user: req.userProfile }, { status: 200 });
+});

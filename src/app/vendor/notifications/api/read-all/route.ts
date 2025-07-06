@@ -1,13 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { authMiddleware } from '@/lib/authMiddleware';
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
-    const { user } = await authMiddleware(req);
-    if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const userOrResponse = await authMiddleware(req, { params: {} });
+    if (userOrResponse instanceof NextResponse) {
+      return userOrResponse;
     }
+    // Explicitly type user to include 'uid'
+    const user = userOrResponse as { uid: string };
 
     const notificationsRef = db.collection('vendors')
       .doc(user.uid)
