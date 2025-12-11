@@ -62,7 +62,7 @@
     "handlebars": "^4.7.8",
     "lucide-react": "^0.475.0",
     "ml-regression-simple-linear": "^3.0.1",
-    "next": "^15.3.5",
+    "next": "15.3.6",
     "node-cache": "^5.1.2",
     "patch-package": "^8.0.0",
     "pdfkit": "^0.17.1",
