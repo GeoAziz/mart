@@ -2,13 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import AIChatbotButton from '@/components/ai/AIChatbotButton';
 import { AuthProvider } from '@/context/AuthContext';
 import { isFirebaseConfigured } from '@/lib/firebase-client';
 import SetupInstructions from '@/components/layout/SetupInstructions';
 import ParticleBackground from '@/components/ParticleBackground';
+import ConditionalShell from '@/components/layout/ConditionalShell';
 
 // Configure font
 const inter = Inter({
@@ -40,11 +39,10 @@ export default function RootLayout({
       <body className="antialiased flex flex-col min-h-screen">
         <ParticleBackground />
         <AuthProvider>
-          <Header />
-          <main className="flex-grow container mx-auto px-4 py-8">
-            {children}
-          </main>
-          <Footer />
+          {/* ConditionalShell will render Header/Footer for public routes and hide them for dashboard routes */}
+          <div className="flex-grow">
+            <ConditionalShell>{children}</ConditionalShell>
+          </div>
           <Toaster />
           <AIChatbotButton />
         </AuthProvider>

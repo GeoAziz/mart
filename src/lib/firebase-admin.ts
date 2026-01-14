@@ -32,15 +32,27 @@ if (typeof window === 'undefined' && !admin.apps.length) {
     let serviceAccount: ServiceAccount;
 
     if (fs.existsSync(keyPath)) {
-      serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-      if (!serviceAccount.projectId || typeof serviceAccount.projectId !== 'string') {
+      const rawKey = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+      // Handle both camelCase and snake_case keys from Firebase JSON
+      const projectId = rawKey.projectId || rawKey.project_id;
+      const clientEmail = rawKey.clientEmail || rawKey.client_email;
+      const privateKey = rawKey.privateKey || rawKey.private_key;
+      
+      if (!projectId || typeof projectId !== 'string') {
         throw new Error('Service account object must contain a string "projectId" property.');
       }
+      if (!clientEmail || typeof clientEmail !== 'string') {
+        throw new Error('Service account object must contain a string "clientEmail" property.');
+      }
+      if (!privateKey || typeof privateKey !== 'string') {
+        throw new Error('Service account object must contain a string "privateKey" property.');
+      }
+      
       // Map to expected keys for admin.credential.cert
       serviceAccount = {
-        projectId: serviceAccount.projectId,
-        clientEmail: serviceAccount.clientEmail,
-        privateKey: serviceAccount.privateKey,
+        projectId,
+        clientEmail,
+        privateKey,
       };
     } else {
       serviceAccount = getServiceAccountFromEnv();

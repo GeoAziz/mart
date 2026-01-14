@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Menu, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home, BarChart3, ShoppingBag, PackagePlus, Inbox, DollarSign, Star, Settings, User, ListOrdered, PlusCircle, Package, Truck, FileText, MessageCircle, Store, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ParticleBackground from '@/components/ParticleBackground';
+// ParticleBackground is rendered globally in root layout
 
 interface NavItem {
   href: string;
@@ -411,7 +411,7 @@ export default function VendorLayout({
             </div>
           </main>
         </div>
-        <ParticleBackground />
+        {/* ParticleBackground is rendered by the root layout */}
       </div>
     </RouteGuard>
   );

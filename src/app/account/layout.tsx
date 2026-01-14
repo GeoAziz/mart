@@ -11,7 +11,7 @@ import { LayoutDashboard, ShoppingBag, Heart, MapPin, Lock, User, Settings, Inbo
 import RouteGuard from '@/components/auth/RouteGuard';
 import Logo from '@/components/layout/Logo';
 import { accountNavItems } from '@/data/accountNavItems';
-import ParticleBackground from '@/components/ParticleBackground';
+// ParticleBackground is rendered globally in root layout
 
 interface NavItem {
   href: string;
@@ -242,7 +242,7 @@ export default function AccountLayout({
           </main>
         </div>
       </div>
-      <ParticleBackground />
+      {/* ParticleBackground is rendered by the root layout */}
     </RouteGuard>
   );
 }

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import * as Icons from '../../../components/icons';
+import * as Icons from '@/components/icons';
 import { Loader2, Upload } from 'lucide-react';
 
 interface StoreProfile {

@@ -56,3 +56,5 @@ serviceAccountKey.json
 *.log
 .next/
 clean-mart/
+
+ASSISTANT_BOUNDARIES.md
