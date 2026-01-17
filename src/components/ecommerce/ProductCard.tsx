@@ -16,11 +16,14 @@ interface ProductCardProps {
   price: number;
   imageUrl?: string;
   rating?: number;
+  reviewCount?: number;
   category: string;
+  stock?: number;
+  lowStockThreshold?: number;
   dataAiHint?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, rating, category, dataAiHint }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, rating, reviewCount = 0, category, stock, lowStockThreshold, dataAiHint }) => {
   const { 
     addItemToCart, 
     isCartSaving, 
@@ -34,6 +37,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
   const isInWishlist = useMemo(() => 
     wishlistItems.some(item => item.productId === id),
   [wishlistItems, id]);
+
+  // Determine stock status
+  const isOutOfStock = stock !== undefined && stock <= 0;
+  const isLowStock = !isOutOfStock && stock !== undefined && lowStockThreshold && stock <= lowStockThreshold;
 
   const handleAddToCart = async () => {
     if (!currentUser) {
@@ -78,16 +85,30 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
             className="object-cover w-full h-48 group-hover:scale-105 transition-transform duration-300"
             data-ai-hint={dataAiHint || category}
           />
+          {/* Stock Badge (priority) - shows availability status */}
+          {stock !== undefined && (
+            <div className={`absolute top-2 right-2 px-2 py-1 text-xs font-semibold rounded text-white ${
+              isOutOfStock 
+                ? 'bg-red-500/90' 
+                : isLowStock 
+                ? 'bg-yellow-500/90' 
+                : 'bg-green-500/90'
+            }`}>
+              {isOutOfStock ? 'Out of Stock' : isLowStock ? `Low Stock (${stock})` : 'In Stock'}
+            </div>
+          )}
+          {/* Category Badge (secondary) */}
           {category && <div className="absolute top-2 left-2 bg-accent text-accent-foreground px-2 py-1 text-xs font-semibold rounded glow-edge-accent">{category}</div>}
         </CardHeader>
         <CardContent className="p-4">
           <CardTitle className="text-lg font-headline leading-tight mb-1 truncate group-hover:text-primary transition-colors">{name}</CardTitle>
           <div className="flex items-center justify-between">
             <p className="text-xl font-semibold text-primary">KSh {price.toLocaleString()}</p>
-            {rating && (
-              <div className="flex items-center">
-                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
+            {rating !== undefined && (
+              <div className="flex items-center gap-1">
+                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                 <span className="text-sm text-muted-foreground">{rating.toFixed(1)}</span>
+                {reviewCount > 0 && <span className="text-xs text-muted-foreground/70">({reviewCount})</span>}
               </div>
             )}
           </div>
@@ -95,16 +116,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
       </Link>
       <CardFooter className="p-4 pt-0">
         <Button 
-          className="w-full bg-primary hover:bg-primary/80 text-primary-foreground transition-all animate-pulse-glow group-hover:animate-none"
+          className="w-full bg-primary hover:bg-primary/80 text-primary-foreground transition-all group-hover:shadow-lg group-hover:shadow-primary/50"
           onClick={handleAddToCart}
-          disabled={isCartSaving}
+          disabled={isCartSaving || isOutOfStock}
+          aria-disabled={isOutOfStock}
         >
           {isCartSaving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <ShoppingCart className="mr-2 h-4 w-4" />
           )}
-          {isCartSaving ? 'Adding...' : 'Add to Cart'}
+          {isCartSaving ? 'Adding...' : isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
         </Button>
       </CardFooter>
     </Card>
