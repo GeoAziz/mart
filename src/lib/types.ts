@@ -302,8 +302,8 @@ export interface Review {
     productId: string;
     productName?: string;
     userId: string;
-    userName: string;
-    userEmail: string;
+    customerName?: string;
+    userEmail?: string;
     rating: number;
     comment: string;
     createdAt: Timestamp | Date;
@@ -311,6 +311,7 @@ export interface Review {
     repliedAt?: Timestamp | Date;
     customerAvatar?: string;
     customerInitials?: string;
+    verifiedPurchase?: boolean;
 }
 
 // Updated VendorSettings interface

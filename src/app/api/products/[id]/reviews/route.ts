@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
 import type { Review as ReviewType } from '@/app/api/vendors/me/reviews/route'; // Using existing Review type
-import type { Timestamp } from 'firebase-admin/firestore';
 import type { Product } from '@/app/api/products/route'; // Import Product type
 
 // Helper to map Firestore doc to ReviewType
@@ -13,8 +12,8 @@ function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): ReviewType 
   return {
     id: doc.id,
     ...data,
-    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
-    repliedAt: data.repliedAt ? (data.repliedAt instanceof Timestamp ? data.repliedAt.toDate() : new Date(data.repliedAt)) : undefined,
+    createdAt: (data.createdAt as any)?.toDate ? (data.createdAt as any).toDate() : new Date(String(data.createdAt || Date.now())),
+    repliedAt: data.repliedAt ? ((data.repliedAt as any)?.toDate ? (data.repliedAt as any).toDate() : new Date(String(data.repliedAt))) : undefined,
   };
 }
 
@@ -95,7 +94,28 @@ async function submitReviewHandler(
 
     // TODO: Future - Check if user purchased this product before allowing review
 
-    const newReviewData: Omit<ReviewType, 'id' | 'repliedAt' | 'reply'> = {
+    // Check if user has a completed order containing this product (for verified purchase badge)
+    let verifiedPurchase = false;
+    try {
+      const ordersSnapshot = await firestoreAdmin
+        .collection('orders')
+        .where('userId', '==', authenticatedUser.uid)
+        .where('status', '==', 'completed')
+        .get();
+
+      for (const orderDoc of ordersSnapshot.docs) {
+        const orderData = orderDoc.data();
+        const hasProduct = (orderData.items || []).some((item: any) => item.productId === productId);
+        if (hasProduct) {
+          verifiedPurchase = true;
+          break;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not verify purchase status:', error);
+    }
+
+    const newReviewData: Omit<ReviewType, 'id' | 'repliedAt' | 'reply'> & { verifiedPurchase: boolean } = {
       productId: productId,
       productName: productData.name || 'Unnamed Product', // Fallback for productName
       vendorId: productData.vendorId || 'unknown_vendor', // Fallback for vendorId
@@ -105,6 +125,7 @@ async function submitReviewHandler(
       rating: rating,
       comment: comment.trim(),
       createdAt: new Date(), // Firestore will convert to Timestamp
+      verifiedPurchase: verifiedPurchase,
     };
 
     const reviewDocRef = await firestoreAdmin.collection('reviews').add(newReviewData);
@@ -113,7 +134,7 @@ async function submitReviewHandler(
     // Convert date for response consistency
     const responseReview: ReviewType = {
         ...createdReview,
-        createdAt: new Date(createdReview.createdAt), // Ensure it's a Date object
+        createdAt: createdReview.createdAt instanceof Date ? createdReview.createdAt : new Date(String(createdReview.createdAt)),
     };
 
     return NextResponse.json(responseReview, { status: 201 });
