@@ -9,6 +9,15 @@ import SetupInstructions from '@/components/layout/SetupInstructions';
 import ParticleBackground from '@/components/ParticleBackground';
 import ConditionalShell from '@/components/layout/ConditionalShell';
 
+/**
+ * Root Layout
+ * 
+ * Minimal wrapper for all routes. Uses ConditionalShell to manage
+ * Header/Footer visibility based on route context (public vs dashboard).
+ * 
+ * See ConditionalShell for long-term refactor notes regarding route groups.
+ */
+
 // Configure font
 const inter = Inter({
   subsets: ['latin'],
