@@ -40,7 +40,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
 
   // Determine stock status
   const isOutOfStock = stock !== undefined && stock <= 0;
-  const isLowStock = !isOutOfStock && stock !== undefined && lowStockThreshold && stock <= lowStockThreshold;
+  const lowStockThresholdValue = lowStockThreshold !== undefined ? lowStockThreshold : 10;
+  const isLowStock = !isOutOfStock && stock !== undefined && stock <= lowStockThresholdValue;
 
   const handleAddToCart = async () => {
     if (!currentUser) {
@@ -64,7 +65,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 z-10 h-9 w-9 bg-background/50 hover:bg-primary/20 backdrop-blur-sm rounded-full"
+        className="absolute top-2 right-2 z-20 h-9 w-9 bg-background/50 hover:bg-primary/20 backdrop-blur-sm rounded-full"
         onClick={handleToggleWishlist}
         disabled={isWishlistSaving}
         aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
@@ -87,7 +88,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
           />
           {/* Stock Badge (priority) - shows availability status */}
           {stock !== undefined && (
-            <div className={`absolute top-2 right-2 px-2 py-1 text-xs font-semibold rounded text-white ${
+            <div className={`absolute top-12 right-2 z-10 px-2 py-1 text-xs font-semibold rounded text-white whitespace-nowrap ${
               isOutOfStock 
                 ? 'bg-red-500/90' 
                 : isLowStock 

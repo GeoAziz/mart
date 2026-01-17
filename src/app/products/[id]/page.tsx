@@ -75,7 +75,7 @@ export default function ProductDetailPage() {
         throw new Error(errorData.message || 'Failed to fetch reviews');
       }
       const data: ReviewType[] = await response.json();
-      setReviews(data.map(r => ({...r, createdAt: new Date(r.createdAt)})));
+      setReviews(data.map(r => ({...r, createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(String(r.createdAt))})));
     } catch (err) {
       console.error("Error fetching reviews:", err);
       setErrorReviews(err instanceof Error ? err.message : "Could not load reviews.");
@@ -115,6 +115,17 @@ export default function ProductDetailPage() {
 
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => Math.max(1, prev + amount));
+  };
+
+  const handleQuantityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow only numeric input
+    if (value === '' || /^\d+$/.test(value)) {
+      const numValue = value === '' ? 1 : parseInt(value, 10);
+      // Clamp between 1 and stock
+      const maxQuantity = product?.stock !== undefined ? Math.max(1, product.stock) : 999;
+      setQuantity(Math.min(Math.max(1, numValue), maxQuantity));
+    }
   };
 
   const openImageModal = (index?: number) => {
@@ -251,15 +262,28 @@ export default function ProductDetailPage() {
               onClick={() => openImageModal()}
               unoptimized 
             />
-             <Button 
-                onClick={() => openImageModal()}
-                variant="ghost" 
-                size="icon" 
-                className="absolute top-2 right-2 bg-background/30 hover:bg-primary hover:text-primary-foreground rounded-full backdrop-blur-sm" 
-                aria-label="Enlarge image"
-             >
-                <Maximize className="h-5 w-5"/>
+            {/* Maximize Button */}
+            <Button 
+              onClick={() => openImageModal()}
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-2 right-2 z-20 bg-background/30 hover:bg-primary hover:text-primary-foreground rounded-full backdrop-blur-sm" 
+              aria-label="Enlarge image"
+            >
+              <Maximize className="h-5 w-5"/>
             </Button>
+            {/* Stock Badge */}
+            {product.stock !== undefined && (
+              <div className={`absolute top-12 right-2 z-10 px-2 py-1 text-xs font-semibold rounded text-white whitespace-nowrap ${
+                product.stock <= 0 
+                  ? 'bg-red-500/90' 
+                  : product.stock <= 10
+                  ? 'bg-yellow-500/90'
+                  : 'bg-green-500/90'
+              }`}>
+                {product.stock <= 0 ? 'Out of Stock' : product.stock <= 10 ? `Low Stock (${product.stock})` : 'In Stock'}
+              </div>
+            )}
           </Card>
           
           {allImages.length > 1 && (
@@ -299,9 +323,6 @@ export default function ProductDetailPage() {
               ))}
               <span className="ml-2 text-muted-foreground">({reviews.length} reviews)</span>
             </div>
-            <Badge variant={product.stock && product.stock > 0 ? 'default' : 'destructive'} className={`${product.stock && product.stock > 0 ? 'bg-green-500/20 text-green-300 border-green-400' : 'bg-red-500/20 text-red-300 border-red-400'}`}>
-              {product.stock && product.stock > 0 ? 'In Stock' : 'Out of Stock'}
-            </Badge>
           </div>
           
           <div>
@@ -314,15 +335,18 @@ export default function ProductDetailPage() {
             <Label htmlFor="quantity" className="text-lg">Quantity:</Label>
             <div className="flex items-center border border-border rounded-md">
               <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(-1)} className="rounded-r-none h-10 w-10" aria-label="Decrease quantity"><Minus className="h-4 w-4"/></Button>
-              <Input id="quantity" type="number" value={quantity} readOnly className="w-16 h-10 text-center border-y-0 border-x focus-visible:ring-0 rounded-none bg-transparent" aria-label="Current quantity"/>
+              <Input id="quantity" type="text" value={quantity} onChange={handleQuantityInputChange} maxLength={3} className="w-16 h-10 text-center border-y-0 border-x focus-visible:ring-0 focus-visible:ring-primary rounded-none bg-transparent" aria-label="Product quantity" placeholder="1"/>
               <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(1)} className="rounded-l-none h-10 w-10" aria-label="Increase quantity"><Plus className="h-4 w-4"/></Button>
             </div>
+            {product?.stock !== undefined && quantity > product.stock && (
+              <span className="text-xs text-destructive font-semibold">Only {product.stock} available</span>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               size="lg" 
-              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse-glow"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/50"
               onClick={handleAddToCart}
               disabled={isAddingToCart || isCartSaving || !currentUser || (product.stock !== undefined && product.stock <=0)}
             >
@@ -424,19 +448,24 @@ export default function ProductDetailPage() {
           ) : reviews.length > 0 ? (
             reviews.map(review => (
               <div key={review.id} className="mb-6 pb-6 border-b border-border/50 last:border-b-0 last:pb-0">
-                <div className="flex items-center mb-1">
+                <div className="flex items-center mb-2 gap-2">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className={`h-5 w-5 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground/50'}`} />
                   ))}
-                  <strong className="ml-3 font-medium text-foreground">{review.customerName || 'Anonymous'}</strong>
-                  <span className="ml-auto text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</span>
+                  <strong className="ml-1 font-medium text-foreground">{review.customerName || 'Anonymous'}</strong>
+                  {review.verifiedPurchase && (
+                    <Badge variant="outline" className="bg-green-500/10 border-green-500/50 text-green-300 text-xs">
+                      ✓ Verified Purchase
+                    </Badge>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground">{(review.createdAt instanceof Date ? review.createdAt : new Date(String(review.createdAt))).toLocaleDateString()}</span>
                 </div>
                 <p className="text-foreground/80">{review.comment}</p>
                 {review.reply && (
                   <div className="mt-3 ml-6 p-3 bg-muted/50 rounded-md border border-primary/30">
                     <p className="text-sm font-semibold text-primary">Reply from {product.vendorId ? 'Seller' : 'ZilaCart'}:</p>
                     <p className="text-sm text-muted-foreground">{review.reply}</p>
-                    {review.repliedAt && <p className="text-xs text-muted-foreground/70 text-right">Replied on: {new Date(review.repliedAt).toLocaleDateString()}</p>}
+                    {review.repliedAt && <p className="text-xs text-muted-foreground/70 text-right">Replied on: {(review.repliedAt instanceof Date ? review.repliedAt : new Date(String(review.repliedAt))).toLocaleDateString()}</p>}
                   </div>
                 )}
               </div>
