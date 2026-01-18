@@ -171,6 +171,10 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = async () => {
     if (!product) return;
+    if (!currentUser) {
+      toast({ title: "Login Required", description: "Please log in to add items to your cart.", variant: "destructive" });
+      return;
+    }
     setIsAddingToCart(true);
     await addItemToCart({
       id: product.id,
@@ -533,7 +537,8 @@ export default function ProductDetailPage() {
               <Button 
                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary transition-all hover:shadow-lg hover:shadow-primary/50 h-12 px-6 rounded-lg font-semibold flex items-center justify-center gap-2"
                 onClick={handleAddToCart}
-                disabled={isAddingToCart || isCartSaving || !currentUser || (product.stock !== undefined && product.stock <=0)}
+                disabled={isAddingToCart || isCartSaving || (product.stock !== undefined && product.stock <=0)}
+                aria-label="Add to Cart"
               >
                 {isAddingToCart || isCartSaving ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -968,7 +973,8 @@ export default function ProductDetailPage() {
             <Button 
               className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 transition-all h-8 text-sm px-2"
               onClick={handleAddToCart}
-              disabled={isAddingToCart || isCartSaving || !currentUser || (product.stock !== undefined && product.stock <= 0)}
+              disabled={isAddingToCart || isCartSaving || (product.stock !== undefined && product.stock <= 0)}
+              aria-label="Add to Cart"
             >
               {isAddingToCart || isCartSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin text-primary-foreground" />
