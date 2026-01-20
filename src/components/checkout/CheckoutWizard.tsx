@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle, CreditCard, MapPin, Package, ShoppingBag, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, CreditCard, MapPin, Package, ShoppingBag, ShieldCheck, AlertCircle, Loader2, Check } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -32,7 +32,22 @@ const addressSchema = z.object({
   address: z.string().min(5, { message: "Street address is required." }),
   city: z.string().min(2, { message: "City is required." }),
   postalCode: z.string().optional(),
-  phone: z.string().min(10, { message: "Phone number must be valid." }).regex(/^\+?[0-9\s-()]{10,}$/, { message: "Invalid phone number format."}),
+  phone: z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .regex(/^(\+254|0)[17]\d{8}$/, {
+      message: "Invalid Kenyan phone number. Use format: +254712345678 or 0712345678"
+    })
+    .transform(val => {
+      // Normalize to international format (+254)
+      const cleaned = val.trim().replace(/\s/g, '');
+      if (cleaned.startsWith('0')) {
+        return '+254' + cleaned.slice(1);
+      }
+      if (!cleaned.startsWith('+')) {
+        return '+254' + cleaned;
+      }
+      return cleaned;
+    }),
   saveAddress: z.boolean().optional(),
 });
 
@@ -144,6 +159,23 @@ const CheckoutWizard = () => {
     );
   };
 
+  // Loading overlay component
+  const PaymentLoadingOverlay = ({ show, message }: { show: boolean; message: string }) => {
+    if (!show) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+        <Card className="p-8 max-w-md mx-4 bg-card border-primary shadow-2xl">
+          <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-xl font-semibold text-center mb-2">{message}</p>
+          <p className="text-sm text-muted-foreground text-center">
+            Please do not close this window or press the back button
+          </p>
+        </Card>
+      </div>
+    );
+  };
+
   // PayPal payment handler
   const handlePayPalApprove = async (orderId: string) => {
     await handlePlaceOrder('paypal', orderId);
@@ -244,8 +276,12 @@ const CheckoutWizard = () => {
           <div className="flex items-center justify-between mb-4">
               {steps.map((step, index) => (
                   <div key={step.id} className={`flex items-center ${index <= currentStep ? 'text-primary' : 'text-muted-foreground'}`}>
-                      <div className={`mr-2 p-2 rounded-full border-2 ${index <= currentStep ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>
-                          {step.icon}
+                      <div className={`mr-2 p-2 rounded-full border-2 relative ${index <= currentStep ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>
+                          {index < currentStep ? (
+                            <Check className="h-5 w-5 text-primary" />
+                          ) : (
+                            step.icon
+                          )}
                       </div>
                       <span className="font-medium hidden sm:inline">{step.name}</span>
                   </div>
@@ -470,6 +506,12 @@ const CheckoutWizard = () => {
           )}
         </CardFooter>
       </Card>
+      
+      {/* Add loading overlay */}
+      <PaymentLoadingOverlay 
+        show={isPlacingOrder} 
+        message={selectedPaymentMethod === 'card' ? 'Processing Payment...' : 'Creating Your Order...'}
+      />
     </FormProvider>
   );
 };
