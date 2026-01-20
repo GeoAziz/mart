@@ -17,7 +17,11 @@ export async function convertKEStoUSD(amountKES: number): Promise<ConversionResu
     // Use exchangerate-api.com (free tier: 1,500 requests/month)
     const response = await fetch(
       `https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/pair/KES/USD/${amountKES}`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour
+      {
+        // Standard fetch cache control
+        cache: 'default',
+        // Add cache headers if needed by the API
+      }
     );
     
     if (!response.ok) throw new Error('Exchange API request failed');

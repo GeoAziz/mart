@@ -34,14 +34,17 @@ const addressSchema = z.object({
   postalCode: z.string().optional(),
   phone: z.string()
     .min(10, "Phone number must be at least 10 digits")
-    .regex(/^(\+254|0)[17]\d{8}$/, {
-      message: "Invalid Kenyan phone number. Use format: +254712345678 or 0712345678"
+    .regex(/^(\+254|254|0)?[17]\d{8}$/, {
+      message: "Invalid Kenyan phone number. Use format: +254712345678, 0712345678, or 712345678"
     })
     .transform(val => {
       // Normalize to international format (+254)
       const cleaned = val.trim().replace(/\s/g, '');
       if (cleaned.startsWith('0')) {
         return '+254' + cleaned.slice(1);
+      }
+      if (cleaned.startsWith('254')) {
+        return '+' + cleaned;
       }
       if (!cleaned.startsWith('+')) {
         return '+254' + cleaned;

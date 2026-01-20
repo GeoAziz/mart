@@ -48,7 +48,6 @@
     "@stripe/stripe-js": "^7.4.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@tremor/react": "^3.18.7",
-    "@types/nodemailer": "^7.0.5",
     "@types/react-window": "^1.8.8",
     "@types/recharts": "^1.8.29",
     "@types/ws": "^8.18.1",
@@ -88,6 +87,7 @@
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.5",
     "@types/pdfkit": "^0.14.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18",
