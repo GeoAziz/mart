@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Star, ShoppingCart, Heart, Loader2 } from 'lucide-react'; 
+import { Star, ShoppingCart, Heart, Loader2, Check, Trash2 } from 'lucide-react'; 
 import { useAuth, type ProductForWishlist } from '@/context/AuthContext'; 
 import { useState, useMemo } from 'react'; 
 import { useRouter } from 'next/navigation';
@@ -30,13 +30,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
     currentUser,
     wishlistItems,
     toggleWishlistItem,
-    isWishlistSaving
+    isWishlistSaving,
+    cart,
+    removeCartItem
   } = useAuth();
   const router = useRouter();
 
   const isInWishlist = useMemo(() => 
     wishlistItems.some(item => item.productId === id),
   [wishlistItems, id]);
+
+  // Check if product is already in cart
+  const isInCart = useMemo(() => 
+    cart.some(item => item.productId === id),
+  [cart, id]);
 
   // Determine stock status
   const isOutOfStock = stock !== undefined && stock <= 0;
@@ -49,6 +56,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
       return;
     }
     await addItemToCart({ id, name, price, imageUrl, dataAiHint }, 1);
+  };
+
+  const handleRemoveFromCart = async () => {
+    await removeCartItem(id);
   };
 
   const handleToggleWishlist = async () => {
@@ -116,19 +127,38 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
         </CardContent>
       </Link>
       <CardFooter className="p-4 pt-0">
-        <Button 
-          className="w-full bg-primary hover:bg-primary/80 text-primary-foreground transition-all group-hover:shadow-lg group-hover:shadow-primary/50"
-          onClick={handleAddToCart}
-          disabled={isCartSaving || isOutOfStock}
-          aria-disabled={isOutOfStock}
-        >
-          {isCartSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <ShoppingCart className="mr-2 h-4 w-4" />
-          )}
-          {isCartSaving ? 'Adding...' : isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-        </Button>
+        {isInCart ? (
+          <Button 
+            className="w-full bg-accent/20 hover:bg-red-500/20 text-accent hover:text-destructive transition-all group-hover:shadow-lg group-hover:shadow-red-500/30 flex items-center justify-center gap-2 h-10 border-2 border-accent/50 hover:border-destructive"
+            onClick={handleRemoveFromCart}
+            disabled={isCartSaving}
+            title="Remove from Cart"
+          >
+            {isCartSaving ? (
+              <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" />
+            ) : (
+              <>
+                <Check className="h-5 w-5 flex-shrink-0 text-accent" />
+                <Trash2 className="h-5 w-5 flex-shrink-0 text-destructive" />
+              </>
+            )}
+            <span className="hidden sm:inline text-sm font-medium">{isCartSaving ? 'Removing...' : 'In Cart'}</span>
+          </Button>
+        ) : (
+          <Button 
+            className="w-full bg-primary hover:bg-primary/80 text-primary-foreground transition-all group-hover:shadow-lg group-hover:shadow-primary/50 flex items-center justify-center gap-2 h-10"
+            onClick={handleAddToCart}
+            disabled={isCartSaving || isOutOfStock}
+            aria-disabled={isOutOfStock}
+          >
+            {isCartSaving ? (
+              <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" />
+            ) : (
+              <ShoppingCart className="h-5 w-5 flex-shrink-0" />
+            )}
+            <span>{isCartSaving ? 'Adding...' : isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

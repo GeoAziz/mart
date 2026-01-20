@@ -18,8 +18,8 @@ const promotionUpdateSchema = z.object({
 }).partial();
 
 // PUT: Update a promotion (admin only)
-async function updatePromotionHandler(req: AuthenticatedRequest, context: { params: { promotionId: string } }) {
-  const { promotionId } = context.params;
+async function updatePromotionHandler(req: AuthenticatedRequest, context: { params: Promise<{ promotionId: string }> }) {
+  const { promotionId } = await context.params;
   if (!promotionId) {
     return NextResponse.json({ message: 'Promotion ID is missing.' }, { status: 400 });
   }
@@ -62,8 +62,8 @@ async function updatePromotionHandler(req: AuthenticatedRequest, context: { para
 export const PUT = withAuth(updatePromotionHandler, 'admin');
 
 // DELETE: Delete a promotion (admin only)
-async function deletePromotionHandler(req: AuthenticatedRequest, context: { params: { promotionId: string } }) {
-  const { promotionId } = context.params;
+async function deletePromotionHandler(req: AuthenticatedRequest, context: { params: Promise<{ promotionId: string }> }) {
+  const { promotionId } = await context.params;
   if (!promotionId) {
     return NextResponse.json({ message: 'Promotion ID is missing.' }, { status: 400 });
   }

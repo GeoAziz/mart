@@ -8,9 +8,9 @@ import type { Conversation, Message } from '@/lib/types';
 
 
 // GET: Get a single conversation and its messages
-async function getConversationHandler(req: AuthenticatedRequest, context: { params: { conversationId: string } }) {
+async function getConversationHandler(req: AuthenticatedRequest, context: { params: Promise<{ conversationId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const { conversationId } = context.params;
+  const { conversationId } = await context.params;
 
   if (!conversationId) {
     return NextResponse.json({ message: 'Conversation ID is missing.' }, { status: 400 });

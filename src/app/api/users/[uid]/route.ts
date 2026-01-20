@@ -13,8 +13,8 @@ type UpdateProfileData = {
   status?: 'active' | 'pending_approval' | 'suspended';
 };
 
-async function updateUserProfile(req: AuthenticatedRequest, context: { params: { uid: string } }) {
-  const targetUid = context.params.uid;
+async function updateUserProfile(req: AuthenticatedRequest, context: { params: Promise<{ uid: string }> }) {
+  const targetUid = (await context.params).uid;
   const authenticatedUser = req.userProfile;
 
   if (!targetUid) {
@@ -117,8 +117,8 @@ async function updateUserProfile(req: AuthenticatedRequest, context: { params: {
 
 export const PUT = withAuth(updateUserProfile); // No specific role, handled inside
 
-async function getUserProfile(req: AuthenticatedRequest, context: { params: { uid: string } }) {
-  const targetUid = context.params.uid;
+async function getUserProfile(req: AuthenticatedRequest, context: { params: Promise<{ uid: string }> }) {
+  const targetUid = (await context.params).uid;
   const authenticatedUser = req.userProfile;
 
   if (!targetUid) {
@@ -159,8 +159,8 @@ async function getUserProfile(req: AuthenticatedRequest, context: { params: { ui
 export const GET = withAuth(getUserProfile);
 
 
-async function deleteUserHandler(req: AuthenticatedRequest, context: { params: { uid: string } }) {
-  const targetUid = context.params.uid;
+async function deleteUserHandler(req: AuthenticatedRequest, context: { params: Promise<{ uid: string }> }) {
+  const targetUid = (await context.params).uid;
   const authenticatedUser = req.userProfile; // This is the admin performing the action
 
   if (!targetUid) {

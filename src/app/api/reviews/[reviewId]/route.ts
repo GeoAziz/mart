@@ -8,9 +8,9 @@ import { convertToDate } from '@/types/firebase';
 
 
 // PUT handler to update a review (e.g., add a reply)
-async function updateReviewHandler(req: AuthenticatedRequest, context: { params: { reviewId: string } }) {
+async function updateReviewHandler(req: AuthenticatedRequest, context: { params: Promise<{ reviewId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const reviewId = context.params.reviewId;
+  const reviewId = (await context.params).reviewId;
 
   if (!reviewId) {
     return NextResponse.json({ message: 'Review ID is missing.' }, { status: 400 });
@@ -79,8 +79,8 @@ export const PUT = withAuth(updateReviewHandler, ['vendor', 'admin']);
 
 
 // GET handler for a single review (if needed in future, e.g., for sharing or direct linking)
-export async function GET(request: NextRequest, { params }: { params: { reviewId: string } }) {
-  const reviewId = params.reviewId;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ reviewId: string }> }) {
+  const reviewId = (await params).reviewId;
   try {
     const reviewDoc = await firestoreAdmin.collection('reviews').doc(reviewId).get();
 
@@ -111,9 +111,9 @@ export async function GET(request: NextRequest, { params }: { params: { reviewId
 }
 
 // DELETE handler for admins to delete a review
-async function deleteReviewHandler(req: AuthenticatedRequest, context: { params: { reviewId: string } }) {
+async function deleteReviewHandler(req: AuthenticatedRequest, context: { params: Promise<{ reviewId: string }> }) {
   // withAuth middleware already ensures user is admin if this handler is reached with 'admin' role requirement
-  const reviewId = context.params.reviewId;
+  const reviewId = (await context.params).reviewId;
 
   if (!reviewId) {
     return NextResponse.json({ message: 'Review ID is missing.' }, { status: 400 });

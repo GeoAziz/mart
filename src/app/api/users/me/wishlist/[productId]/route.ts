@@ -7,10 +7,10 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 // DELETE handler to remove a product from the user's wishlist
 async function deleteWishlistItemHandler(
   req: AuthenticatedRequest,
-  context: { params: { productId: string } }
+  context: { params: Promise<{ productId: string }> }
 ) {
   const authenticatedUser = req.userProfile;
-  const { productId } = context.params;
+  const { productId } = await context.params;
 
   if (!productId) {
     return NextResponse.json({ message: 'Product ID is missing.' }, { status: 400 });

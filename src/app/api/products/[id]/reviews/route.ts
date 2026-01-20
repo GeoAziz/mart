@@ -20,9 +20,9 @@ function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): ReviewType 
 // GET handler to fetch reviews for a specific product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = params.id;
+  const productId = (await params).id;
   if (!productId) {
     return NextResponse.json({ message: 'Product ID is missing.' }, { status: 400 });
   }
@@ -59,9 +59,9 @@ interface SubmitReviewInput {
 // POST handler for customers to submit a new review
 async function submitReviewHandler(
   req: AuthenticatedRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = params.id;
+  const productId = (await params).id;
   const authenticatedUser = req.userProfile;
 
   if (!productId) {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PayPalScriptProvider, PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
@@ -19,6 +18,7 @@ import { Separator } from '../ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PayPalCheckout } from './PayPalCheckout';
 
 const steps = [
   { id: 'address', name: 'Delivery Address', icon: <MapPin className="h-5 w-5" /> },
@@ -137,9 +137,27 @@ const CheckoutWizard = () => {
     );
   };
 
-  // PayPal payment handler
+  // PayPal payment handler - payment is already captured by SDK, just need to create order
   const handlePayPalApprove = async (orderId: string) => {
-    await handlePlaceOrder('paypal', orderId);
+    if (!currentUser) {
+      router.push('/auth/login?redirect=/checkout');
+      return;
+    }
+
+    setIsPlacingOrder(true);
+    try {
+      // Payment was already captured by PayPal SDK in the frontend
+      // Now we just need to create the order in our database
+      console.log('✅ PayPal payment was captured by SDK');
+      console.log('📦 Creating database order for PayPal order:', orderId);
+      
+      await handlePlaceOrder('paypal', orderId);
+    } catch (error) {
+      console.error('❌ PayPal approval error:', error);
+      setIsPlacingOrder(false);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Payment processing error: ${errorMsg}. Please contact support.`);
+    }
   };
 
   // Unified place order handler
@@ -419,22 +437,11 @@ const CheckoutWizard = () => {
                 </Elements>
               )}
               {selectedPaymentMethod === 'paypal' && (
-                <PayPalScriptProvider
-                  options={{
-                    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
-                    currency: 'USD',
-                  }}
-                  onError={(err: unknown) => {
-                    setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
-                  }}
-                >
-                  <PayPalCheckoutWithConversion
-                    total={total}
-                    currentUser={currentUser}
-                    setPaypalSdkError={setPaypalSdkError}
-                    handlePayPalApprove={handlePayPalApprove}
-                  />
-                </PayPalScriptProvider>
+                <PayPalCheckout
+                  total={total}
+                  currentUser={currentUser}
+                  handlePayPalApprove={handlePayPalApprove}
+                />
               )}
               {(selectedPaymentMethod !== 'card' && selectedPaymentMethod !== 'paypal') && (
                 <Button onClick={() => handlePlaceOrder()} disabled={isPlacingOrder || cart.length === 0} className="bg-green-500 hover:bg-green-600 text-white animate-pulse-glow w-full">
@@ -453,149 +460,5 @@ const CheckoutWizard = () => {
     </FormProvider>
   );
 };
-
-
-// Enhanced PayPal checkout component with currency conversion notice
-function PayPalCheckoutWithConversion({ total, currentUser, setPaypalSdkError, handlePayPalApprove }: any) {
-
-  // Track PayPal state
-  const [paypalCurrency, setPaypalCurrency] = useState('USD');
-  const [conversionNotice, setConversionNotice] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [orderAmount, setOrderAmount] = useState<string>('');
-  const [{ isPending, isRejected }] = usePayPalScriptReducer();
-  const [paypalError, setPaypalError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-
-  // Reset error and conversion notice on payment method change
-  useEffect(() => {
-    setPaypalError(null);
-    setConversionNotice(undefined);
-    setOrderAmount('');
-    setPaypalCurrency('USD');
-    setDebugInfo(null);
-  }, [total]);
-
-  // Only show loader if SDK is loading
-  useEffect(() => {
-    if (isRejected) {
-      setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
-    }
-  }, [isRejected, setPaypalSdkError]);
-
-  if (isRejected) {
-    return (
-      <div className="flex flex-col items-center justify-center py-6 text-destructive">
-        <AlertCircle className="mr-2 h-5 w-5" />
-        Failed to load PayPal. Please check your connection or try again.
-        {debugInfo && process.env.NODE_ENV === 'development' && (
-          <pre className="mt-2 text-xs text-muted-foreground bg-muted/20 p-2 rounded max-w-xl overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
-        )}
-      </div>
-    );
-  }
-  if (isPending || isLoading) {
-    return (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Loading PayPal...
-      </div>
-    );
-  }
-  return (
-    <>
-      {paypalError && (
-        <div className="mb-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-sm">
-          <span>{paypalError}</span>
-        </div>
-      )}
-      {conversionNotice && (
-        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-md text-blue-400 text-sm">
-          <span>{conversionNotice}</span>
-        </div>
-      )}
-      {debugInfo && process.env.NODE_ENV === 'development' && (
-        <details className="mb-2 bg-muted/20 p-2 rounded text-xs text-muted-foreground">
-          <summary className="cursor-pointer">PayPal Debug Info</summary>
-          <pre className="overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
-        </details>
-      )}
-      <PayPalButtons
-        style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' }}
-        forceReRender={[paypalCurrency, orderAmount]}
-        createOrder={
-          async (_data: Record<string, unknown>, _actions: any) => {
-            if (!currentUser) throw new Error('User not authenticated');
-            setIsLoading(true);
-            setPaypalError(null);
-            setDebugInfo(null);
-            try {
-              const token = await currentUser.getIdToken();
-              // Always send KES, backend will convert if needed
-              const res = await fetch('/api/payment/paypal/order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ amount: Number(total), currency: 'KES' })
-              });
-              const orderData = await res.json();
-              setIsLoading(false);
-              setDebugInfo({
-                status: res.status,
-                ok: res.ok,
-                orderData,
-                headers: Object.fromEntries(res.headers.entries()),
-              });
-              if (!res.ok || !orderData.id) {
-                setPaypalError(orderData.message || 'Failed to create PayPal order.');
-                setPaypalSdkError(orderData.message || 'Failed to create PayPal order.');
-                throw new Error(orderData.message || 'Failed to create PayPal order.');
-              }
-              setPaypalCurrency(orderData.currency || 'USD');
-              setOrderAmount(orderData.amount || '');
-              setConversionNotice(orderData.conversionNotice);
-              return orderData.id;
-            } catch (err: any) {
-              setIsLoading(false);
-              setPaypalError(err?.message || 'Failed to create PayPal order.');
-              setPaypalSdkError(err?.message || 'Failed to create PayPal order.');
-              setDebugInfo({ error: err?.message || String(err) });
-              throw err;
-            }
-          }
-        }
-        onApprove={async (data: Record<string, unknown>, actions: any) => {
-          setIsApproving(true);
-          setPaypalError(null);
-          try {
-            await handlePayPalApprove((data as any).orderID);
-          } catch (err: any) {
-            setPaypalError('PayPal approval error: ' + (err?.message || String(err)));
-            setPaypalSdkError('PayPal approval error: ' + (err?.message || String(err)));
-            setDebugInfo({ error: err?.message || String(err) });
-          } finally {
-            setIsApproving(false);
-          }
-        }}
-        onError={(err: unknown) => {
-          setPaypalError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
-          setPaypalSdkError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
-          setDebugInfo({ error: err instanceof Error ? err.message : String(err) });
-        }}
-        disabled={isApproving || isLoading}
-      />
-      {(isApproving || isLoading) && (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {isApproving ? 'Finalizing payment...' : 'Loading PayPal...'}
-        </div>
-      )}
-      {/* Fallback for stuck modal */}
-      {paypalError && (
-        <div className="mt-2 text-xs text-muted-foreground">If the PayPal window is stuck, please refresh the page or try a different payment method.</div>
-      )}
-    </>
-  );
-}
 
 export default CheckoutWizard;

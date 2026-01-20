@@ -44,9 +44,9 @@ function mapPayoutDocument(doc: FirebaseFirestore.DocumentSnapshot): Payout | nu
 // PUT handler to update a payout's status (admin only)
 async function updatePayoutHandler(
   req: AuthenticatedRequest,
-  context: { params: { payoutId: string } }
+  context: { params: Promise<{ payoutId: string }> }
 ) {
-  const { payoutId } = context.params;
+  const { payoutId } = await context.params;
   if (!payoutId) {
     return NextResponse.json({ message: 'Payout ID is missing.' }, { status: 400 });
   }

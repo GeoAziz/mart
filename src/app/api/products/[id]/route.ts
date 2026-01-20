@@ -40,9 +40,9 @@ async function deleteImageFromStorage(imageUrl: string | undefined | null) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = params.id;
+  const productId = (await params).id;
   try {
     const productDoc = await firestoreAdmin.collection('products').doc(productId).get();
 
@@ -83,9 +83,9 @@ export async function GET(
 
 async function updateProductHandler(
   req: AuthenticatedRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = params.id;
+  const productId = (await params).id;
   const authenticatedUser = req.userProfile;
 
   try {
@@ -184,9 +184,9 @@ export const PUT = withAuth(updateProductHandler, ['vendor', 'admin']);
 
 async function deleteProductHandler(
   req: AuthenticatedRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = params.id;
+  const productId = (await params).id;
   const authenticatedUser = req.userProfile;
   try {
     const productDocRef = firestoreAdmin.collection('products').doc(productId);

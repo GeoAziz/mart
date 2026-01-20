@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Star, ShoppingCart, ShieldCheck, Truck, MessageCircle, ChevronLeft, ChevronRight, Minus, Plus, X, Maximize, Loader2, Send, AlertCircle, Share2, Copy, Facebook, Twitter, Mail, ZoomIn, Heart } from 'lucide-react';
+import { Star, ShoppingCart, ShieldCheck, Truck, MessageCircle, ChevronLeft, ChevronRight, Minus, Plus, X, Maximize, Loader2, Send, AlertCircle, Share2, Copy, Facebook, Twitter, Mail, ZoomIn, Heart, Trash2 } from 'lucide-react';
 import RelatedProductsAI from '@/components/ai/RelatedProductsAI';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -15,16 +15,17 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, type CartItemClient } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Product as ProductData, Review as ReviewType } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 export default function ProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const productId = params.id as string;
-  const { currentUser, addItemToCart, isCartSaving } = useAuth();
+  const { currentUser, addItemToCart, isCartSaving, cart, removeCartItem } = useAuth();
   const { toast } = useToast();
 
   const [product, setProduct] = useState<ProductData | null>(null);
@@ -49,6 +50,36 @@ export default function ProductDetailPage() {
   const [showZoom, setShowZoom] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
+
+  // Check if product is in wishlist and cart on load
+  useEffect(() => {
+    if (!currentUser || !product) return;
+
+    // Check if in wishlist
+    const checkWishlist = async () => {
+      try {
+        const token = await currentUser.getIdToken();
+        const response = await fetch('/api/users/me/wishlist', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const wishlist = await response.json();
+          setIsInWishlist(wishlist.some((item: CartItemClient) => item.productId === product.id));
+        }
+      } catch (err) {
+        console.error('Error checking wishlist:', err);
+      }
+    };
+
+    // Check if in cart
+    if (cart && Array.isArray(cart)) {
+      const itemInCart = cart.some((item: CartItemClient) => item.productId === product.id);
+      setIsInCart(itemInCart);
+    }
+
+    checkWishlist();
+  }, [currentUser, product, cart]);
 
   const fetchProductDetails = useCallback(async () => {
     setIsLoadingProduct(true);
@@ -175,15 +206,32 @@ export default function ProductDetailPage() {
       toast({ title: "Login Required", description: "Please log in to add items to your cart.", variant: "destructive" });
       return;
     }
+    
     setIsAddingToCart(true);
-    await addItemToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      imageUrl: product.imageUrl, // primary image for cart
-      dataAiHint: product.dataAiHint,
-    }, quantity);
-    setIsAddingToCart(false);
+    try {
+      if (isInCart) {
+        // Remove from cart
+        await removeCartItem(product.id);
+        setIsInCart(false);
+        toast({ title: 'Removed', description: `${product.name} removed from cart.` });
+      } else {
+        // Add to cart
+        await addItemToCart({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          dataAiHint: product.dataAiHint,
+        }, quantity);
+        setIsInCart(true);
+        toast({ title: 'Added', description: `${product.name} added to cart.` });
+      }
+    } catch (err) {
+      console.error('Error updating cart:', err);
+      toast({ title: 'Error', description: 'Failed to update cart.', variant: 'destructive' });
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   const copyProductLink = () => {
@@ -227,8 +275,8 @@ export default function ProductDetailPage() {
     try {
       const token = await currentUser.getIdToken();
       const endpoint = isInWishlist 
-        ? `/api/wishlist/${product.id}` 
-        : `/api/wishlist`;
+        ? `/api/users/me/wishlist/${product.id}` 
+        : `/api/users/me/wishlist`;
 
       const response = await fetch(endpoint, {
         method: isInWishlist ? 'DELETE' : 'POST',
@@ -535,24 +583,36 @@ export default function ProductDetailPage() {
           <div className="space-y-3">
             <div className="flex gap-3 items-center">
               <Button 
-                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary transition-all hover:shadow-lg hover:shadow-primary/50 h-12 px-6 rounded-lg font-semibold flex items-center justify-center gap-2"
+                className={`flex-1 h-12 px-6 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${
+                  isInCart 
+                    ? 'bg-destructive/90 text-destructive-foreground hover:bg-destructive' 
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
                 onClick={handleAddToCart}
                 disabled={isAddingToCart || isCartSaving || (product.stock !== undefined && product.stock <=0)}
-                aria-label="Add to Cart"
+                aria-label={isInCart ? "Remove from Cart" : "Add to Cart"}
+                title={isInCart ? "Remove from Cart" : "Add to Cart"}
               >
                 {isAddingToCart || isCartSaving ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
+                ) : isInCart ? (
+                  <>
+                    <Trash2 className="h-5 w-5" />
+                    <span>Remove</span>
+                  </>
                 ) : (
-                  <ShoppingCart className="h-6 w-6" />
+                  <>
+                    <ShoppingCart className="h-6 w-6" />
+                    <span>{product.stock !== undefined && product.stock <=0 ? 'Out of Stock' : 'Add to Cart'}</span>
+                  </>
                 )}
-                <span>{isAddingToCart || isCartSaving ? 'Adding...' : (product.stock !== undefined && product.stock <=0 ? 'Out of Stock' : 'Add to Cart')}</span>
               </Button>
               <Button 
                 className={`h-12 w-12 rounded-full transition-all flex items-center justify-center flex-shrink-0 ${isInWishlist ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 'border-2 border-accent/50 text-accent hover:bg-accent/10'}`}
                 onClick={handleAddToWishlist}
                 disabled={isAddingToWishlist}
                 aria-label={isInWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-                title={isInWishlist ? "In Wishlist" : "Add to Wishlist"}
+                title={isInWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
               >
                 {isAddingToWishlist ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -563,9 +623,30 @@ export default function ProductDetailPage() {
             </div>
             <Button 
               className="w-full h-12 px-6 border border-primary/30 bg-background text-primary hover:bg-primary/10 font-semibold rounded-lg transition-colors"
-              disabled={product.stock !== undefined && product.stock <= 0}
+              disabled={(product?.stock !== undefined && product.stock <= 0) || isAddingToCart || isCartSaving}
+              onClick={async () => {
+                if (!currentUser) {
+                  if (product?.id) {
+                    router.push('/auth/login?redirect=' + encodeURIComponent(`/products/${product.id}`));
+                  }
+                  return;
+                }
+                // Add to cart if not already in cart
+                if (!isInCart) {
+                  await handleAddToCart();
+                }
+                // Navigate to checkout
+                router.push('/checkout');
+              }}
             >
-              Buy Now
+              {isAddingToCart || isCartSaving ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Adding...
+                </>
+              ) : (
+                'Buy Now'
+              )}
             </Button>
           </div>
 
@@ -975,6 +1056,7 @@ export default function ProductDetailPage() {
               onClick={handleAddToCart}
               disabled={isAddingToCart || isCartSaving || (product.stock !== undefined && product.stock <= 0)}
               aria-label="Add to Cart"
+              title="Add to Cart"
             >
               {isAddingToCart || isCartSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin text-primary-foreground" />
@@ -992,6 +1074,7 @@ export default function ProductDetailPage() {
               onClick={handleAddToWishlist}
               disabled={isAddingToWishlist}
               aria-label="Add to wishlist"
+              title={isInWishlist ? "In Wishlist" : "Add to Wishlist"}
             >
               {isAddingToWishlist ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

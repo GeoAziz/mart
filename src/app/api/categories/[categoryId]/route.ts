@@ -12,8 +12,8 @@ const categoryUpdateSchema = z.object({
 }).partial().refine(obj => Object.keys(obj).length > 0, "At least one field must be provided for update.");
 
 // PUT: Update a category (admin only)
-async function updateCategoryHandler(req: AuthenticatedRequest, context: { params: { categoryId: string } }) {
-  const { categoryId } = context.params;
+async function updateCategoryHandler(req: AuthenticatedRequest, context: { params: Promise<{ categoryId: string }> }) {
+  const { categoryId } = await context.params;
   if (!categoryId) {
     return NextResponse.json({ message: 'Category ID is missing.' }, { status: 400 });
   }
@@ -49,8 +49,8 @@ async function updateCategoryHandler(req: AuthenticatedRequest, context: { param
 export const PUT = withAuth(updateCategoryHandler, 'admin');
 
 // DELETE: Delete a category (admin only)
-async function deleteCategoryHandler(req: AuthenticatedRequest, context: { params: { categoryId: string } }) {
-  const { categoryId } = context.params;
+async function deleteCategoryHandler(req: AuthenticatedRequest, context: { params: Promise<{ categoryId: string }> }) {
+  const { categoryId } = await context.params;
   if (!categoryId) {
     return NextResponse.json({ message: 'Category ID is missing.' }, { status: 400 });
   }
@@ -74,8 +74,8 @@ async function deleteCategoryHandler(req: AuthenticatedRequest, context: { param
 export const DELETE = withAuth(deleteCategoryHandler, 'admin');
 
 // GET: Get a single category
-export async function GET(req: NextRequest, context: { params: { categoryId: string } }) {
-    const { categoryId } = context.params;
+export async function GET(req: NextRequest, context: { params: Promise<{ categoryId: string }> }) {
+    const { categoryId } = await context.params;
      if (!categoryId) {
         return NextResponse.json({ message: 'Category ID is missing.' }, { status: 400 });
     }

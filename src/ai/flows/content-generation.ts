@@ -37,6 +37,7 @@ const generateProductDescriptionFlow = ai.defineFlow(
     Write only the product description, without any introductory text like "Here is the description:".`;
 
     const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
       prompt: prompt,
       output: {
         schema: z.object({ description: z.string() }),

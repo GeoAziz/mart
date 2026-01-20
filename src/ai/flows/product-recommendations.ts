@@ -54,6 +54,7 @@ const getRelatedProductsFlow = ai.defineFlow(
     Generate your response in the specified output format.`;
 
     const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
       prompt: prompt,
       output: {
         schema: RelatedProductOutputSchema,

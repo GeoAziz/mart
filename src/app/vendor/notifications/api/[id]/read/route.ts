@@ -4,13 +4,14 @@ import { withAuth } from '@/lib/authMiddleware';
 import type { AuthenticatedRequest } from '@/lib/authMiddleware';
 
 export const PUT = withAuth(
-  async (req: AuthenticatedRequest, { params }: { params: { id: string } }) => {
+  async (req: AuthenticatedRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
+      const notificationId = (await params).id;
       const notificationRef = db
         .collection('vendors')
         .doc(req.userProfile.uid)
         .collection('notifications')
-        .doc(params.id);
+        .doc(notificationId);
 
       await notificationRef.update({
         isRead: true,

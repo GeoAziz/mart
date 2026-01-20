@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { z } from 'zod';
-import type { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { Address } from '../route'; // Import Address type from the list route
 
 const addressUpdateSchema = z.object({
@@ -46,9 +46,9 @@ function mapFirestoreDocToAddress(doc: FirebaseFirestore.DocumentSnapshot): Addr
 }
 
 // PUT handler to update an existing address
-async function updateAddressHandler(req: AuthenticatedRequest, context: { params: { addressId: string } }) {
+async function updateAddressHandler(req: AuthenticatedRequest, context: { params: Promise<{ addressId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const addressId = context.params.addressId;
+  const addressId = (await context.params).addressId;
 
   if (!addressId) {
     return NextResponse.json({ message: 'Address ID is missing.' }, { status: 400 });
@@ -131,9 +131,9 @@ export const PUT = withAuth(updateAddressHandler);
 
 
 // DELETE handler to remove an address
-async function deleteAddressHandler(req: AuthenticatedRequest, context: { params: { addressId: string } }) {
+async function deleteAddressHandler(req: AuthenticatedRequest, context: { params: Promise<{ addressId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const addressId = context.params.addressId;
+  const addressId = (await context.params).addressId;
 
   if (!addressId) {
     return NextResponse.json({ message: 'Address ID is missing.' }, { status: 400 });

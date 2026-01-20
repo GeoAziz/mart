@@ -29,9 +29,9 @@ const COMMISSION_RATE = 0.10; // Must be consistent with order creation logic
 
 async function updateRefundHandler(
   req: AuthenticatedRequest,
-  context: { params: { refundId: string } }
+  context: { params: Promise<{ refundId: string }> }
 ) {
-  const { refundId } = context.params;
+  const { refundId } = await context.params;
   if (!refundId) {
     return NextResponse.json({ message: 'Refund ID is missing.' }, { status: 400 });
   }

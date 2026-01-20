@@ -48,9 +48,9 @@ function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
 }
 
 // GET Handler remains the same
-async function getOrderHandler(req: AuthenticatedRequest, context: { params: { orderId: string } }) {
+async function getOrderHandler(req: AuthenticatedRequest, context: { params: Promise<{ orderId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const orderId = context.params.orderId;
+  const orderId = (await context.params).orderId;
 
   if (!orderId) {
     return NextResponse.json({ message: 'Order ID is missing.' }, { status: 400 });
@@ -91,9 +91,9 @@ async function getOrderHandler(req: AuthenticatedRequest, context: { params: { o
 export const GET = withAuth(getOrderHandler);
 
 // PUT Handler now includes financial logic
-async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { params: { orderId: string } }) {
+async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { params: Promise<{ orderId: string }> }) {
   const authenticatedUser = req.userProfile;
-  const orderId = context.params.orderId;
+  const orderId = (await context.params).orderId;
 
   if (!orderId) {
     return NextResponse.json({ message: 'Order ID is missing.' }, { status: 400 });

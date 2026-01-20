@@ -40,7 +40,6 @@ pnpm-debug.log*
 .env.test.local
 .env.production.local
 .env
-.env*
 
 # vercel
 .vercel
@@ -59,4 +58,8 @@ clean-mart/
 
 ASSISTANT_BOUNDARIES.md
 
-venv
+.venv/
+__pycache__/
+Screenshot at 2026-01-18 02-29-07.png
+test_screenshots/
+venv/
