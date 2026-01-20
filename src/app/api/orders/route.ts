@@ -4,6 +4,7 @@ import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import admin from 'firebase-admin';
 import type { Order, OrderItem, ShippingAddress, Promotion, Product } from '@/lib/types';
+import { sendOrderConfirmation } from '@/lib/email';
 
 interface ClientCartItem {
   productId: string;
@@ -210,6 +211,12 @@ async function createOrderHandler(req: AuthenticatedRequest) {
       }
 
       createdOrder = { id: newOrderRef.id, ...newOrderData };
+    });
+
+    // Send confirmation email (don't await to avoid blocking response)
+    sendOrderConfirmation(createdOrder).catch(err => {
+      console.error('Failed to send order confirmation email:', err);
+      // Log to error tracking service in production
     });
 
     // Ensure dates are properly converted for client response

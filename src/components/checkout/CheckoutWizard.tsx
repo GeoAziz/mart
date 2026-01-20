@@ -19,6 +19,7 @@ import { Separator } from '../ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 const steps = [
   { id: 'address', name: 'Delivery Address', icon: <MapPin className="h-5 w-5" /> },
@@ -48,6 +49,7 @@ const CheckoutWizard = () => {
 
   const { cart, clearCart, currentUser, userProfile, appliedPromotion } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const methods = useForm<AddressFormData>({
     resolver: zodResolver(addressSchema),
@@ -119,6 +121,11 @@ const CheckoutWizard = () => {
         });
         if (result.error) {
           setStripeError(result.error.message || 'Payment failed');
+          toast({
+            title: 'Payment Failed',
+            description: result.error.message || 'Your payment could not be processed. Please try again.',
+            variant: 'destructive',
+          });
         } else if (result.paymentIntent?.status === 'succeeded') {
           await handlePlaceOrder('card');
         }
@@ -182,7 +189,11 @@ const CheckoutWizard = () => {
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      alert(`Error placing order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({
+        title: 'Order Failed',
+        description: error instanceof Error ? error.message : 'An unknown error occurred. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsPlacingOrder(false);
     }

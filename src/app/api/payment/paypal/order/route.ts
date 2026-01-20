@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import * as paypal from '@paypal/checkout-server-sdk';
+import { convertKEStoUSD } from '@/lib/currency-converter';
 
 // List of PayPal supported currencies (major ones)
 const SUPPORTED_PAYPAL_CURRENCIES = [
@@ -28,17 +29,17 @@ export async function POST(req: Request) {
     let conversionNotice: string | undefined = undefined;
 
     if (!SUPPORTED_PAYPAL_CURRENCIES.includes(currencyCode)) {
-      // If not supported, convert to USD (hardcoded rate for demo, replace with real FX API in production)
-      const KES_TO_USD = 1 / 129; // Hardcoded: 129 KES = 1 USD
+      // If not supported, convert to USD using real-time exchange rates
       if (currencyCode === 'KES') {
         let amountNum = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/,/g, '').trim());
         if (isNaN(amountNum)) {
           return NextResponse.json({ message: 'Invalid amount.' }, { status: 400 });
         }
-        const usdAmount = amountNum * KES_TO_USD;
-        amountStr = usdAmount.toFixed(2);
+        
+        const conversion = await convertKEStoUSD(amountNum);
+        amountStr = conversion.usdAmount.toFixed(2);
         currencyCode = 'USD';
-        conversionNotice = `Converted from KES to USD at rate 129 KES = 1 USD.`;
+        conversionNotice = conversion.notice;
       } else {
         // For any other unsupported currency, just force USD and warn
         console.warn(`Currency '${currency}' is not supported by PayPal. Defaulting to USD.`);
