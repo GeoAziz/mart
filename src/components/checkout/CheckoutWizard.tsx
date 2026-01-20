@@ -168,9 +168,18 @@ const CheckoutWizard = () => {
         throw new Error(errorData.message || 'Failed to place order.');
       }
       const createdOrder = await response.json();
-      await clearCart();
-      setPlacedOrderId(createdOrder.id);
-      setOrderPlaced(true);
+
+      // Only clear cart after confirming the order was created successfully
+      // For payment methods that require upfront payment (card/paypal), 
+      // payment is already verified at this point
+      // For COD/M-Pesa, order creation confirms the transaction
+      if (createdOrder && createdOrder.id) {
+        await clearCart();
+        setPlacedOrderId(createdOrder.id);
+        setOrderPlaced(true);
+      } else {
+        throw new Error('Order was not created successfully');
+      }
     } catch (error) {
       console.error('Error placing order:', error);
       alert(`Error placing order: ${error instanceof Error ? error.message : 'Unknown error'}`);

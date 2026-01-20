@@ -190,10 +190,22 @@ async function createOrderHandler(req: AuthenticatedRequest) {
       const newOrderRef = ordersCollectionRef.doc();
       transaction.set(newOrderRef, newOrderData);
 
-      // Update product stock levels
+      // Update product stock levels with validation
       for (const update of productStockUpdates) {
+        const productDoc = await transaction.get(update.ref);
+        const productData = productDoc.data();
+        const currentStock = productData?.stock || 0;
+        
+        if (currentStock < update.quantityToDecrement) {
+          throw new Error(
+            `Insufficient stock for product "${productData?.name || update.ref.id}". ` +
+            `Available: ${currentStock}, Requested: ${update.quantityToDecrement}`
+          );
+        }
+        
         transaction.update(update.ref, {
-          stock: admin.firestore.FieldValue.increment(-update.quantityToDecrement)
+          stock: admin.firestore.FieldValue.increment(-update.quantityToDecrement),
+          lastStockUpdate: admin.firestore.FieldValue.serverTimestamp()
         });
       }
 
