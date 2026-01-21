@@ -67,3 +67,7 @@ venv/
 .idx/
 test_paypal_checkout_e2e.py
 test_paypal_checkout_flow.py
+DATA_INTEGRITY_FIXES.md
+DATA_INTEGRITY_IMPLEMENTATION.md
+IMPLEMENTATION_PROGRESS.md
+SENIOR_ENGINEER_REPORT.md

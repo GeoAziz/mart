@@ -33,8 +33,8 @@ const getRandomPrice = (min: number, max: number): number => parseFloat((Math.ra
 const generateRandomDate = (start: Date, end: Date): Date => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
 /**
- * Generate contextual product images using Unsplash
- * Falls back to placeholder if image service is unavailable
+ * Generate contextual product images using Picsum Photos
+ * Stable, reliable, and provides consistent images per product
  */
 function generateProductImage(productName: string, category: string, index: number): string {
   const categoryImageMap: Record<string, string[]> = {
@@ -53,9 +53,10 @@ function generateProductImage(productName: string, category: string, index: numb
   const keywords = categoryImageMap[category] || ['product'];
   const keyword = keywords[index % keywords.length];
   
-  // Use Unsplash Source API for contextual images
-  // Adds ?sig=index to ensure variety within same keyword
-  return `https://source.unsplash.com/400x300/?${keyword}&sig=${index}`;
+  // Use Picsum Photos - stable, reliable, consistent
+  // Seed based on product name ensures same image for same product
+  const seed = productName.replace(/\s+/g, '').substring(0, 10) + index;
+  return `https://picsum.photos/seed/${seed}/400/300?random=${index}`;
 }
 
 // --- DATA DEFINITIONS (Based on user research) ---
