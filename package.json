@@ -64,6 +64,7 @@
     "ml-regression-simple-linear": "^3.0.1",
     "next": "15.3.6",
     "node-cache": "^5.1.2",
+    "nodemailer": "^7.0.12",
     "patch-package": "^8.0.0",
     "pdfkit": "^0.17.1",
     "react": "18.3.1",
@@ -86,6 +87,7 @@
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.5",
     "@types/pdfkit": "^0.14.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18",
