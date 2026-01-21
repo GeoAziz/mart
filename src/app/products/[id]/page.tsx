@@ -50,9 +50,19 @@ export default function ProductDetailPage() {
   const [showZoom, setShowZoom] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false);
-  const [isInCart, setIsInCart] = useState(false);
 
-  // Check if product is in wishlist and cart on load
+  // Derive isInCart directly from cart context to stay in sync
+  const cartItem = cart?.find((item: CartItemClient) => item.productId === product?.id);
+  const isInCart = !!cartItem;
+
+  // Sync quantity with cart when product is already in cart
+  useEffect(() => {
+    if (cartItem && cartItem.quantity !== quantity) {
+      setQuantity(cartItem.quantity);
+    }
+  }, [cartItem?.quantity]);
+
+  // Check if product is in wishlist on load
   useEffect(() => {
     if (!currentUser || !product) return;
 
@@ -72,14 +82,8 @@ export default function ProductDetailPage() {
       }
     };
 
-    // Check if in cart
-    if (cart && Array.isArray(cart)) {
-      const itemInCart = cart.some((item: CartItemClient) => item.productId === product.id);
-      setIsInCart(itemInCart);
-    }
-
     checkWishlist();
-  }, [currentUser, product, cart]);
+  }, [currentUser, product]);
 
   const fetchProductDetails = useCallback(async () => {
     setIsLoadingProduct(true);
@@ -212,7 +216,6 @@ export default function ProductDetailPage() {
       if (isInCart) {
         // Remove from cart
         await removeCartItem(product.id);
-        setIsInCart(false);
         toast({ title: 'Removed', description: `${product.name} removed from cart.` });
       } else {
         // Add to cart
@@ -223,7 +226,6 @@ export default function ProductDetailPage() {
           imageUrl: product.imageUrl,
           dataAiHint: product.dataAiHint,
         }, quantity);
-        setIsInCart(true);
         toast({ title: 'Added', description: `${product.name} added to cart.` });
       }
     } catch (err) {

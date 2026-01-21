@@ -12,6 +12,7 @@ interface CartItem {
   price: number; // Denormalized (price at the time of adding/last update)
   imageUrl?: string; // Denormalized
   dataAiHint?: string; // Denormalized
+  stock?: number; // Available stock for validation
 }
 
 interface Cart {
@@ -26,7 +27,7 @@ interface ProductSnapshot {
   price: number;
   imageUrl?: string;
   dataAiHint?: string;
-  // other product fields if needed for validation, e.g., stock
+  stock?: number;
 }
 
 async function getCartHandler(req: AuthenticatedRequest) {
@@ -60,11 +61,33 @@ async function getCartHandler(req: AuthenticatedRequest) {
         updatedAtClient = new Date();
     }
 
+    // Enrich cart items with current stock levels
+    const enrichedItems: CartItem[] = [];
+    for (const item of cartData.items || []) {
+      const productDocRef = firestoreAdmin.collection('products').doc(item.productId);
+      const productDocSnap = await productDocRef.get();
+      
+      if (productDocSnap.exists) {
+        const productData = productDocSnap.data() as ProductSnapshot;
+        enrichedItems.push({
+          ...item,
+          stock: productData.stock,
+          // Also update price in case it changed
+          price: productData.price,
+        });
+      } else {
+        // Product no longer exists, still include it but mark stock as 0
+        enrichedItems.push({
+          ...item,
+          stock: 0,
+        });
+      }
+    }
 
     const clientCartData = {
         ...cartData,
         updatedAt: updatedAtClient,
-        items: cartData.items || [], // Ensure items is always an array
+        items: enrichedItems,
     };
 
     return NextResponse.json(clientCartData, { status: 200 });
@@ -111,6 +134,7 @@ async function saveCartHandler(req: AuthenticatedRequest) {
                     price: productData.price, // Price at the time of saving cart
                     imageUrl: productData.imageUrl,
                     dataAiHint: productData.dataAiHint,
+                    stock: productData.stock, // Include current stock level
                 });
             } else {
                 console.warn(`Product with ID ${item.productId} not found while saving cart for user ${authenticatedUser.uid}. Skipping.`);

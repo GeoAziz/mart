@@ -5,6 +5,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import admin from 'firebase-admin';
 import type { Order, OrderItem, ShippingAddress, Promotion, Product } from '@/lib/types';
 import { sendOrderConfirmation } from '@/lib/email';
+import { getIdempotencyResult, storeIdempotencyResult } from '@/lib/idempotency';
 
 interface ClientCartItem {
   productId: string;
@@ -70,6 +71,16 @@ async function createOrderHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
 
   try {
+    // Check for idempotency key
+    const idempotencyKey = req.headers.get('x-idempotency-key');
+    if (idempotencyKey) {
+      const cachedResult = await getIdempotencyResult(idempotencyKey);
+      if (cachedResult) {
+        console.log(`[Idempotency] Returning cached result for key: ${idempotencyKey}`);
+        return NextResponse.json(cachedResult, { status: 201 });
+      }
+    }
+
     const body = await req.json() as CreateOrderInput;
 
     if (!body.items || body.items.length === 0) {
@@ -87,11 +98,13 @@ async function createOrderHandler(req: AuthenticatedRequest) {
     let createdOrder = {} as Order;
 
     await firestoreAdmin.runTransaction(async (transaction) => {
+      // PHASE 1: READ ALL DATA FIRST
       const processedOrderItems: OrderItem[] = [];
       let calculatedSubtotal = 0;
       const orderVendorIdsSet = new Set<string>();
-      const productStockUpdates: { ref: FirebaseFirestore.DocumentReference, quantityToDecrement: number }[] = [];
+      const productStockUpdates: { ref: FirebaseFirestore.DocumentReference, quantityToDecrement: number, currentStock: number }[] = [];
 
+      // Read all product documents
       for (const clientItem of body.items) {
         if (clientItem.quantity <= 0) {
           throw new Error(`Invalid quantity for product ID ${clientItem.productId}.`);
@@ -120,11 +133,16 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         });
         calculatedSubtotal += productData.price * clientItem.quantity;
         if (productData.vendorId) orderVendorIdsSet.add(productData.vendorId);
-        productStockUpdates.push({ ref: productDocRef, quantityToDecrement: clientItem.quantity });
+        productStockUpdates.push({ 
+          ref: productDocRef, 
+          quantityToDecrement: clientItem.quantity,
+          currentStock: productData.stock
+        });
       }
 
-      // Handle promotion code if provided
+      // Read promotion code if provided
       let discountAmount = 0;
+      let promoDocRef: FirebaseFirestore.DocumentReference | null = null;
       if (body.promotionCode) {
         const promoQuery = firestoreAdmin.collection('promotions').where('code', '==', body.promotionCode).limit(1);
         const promoSnapshot = await transaction.get(promoQuery);
@@ -146,15 +164,12 @@ async function createOrderHandler(req: AuthenticatedRequest) {
                   discountAmount = promotionData.value;
               }
               discountAmount = Math.min(discountAmount, calculatedSubtotal);
-              
-              // Update promotion usage count
-              transaction.update(promoDoc.ref, {
-                  timesUsed: admin.firestore.FieldValue.increment(1)
-              });
+              promoDocRef = promoDoc.ref;
           }
         }
       }
 
+      // PHASE 2: CALCULATE EVERYTHING
       const subtotalAfterDiscount = calculatedSubtotal - discountAmount;
       const taxRate = 0.16;
       const calculatedTaxAmount = subtotalAfterDiscount * taxRate;
@@ -187,26 +202,36 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         estimatedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       };
 
+      // Remove undefined fields to avoid Firestore errors
+      const cleanedOrderData = Object.fromEntries(
+        Object.entries(newOrderData).filter(([, value]) => value !== undefined)
+      ) as Omit<Order, 'id'>;
+
+      // PHASE 3: WRITE ALL DATA
       // Create the order
       const newOrderRef = ordersCollectionRef.doc();
-      transaction.set(newOrderRef, newOrderData);
+      transaction.set(newOrderRef, cleanedOrderData);
 
-      // Update product stock levels with validation
+      // Update product stock levels
       for (const update of productStockUpdates) {
-        const productDoc = await transaction.get(update.ref);
-        const productData = productDoc.data();
-        const currentStock = productData?.stock || 0;
-        
-        if (currentStock < update.quantityToDecrement) {
+        const newStock = update.currentStock - update.quantityToDecrement;
+        if (newStock < 0) {
           throw new Error(
-            `Insufficient stock for product "${productData?.name || update.ref.id}". ` +
-            `Available: ${currentStock}, Requested: ${update.quantityToDecrement}`
+            `Insufficient stock during write phase. ` +
+            `Available: ${update.currentStock}, Requested: ${update.quantityToDecrement}`
           );
         }
         
         transaction.update(update.ref, {
-          stock: admin.firestore.FieldValue.increment(-update.quantityToDecrement),
+          stock: newStock,
           lastStockUpdate: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      // Update promotion usage if applicable
+      if (promoDocRef) {
+        transaction.update(promoDocRef, {
+          timesUsed: admin.firestore.FieldValue.increment(1)
         });
       }
 
@@ -225,6 +250,12 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         createdAt: safeParseDate(createdOrder.createdAt),
         updatedAt: safeParseDate(createdOrder.updatedAt),
     };
+
+    // Store result in idempotency cache if key provided
+    if (idempotencyKey) {
+      await storeIdempotencyResult(idempotencyKey, clientSafeOrder, '/api/orders', 'POST');
+    }
+
     return NextResponse.json(clientSafeOrder, { status: 201 });
 
   } catch (error: any) {

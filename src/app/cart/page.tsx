@@ -38,7 +38,9 @@ export default function CartPage() {
 
 
   const handleQuantityChange = async (productId: string, currentQuantity: number, amount: number) => {
-    const newQuantity = Math.max(1, currentQuantity + amount);
+    const item = cart.find(i => i.productId === productId);
+    const maxStock = item?.stock ?? 999;
+    const newQuantity = Math.max(1, Math.min(currentQuantity + amount, maxStock));
     if (newQuantity !== currentQuantity) {
       await updateCartItemQuantity(productId, newQuantity);
     }
@@ -101,6 +103,15 @@ export default function CartPage() {
                 <div className="flex-grow text-center sm:text-left">
                   <Link href={`/products/${item.productId}`} className="text-lg font-semibold hover:text-primary transition-colors">{item.name}</Link>
                   <p className="text-sm text-muted-foreground">Price: KSh {item.price.toLocaleString()}</p>
+                  {item.stock !== undefined && item.stock > 0 && item.stock <= 5 && (
+                    <p className="text-xs text-amber-500">Only {item.stock} left in stock</p>
+                  )}
+                  {item.stock !== undefined && item.stock === 0 && (
+                    <p className="text-xs text-destructive">Out of stock</p>
+                  )}
+                  {item.stock !== undefined && item.quantity > item.stock && (
+                    <p className="text-xs text-destructive">Quantity exceeds available stock ({item.stock})</p>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2 my-2 sm:my-0">
                   <Button 
@@ -108,17 +119,36 @@ export default function CartPage() {
                     size="icon" 
                     onClick={() => handleQuantityChange(item.productId, item.quantity, -1)} 
                     className="h-8 w-8"
-                    disabled={isCartSaving}
+                    disabled={isCartSaving || item.quantity <= 1}
                   >
                     <Minus size={16}/>
                   </Button>
-                  <Input type="number" value={item.quantity} readOnly className="w-12 h-8 text-center bg-transparent border-x-0 focus-visible:ring-0"/>
+                  <Input 
+                    type="number" 
+                    value={item.quantity} 
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val >= 1) {
+                        updateCartItemQuantity(item.productId, Math.min(val, item.stock || 999));
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (isNaN(val) || val < 1) {
+                        updateCartItemQuantity(item.productId, 1);
+                      }
+                    }}
+                    min={1}
+                    max={item.stock || 999}
+                    className="w-16 h-8 text-center bg-transparent focus-visible:ring-1"
+                    disabled={isCartSaving}
+                  />
                   <Button 
                     variant="outline" 
                     size="icon" 
                     onClick={() => handleQuantityChange(item.productId, item.quantity, 1)} 
                     className="h-8 w-8"
-                    disabled={isCartSaving}
+                    disabled={isCartSaving || (item.stock !== undefined && item.quantity >= item.stock)}
                   >
                     <Plus size={16}/>
                   </Button>

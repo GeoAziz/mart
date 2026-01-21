@@ -63,3 +63,7 @@ __pycache__/
 Screenshot at 2026-01-18 02-29-07.png
 test_screenshots/
 venv/
+
+.idx/
+test_paypal_checkout_e2e.py
+test_paypal_checkout_flow.py

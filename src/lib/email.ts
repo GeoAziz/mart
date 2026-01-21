@@ -1,18 +1,34 @@
-import nodemailer from 'nodemailer';
 import type { Order } from '@/lib/types';
 
-// Create reusable transporter
-const transporter = nodemailer.createTransporter({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Nodemailer optional - only loaded if available
+let nodemailer: any = null;
+let transporter: any = null;
+
+try {
+  nodemailer = require('nodemailer');
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+} catch (error) {
+  console.warn('⚠️  Nodemailer not installed. Email notifications disabled.');
+  console.warn('   Run: npm install nodemailer to enable email.');
+}
 
 export async function sendOrderConfirmation(order: Order): Promise<void> {
+  // If email is not configured, skip email sending (don't fail the order)
+  if (!transporter) {
+    console.log('ℹ️  Email notification skipped - nodemailer not configured');
+    return;
+  }
+
   const emailHtml = `
     <!DOCTYPE html>
     <html>
@@ -89,16 +105,27 @@ export async function sendOrderConfirmation(order: Order): Promise<void> {
     </html>
   `;
 
-  await transporter.sendMail({
-    from: '"ZilaCart" <orders@zilacart.com>',
-    to: order.userEmail,
-    subject: `Order Confirmation #${order.id?.substring(0, 8).toUpperCase()} - ZilaCart`,
-    html: emailHtml,
-  });
+  try {
+    await transporter.sendMail({
+      from: '"ZilaCart" <orders@zilacart.com>',
+      to: order.userEmail,
+      subject: `Order Confirmation #${order.id?.substring(0, 8).toUpperCase()} - ZilaCart`,
+      html: emailHtml,
+    });
+    console.log('✅ Order confirmation email sent to:', order.userEmail);
+  } catch (error) {
+    console.error('⚠️  Failed to send order confirmation email:', error);
+    // Don't throw - email failure shouldn't block order creation
+  }
 }
 
 // Verify transporter configuration on startup
 export async function verifyEmailConfig(): Promise<boolean> {
+  if (!transporter) {
+    console.log('ℹ️  Email notifications not configured');
+    return false;
+  }
+
   try {
     await transporter.verify();
     console.log('✅ Email server is ready');

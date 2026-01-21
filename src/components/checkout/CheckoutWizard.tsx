@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PayPalScriptProvider, PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
+import { PayPalScriptProvider, PayPalButtons, usePayPalScriptReducer, FUNDING } from '@paypal/react-paypal-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
@@ -20,6 +20,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const steps = [
   { id: 'address', name: 'Delivery Address', icon: <MapPin className="h-5 w-5" /> },
@@ -205,11 +206,21 @@ const CheckoutWizard = () => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(orderPayload)
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to place order.');
+      
+      // Parse response text first to handle errors properly
+      const responseText = await response.text();
+      let createdOrder;
+      
+      try {
+        createdOrder = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', responseText);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
-      const createdOrder = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(createdOrder?.message || 'Failed to place order.');
+      }
 
       // Only clear cart after confirming the order was created successfully
       // For payment methods that require upfront payment (card/paypal), 
@@ -296,7 +307,7 @@ const CheckoutWizard = () => {
 
         <CardContent className="p-6 space-y-6">
           {currentStep === 0 && (
-            <form onSubmit={handleSubmit(onAddressSubmit)} className="space-y-4">
+            <form id="address-form" onSubmit={handleSubmit(onAddressSubmit)} className="space-y-4">
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
                 <Controller
@@ -359,25 +370,21 @@ const CheckoutWizard = () => {
                 />
                 <Label htmlFor="saveAddress" className="text-sm font-normal text-muted-foreground">Save this address for future orders</Label>
               </div>
-              {/* Move the Next button INSIDE the form so it triggers submit */}
-              <div className="flex justify-end">
-                <Button type="submit" disabled={!isValid || Object.keys(errors).length > 0} className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">Next</Button>
-              </div>
             </form>
           )}
 
           {currentStep === 1 && (
             <>
               <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="space-y-4">
-                {/* M-Pesa */}
-                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                {/* M-Pesa - STK Push Coming Soon */}
+                <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10 relative">
                   <Label htmlFor="mpesa" className="flex items-center cursor-pointer">
                     <RadioGroupItem value="mpesa" id="mpesa" className="mr-3 border-primary text-primary focus:ring-primary"/>
                     <div className="flex-grow">
                       <span className="font-semibold">M-Pesa</span>
-                      <p className="text-xs text-muted-foreground">Pay securely with M-Pesa.</p>
+                      <p className="text-xs text-muted-foreground">Pay securely with M-Pesa. <span className="text-amber-500 font-medium">(STK Push coming soon - manual payment for now)</span></p>
                     </div>
-                    <img src="https://placehold.co/40x25.png" alt="M-Pesa Logo" className="ml-auto h-6" data-ai-hint="mpesa logo"/>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/M-PESA_LOGO-01.svg/512px-M-PESA_LOGO-01.svg.png" alt="M-Pesa Logo" className="ml-auto h-6" />
                   </Label>
                 </div>
                 {/* Credit/Debit Card (Stripe) */}
@@ -414,18 +421,21 @@ const CheckoutWizard = () => {
                   </Label>
                 </div>
               </RadioGroup>
-              {/* Next button for payment method step */}
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => {
-                    if (selectedPaymentMethod) handleNextStep();
-                  }}
-                  disabled={!selectedPaymentMethod}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary"
-                >
-                  Next
-                </Button>
-              </div>
+              {/* M-Pesa instructions when selected */}
+              {selectedPaymentMethod === 'mpesa' && (
+                <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-md">
+                  <p className="text-sm text-green-400 font-medium mb-2">M-Pesa Payment Instructions:</p>
+                  <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+                    <li>Go to M-Pesa on your phone</li>
+                    <li>Select &quot;Lipa na M-Pesa&quot; → &quot;Pay Bill&quot;</li>
+                    <li>Enter Business Number: <span className="font-mono text-primary">123456</span></li>
+                    <li>Enter Account Number: Your order ID (shown after placing order)</li>
+                    <li>Enter Amount: KSh {total.toLocaleString(undefined, {minimumFractionDigits: 2})}</li>
+                    <li>Enter your M-Pesa PIN and confirm</li>
+                  </ol>
+                  <p className="text-xs text-amber-500 mt-2">Note: Your order will be processed once payment is confirmed.</p>
+                </div>
+              )}
             </>
           )}
 
@@ -465,13 +475,58 @@ const CheckoutWizard = () => {
           )}
         </CardContent>
 
-        <CardFooter className="p-6 flex justify-between border-t border-border">
-          <Button variant="outline" onClick={prevStep} disabled={currentStep === 0 || isPlacingOrder} className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+        <CardFooter className="p-6 flex justify-between items-center border-t border-border">
+          <Button 
+            variant="outline" 
+            onClick={prevStep} 
+            disabled={currentStep === 0 || isPlacingOrder} 
+            className={cn(
+              "border-accent text-accent font-semibold px-6 min-w-[100px]",
+              "hover:bg-accent hover:text-accent-foreground",
+              "disabled:border-muted disabled:text-muted-foreground disabled:opacity-70 disabled:cursor-not-allowed"
+            )}
+          >
             Back
           </Button>
-          {/* Remove Next button for step 0 and 1 here, as they are now inside the form/content above */}
+          
+          {/* Next button for step 0 (Address) - triggers form submit */}
+          {currentStep === 0 && (
+            <Button 
+              type="submit" 
+              form="address-form"
+              disabled={!isValid || Object.keys(errors).length > 0} 
+              className={cn(
+                "bg-primary text-primary-foreground font-semibold px-6 min-w-[100px]",
+                "hover:bg-primary/90",
+                "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-70 disabled:cursor-not-allowed",
+                isValid && Object.keys(errors).length === 0 && "glow-edge-primary"
+              )}
+            >
+              Next
+            </Button>
+          )}
+          
+          {/* Next button for step 1 (Payment Method) */}
+          {currentStep === 1 && (
+            <Button
+              onClick={() => {
+                if (selectedPaymentMethod) handleNextStep();
+              }}
+              disabled={!selectedPaymentMethod}
+              className={cn(
+                "bg-primary text-primary-foreground font-semibold px-6 min-w-[100px]",
+                "hover:bg-primary/90",
+                "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-70 disabled:cursor-not-allowed",
+                selectedPaymentMethod && "glow-edge-primary"
+              )}
+            >
+              Next
+            </Button>
+          )}
+          
+          {/* Place Order / Payment buttons for step 2 (Summary) */}
           {currentStep === steps.length - 1 && (
-            <div className="w-full">
+            <div className="flex-1 ml-4">
               {selectedPaymentMethod === 'card' && (
                 <Elements stripe={stripePromise}>
                   <StripeCheckoutForm />
@@ -482,9 +537,9 @@ const CheckoutWizard = () => {
                   options={{
                     clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
                     currency: 'USD',
-                  }}
-                  onError={(err: unknown) => {
-                    setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
+                    intent: 'capture',
+                    components: 'buttons',
+                    'disable-funding': 'card,credit,paylater,venmo',
                   }}
                 >
                   <PayPalCheckoutWithConversion
@@ -496,7 +551,16 @@ const CheckoutWizard = () => {
                 </PayPalScriptProvider>
               )}
               {(selectedPaymentMethod !== 'card' && selectedPaymentMethod !== 'paypal') && (
-                <Button onClick={() => handlePlaceOrder()} disabled={isPlacingOrder || cart.length === 0} className="bg-green-500 hover:bg-green-600 text-white animate-pulse-glow w-full">
+                <Button 
+                  onClick={() => handlePlaceOrder()} 
+                  disabled={isPlacingOrder || cart.length === 0} 
+                  className={cn(
+                    "bg-green-500 text-white font-semibold w-full",
+                    "hover:bg-green-600",
+                    "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-70 disabled:cursor-not-allowed",
+                    !isPlacingOrder && cart.length > 0 && "animate-pulse-glow glow-edge-primary"
+                  )}
+                >
                   {isPlacingOrder ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -520,146 +584,203 @@ const CheckoutWizard = () => {
 };
 
 
-// Enhanced PayPal checkout component with currency conversion notice
-function PayPalCheckoutWithConversion({ total, currentUser, setPaypalSdkError, handlePayPalApprove }: any) {
-
-  // Track PayPal state
-  const [paypalCurrency, setPaypalCurrency] = useState('USD');
-  const [conversionNotice, setConversionNotice] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [orderAmount, setOrderAmount] = useState<string>('');
+// Enhanced PayPal checkout component - ONLY shows PayPal button (no debit/credit card)
+function PayPalCheckoutWithConversion({ total, currentUser, setPaypalSdkError, handlePayPalApprove }: {
+  total: number;
+  currentUser: any;
+  setPaypalSdkError: (error: string | null) => void;
+  handlePayPalApprove: (orderId: string) => Promise<void>;
+}) {
   const [{ isPending, isRejected }] = usePayPalScriptReducer();
   const [paypalError, setPaypalError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [conversionInfo, setConversionInfo] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // Reset error and conversion notice on payment method change
-  useEffect(() => {
-    setPaypalError(null);
-    setConversionNotice(undefined);
-    setOrderAmount('');
-    setPaypalCurrency('USD');
-    setDebugInfo(null);
-  }, [total]);
+  // Convert KES to USD (rate: 129 KES = 1 USD)
+  const KES_TO_USD_RATE = 129;
+  const usdAmount = (total / KES_TO_USD_RATE).toFixed(2);
 
-  // Only show loader if SDK is loading
   useEffect(() => {
     if (isRejected) {
       setPaypalSdkError('Failed to load PayPal. Please check your connection or try again.');
     }
   }, [isRejected, setPaypalSdkError]);
 
+  // Show conversion info
+  useEffect(() => {
+    setConversionInfo(`KSh ${total.toLocaleString()} ≈ $${usdAmount} USD`);
+  }, [total, usdAmount]);
+
   if (isRejected) {
     return (
-      <div className="flex flex-col items-center justify-center py-6 text-destructive">
-        <AlertCircle className="mr-2 h-5 w-5" />
-        Failed to load PayPal. Please check your connection or try again.
-        {debugInfo && process.env.NODE_ENV === 'development' && (
-          <pre className="mt-2 text-xs text-muted-foreground bg-muted/20 p-2 rounded max-w-xl overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
-        )}
+      <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-5 w-5" />
+          <span className="font-medium">Failed to load PayPal</span>
+        </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          Please refresh the page and try again, or choose a different payment method.
+        </p>
       </div>
     );
   }
-  if (isPending || isLoading) {
+
+  if (isPending) {
     return (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Loading PayPal...
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">Loading PayPal...</span>
       </div>
     );
   }
+
   return (
-    <>
+    <div className="space-y-4">
+      {/* Currency conversion notice */}
+      <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+        <p className="text-sm text-blue-400 flex items-center gap-2">
+          <span className="font-medium">💱 Currency Conversion:</span>
+          {conversionInfo}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          PayPal will charge in USD. Your bank may apply additional conversion fees.
+        </p>
+      </div>
+
+      {/* Error display */}
       {paypalError && (
-        <div className="mb-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-sm">
-          <span>{paypalError}</span>
+        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+          <div className="flex items-start gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-sm">{paypalError}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Please try again or choose a different payment method.
+              </p>
+            </div>
+          </div>
         </div>
       )}
-      {conversionNotice && (
-        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-md text-blue-400 text-sm">
-          <span>{conversionNotice}</span>
-        </div>
-      )}
-      {debugInfo && process.env.NODE_ENV === 'development' && (
-        <details className="mb-2 bg-muted/20 p-2 rounded text-xs text-muted-foreground">
-          <summary className="cursor-pointer">PayPal Debug Info</summary>
-          <pre className="overflow-x-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
-        </details>
-      )}
-      <PayPalButtons
-        style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' }}
-        forceReRender={[paypalCurrency, orderAmount]}
-        createOrder={
-          async (_data: Record<string, unknown>, _actions: any) => {
-            if (!currentUser) throw new Error('User not authenticated');
-            setIsLoading(true);
+
+      {/* PayPal Button - ONLY PayPal funding source */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+        <PayPalButtons
+          fundingSource={FUNDING.PAYPAL}
+          style={{
+            layout: 'vertical',
+            color: 'blue',
+            shape: 'rect',
+            label: 'pay',
+            height: 50,
+            tagline: false,
+          }}
+          forceReRender={[total, usdAmount]}
+          createOrder={async (_data: Record<string, unknown>, actions: any) => {
+            console.log('[PayPal] Creating order. KES:', total, '-> USD:', usdAmount);
             setPaypalError(null);
-            setDebugInfo(null);
+            setIsProcessing(true);
+
             try {
-              const token = await currentUser.getIdToken();
-              // Always send KES, backend will convert if needed
-              const res = await fetch('/api/payment/paypal/order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ amount: Number(total), currency: 'KES' })
-              });
-              const orderData = await res.json();
-              setIsLoading(false);
-              setDebugInfo({
-                status: res.status,
-                ok: res.ok,
-                orderData,
-                headers: Object.fromEntries(res.headers.entries()),
-              });
-              if (!res.ok || !orderData.id) {
-                setPaypalError(orderData.message || 'Failed to create PayPal order.');
-                setPaypalSdkError(orderData.message || 'Failed to create PayPal order.');
-                throw new Error(orderData.message || 'Failed to create PayPal order.');
+              if (!currentUser) {
+                throw new Error('Please log in to complete your purchase');
               }
-              setPaypalCurrency(orderData.currency || 'USD');
-              setOrderAmount(orderData.amount || '');
-              setConversionNotice(orderData.conversionNotice);
-              return orderData.id;
+
+              if (parseFloat(usdAmount) < 0.01) {
+                throw new Error('Order total is too small for PayPal (minimum $0.01)');
+              }
+
+              // Use PayPal SDK to create order directly (more reliable)
+              const orderId = await actions.order.create({
+                intent: 'CAPTURE',
+                purchase_units: [
+                  {
+                    amount: {
+                      currency_code: 'USD',
+                      value: usdAmount,
+                    },
+                    description: 'ZilaCart Purchase',
+                  },
+                ],
+                application_context: {
+                  brand_name: 'ZilaCart',
+                  shipping_preference: 'NO_SHIPPING',
+                  user_action: 'PAY_NOW',
+                },
+              });
+
+              console.log('[PayPal] Order created successfully:', orderId);
+              setIsProcessing(false);
+              return orderId;
             } catch (err: any) {
-              setIsLoading(false);
-              setPaypalError(err?.message || 'Failed to create PayPal order.');
-              setPaypalSdkError(err?.message || 'Failed to create PayPal order.');
-              setDebugInfo({ error: err?.message || String(err) });
+              const message = err?.message || 'Failed to create PayPal order';
+              console.error('[PayPal] Create order error:', message);
+              setPaypalError(message);
+              setIsProcessing(false);
               throw err;
             }
-          }
-        }
-        onApprove={async (data: Record<string, unknown>, actions: any) => {
-          setIsApproving(true);
-          setPaypalError(null);
-          try {
-            await handlePayPalApprove((data as any).orderID);
-          } catch (err: any) {
-            setPaypalError('PayPal approval error: ' + (err?.message || String(err)));
-            setPaypalSdkError('PayPal approval error: ' + (err?.message || String(err)));
-            setDebugInfo({ error: err?.message || String(err) });
-          } finally {
-            setIsApproving(false);
-          }
-        }}
-        onError={(err: unknown) => {
-          setPaypalError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
-          setPaypalSdkError('PayPal error: ' + (err instanceof Error ? err.message : String(err)));
-          setDebugInfo({ error: err instanceof Error ? err.message : String(err) });
-        }}
-        disabled={isApproving || isLoading}
-      />
-      {(isApproving || isLoading) && (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {isApproving ? 'Finalizing payment...' : 'Loading PayPal...'}
+          }}
+          onApprove={async (data: { orderID: string }, actions: any) => {
+            console.log('[PayPal] Payment approved. OrderID:', data.orderID);
+            setPaypalError(null);
+            setIsProcessing(true);
+
+            try {
+              // IMPORTANT: Capture the payment using PayPal SDK
+              console.log('[PayPal] Capturing payment...');
+              const captureResult = await actions.order?.capture();
+              
+              if (!captureResult || captureResult.status !== 'COMPLETED') {
+                throw new Error(`Payment capture failed: ${captureResult?.status || 'Unknown error'}`);
+              }
+
+              console.log('[PayPal] Payment captured successfully:', captureResult.id);
+              
+              // Now create the order in our system
+              toast({
+                title: 'Payment Successful!',
+                description: 'Your PayPal payment was processed. Creating your order...',
+              });
+
+              await handlePayPalApprove(data.orderID);
+              
+            } catch (err: any) {
+              const message = err?.message || 'Payment processing failed';
+              console.error('[PayPal] Capture/approve error:', message, err);
+              setPaypalError(message);
+              toast({
+                title: 'Payment Failed',
+                description: message,
+                variant: 'destructive',
+              });
+            } finally {
+              setIsProcessing(false);
+            }
+          }}
+          onCancel={() => {
+            console.log('[PayPal] Payment cancelled by user');
+            setPaypalError('Payment was cancelled. You can try again when ready.');
+            setIsProcessing(false);
+          }}
+          onError={(err: unknown) => {
+            const message = err instanceof Error ? err.message : 'An error occurred with PayPal';
+            console.error('[PayPal] Error:', message);
+            setPaypalError(message);
+            setPaypalSdkError(message);
+            setIsProcessing(false);
+          }}
+          disabled={isProcessing}
+        />
+      </div>
+
+      {/* Processing indicator */}
+      {isProcessing && (
+        <div className="flex items-center justify-center gap-2 py-3">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Processing your payment...</span>
         </div>
       )}
-      {/* Fallback for stuck modal */}
-      {paypalError && (
-        <div className="mt-2 text-xs text-muted-foreground">If the PayPal window is stuck, please refresh the page or try a different payment method.</div>
-      )}
-    </>
+    </div>
   );
 }
 

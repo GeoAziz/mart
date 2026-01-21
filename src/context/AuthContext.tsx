@@ -35,6 +35,7 @@ export interface CartItemClient {
   price: number;
   imageUrl?: string;
   dataAiHint?: string;
+  stock?: number;
 }
 
 interface SaveCartApiItem {

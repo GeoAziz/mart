@@ -2,37 +2,55 @@
 
 import CheckoutWizard from '@/components/checkout/CheckoutWizard';
 import { useAuth } from '@/context/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 export default function CheckoutPage() {
-  const { cart, isCartLoading, currentUser } = useAuth();
+  const { cart, isCartLoading, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // Consolidated redirect logic - only redirect once everything is loaded
   useEffect(() => {
-    // If cart is not loading and user is loaded
-    if (!isCartLoading && currentUser) {
-      if (cart.length === 0) {
-        // If cart is empty after loading, redirect to products page
-        router.replace('/products');
-      }
-    } else if (!isCartLoading && !currentUser) {
-      // If not loading and no user, redirect to login
-      router.replace('/auth/login?redirect=/checkout');
-    }
-    // If cart is loading or user is loading, don't do anything yet
-  }, [cart, isCartLoading, currentUser, router]);
+    // Wait until both auth and cart are fully loaded
+    if (authLoading || isCartLoading) return;
+    
+    // Prevent multiple redirects
+    if (isRedirecting) return;
 
-  // Render nothing or a loading indicator while checking cart/user
-  if (isCartLoading || !currentUser || (currentUser && cart.length === 0 && !isCartLoading)) {
+    if (!currentUser) {
+      setIsRedirecting(true);
+      router.replace('/auth/login?redirect=/checkout');
+      return;
+    }
+    
+    if (cart.length === 0) {
+      setIsRedirecting(true);
+      router.replace('/products');
+      return;
+    }
+  }, [cart, isCartLoading, currentUser, authLoading, router, isRedirecting]);
+
+  // Show loading state while auth or cart is loading, or while redirecting
+  if (authLoading || isCartLoading || isRedirecting) {
     return (
-        <div className="container mx-auto py-8 text-center">
-            {/* Optional: Add a more specific loading spinner here */}
-            <p className="text-lg text-muted-foreground mt-2">Loading checkout...</p>
-        </div>
+      <div className="container mx-auto py-8 text-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+        <p className="text-lg text-muted-foreground">Loading checkout...</p>
+      </div>
     );
   }
 
+  // Additional safety check - don't render checkout if conditions aren't met
+  if (!currentUser || cart.length === 0) {
+    return (
+      <div className="container mx-auto py-8 text-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+        <p className="text-lg text-muted-foreground">Redirecting...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
