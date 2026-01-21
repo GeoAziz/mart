@@ -21,14 +21,42 @@
 
 import 'dotenv/config';
 import { firestoreAdmin, firebaseAdminAuth } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { faker } from '@faker-js/faker';
 import type { UserProfile, Role, Product, Category, Order, OrderItem, LedgerEntry } from '@/lib/types';
+import { toFirestoreTimestamp, ensureTimestampField } from '@/lib/timestamp-utils';
 
 
 // --- HELPER FUNCTIONS ---
 const getRandomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const getRandomPrice = (min: number, max: number): number => parseFloat((Math.random() * (max - min) + min).toFixed(2));
 const generateRandomDate = (start: Date, end: Date): Date => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+
+/**
+ * Generate contextual product images using Unsplash
+ * Falls back to placeholder if image service is unavailable
+ */
+function generateProductImage(productName: string, category: string, index: number): string {
+  const categoryImageMap: Record<string, string[]> = {
+    'Electronics': ['smartphone', 'laptop', 'headphones', 'tablet', 'camera'],
+    'Fashion': ['clothing', 'shoes', 'fashion', 'sneakers', 'dress'],
+    'Groceries': ['food', 'grocery', 'fresh-produce', 'beverage'],
+    'Home & Kitchen': ['kitchen', 'furniture', 'home-decor', 'cookware'],
+    'Health & Beauty': ['cosmetics', 'skincare', 'wellness', 'beauty'],
+    'Baby & Kids': ['toys', 'baby-products', 'children', 'kids'],
+    'Automotive': ['car', 'automotive', 'vehicle', 'tools'],
+    'Sports & Outdoors': ['sports', 'fitness', 'outdoor', 'exercise'],
+    'Books & Stationery': ['books', 'stationery', 'reading', 'office'],
+    'Tools & Industrial': ['tools', 'workshop', 'industrial', 'equipment']
+  };
+
+  const keywords = categoryImageMap[category] || ['product'];
+  const keyword = keywords[index % keywords.length];
+  
+  // Use Unsplash Source API for contextual images
+  // Adds ?sig=index to ensure variety within same keyword
+  return `https://source.unsplash.com/400x300/?${keyword}&sig=${index}`;
+}
 
 // --- DATA DEFINITIONS (Based on user research) ---
 
@@ -213,6 +241,7 @@ async function deleteQueryBatch(query: FirebaseFirestore.Query, resolve: (value:
 async function seedUsers() {
     console.log('Seeding users...');
     const users: (UserProfile & {password: string})[] = [];
+    const now = toFirestoreTimestamp(new Date());
 
     // Admin user
     users.push({
@@ -222,7 +251,7 @@ async function seedUsers() {
         role: 'admin',
         status: 'active',
         password: 'password123',
-        createdAt: new Date(),
+        createdAt: now,
     });
 
     // Vendor users
@@ -234,7 +263,7 @@ async function seedUsers() {
             role: 'vendor',
             status: 'active',
             password: 'password123',
-            createdAt: new Date(),
+            createdAt: now,
         });
     }
 
@@ -247,7 +276,7 @@ async function seedUsers() {
             role: 'customer',
             status: 'active',
             password: 'password123',
-            createdAt: new Date(),
+            createdAt: now,
         });
     }
     
@@ -281,7 +310,7 @@ async function seedCategories() {
     console.log('Seeding categories...');
     if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
     const batch = firestoreAdmin.batch();
-    const now = new Date();
+    const now = toFirestoreTimestamp(new Date());
     for (const category of categoriesData) {
         const docRef = firestoreAdmin.collection('categories').doc();
         batch.set(docRef, { ...category, createdAt: now, updatedAt: now });
@@ -294,12 +323,27 @@ async function seedCategories() {
 
 async function seedProducts(vendors: UserProfile[], categories: Category[]) {
     console.log('Seeding products...');
+    
+    // Validate that we have vendors
+    if (vendors.length === 0) {
+        throw new Error('Cannot seed products: no vendors available');
+    }
+    
     const allProducts = [];
-    const now = new Date();
+    const now = toFirestoreTimestamp(new Date());
+    let productIndex = 0;
+    
     for (const p of productsData) {
         const categoryDoc = categories.find(c => c.name === p.category);
         if (!categoryDoc) {
             console.warn(`Category ${p.category} not found for product ${p.name}. Skipping.`);
+            continue;
+        }
+
+        // Validate vendor exists
+        const vendor = getRandomElement(vendors);
+        if (!vendor || !vendor.uid) {
+            console.warn(`Invalid vendor for product ${p.name}. Skipping.`);
             continue;
         }
 
@@ -309,10 +353,11 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
             price: getRandomPrice(p.priceRange[0], p.priceRange[1]),
             category: p.category,
             stock: faker.number.int({ min: 0, max: 100 }),
-            imageUrl: `https://placehold.co/400x300.png`,
+            // Use contextual Unsplash images instead of placeholder
+            imageUrl: generateProductImage(p.name, p.category, productIndex),
             dataAiHint: p.category.toLowerCase(),
             brand: p.brand,
-            vendorId: getRandomElement(vendors).uid,
+            vendorId: vendor.uid,
             status: 'active',
             dateAdded: now,
             updatedAt: now,
@@ -320,6 +365,7 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
             sku: `${p.brand.substring(0,3).toUpperCase()}-${faker.string.alphanumeric(6).toUpperCase()}`
         };
         allProducts.push(newProduct);
+        productIndex++;
     }
     
     if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
@@ -379,45 +425,59 @@ async function seedOrders(customers: UserProfile[], products: Product[]) {
       },
       paymentMethod: getRandomElement(['M-Pesa', 'Card']),
       status: orderStatus,
+      statusHistory: [
+        {
+          status: orderStatus,
+          timestamp: createdAt,
+          note: `Order ${orderStatus}`,
+        }
+      ],
       subtotal,
       shippingCost,
       taxAmount,
       totalAmount,
-      createdAt: createdAt,
-      updatedAt: createdAt,
+      createdAt: toFirestoreTimestamp(createdAt),
+      updatedAt: toFirestoreTimestamp(createdAt),
       vendorIds: [...new Set(orderItems.map(item => item.vendorId).filter(Boolean) as string[])],
     };
 
     if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
-    const orderRef = firestoreAdmin.collection('orders').doc();
-    await orderRef.set(order);
+    
+    // Use transaction to ensure order + ledger entries are atomic
+    // Both succeed together or both fail together (no partial state)
+    await firestoreAdmin.runTransaction(async (transaction) => {
+      const orderRef = firestoreAdmin.collection('orders').doc();
+      
+      // 1. Create order in transaction
+      transaction.set(orderRef, order);
 
-    // If order is delivered, create ledger entries
-    if (orderStatus === 'delivered') {
-      for (const item of orderItems) {
-        if (item.vendorId) {
-          const grossSaleAmount = item.price * item.quantity;
-          const commissionAmount = grossSaleAmount * COMMISSION_RATE;
-          const netAmount = grossSaleAmount - commissionAmount;
+      // 2. If order is delivered, add ledger entries in same transaction
+      if (orderStatus === 'delivered') {
+        for (const item of orderItems) {
+          if (item.vendorId) {
+            const grossSaleAmount = item.price * item.quantity;
+            const commissionAmount = grossSaleAmount * COMMISSION_RATE;
+            const netAmount = grossSaleAmount - commissionAmount;
 
-          const ledgerEntry: Omit<LedgerEntry, 'id'> = {
-            vendorId: item.vendorId,
-            type: 'sale_credit',
-            amount: grossSaleAmount,
-            commissionRate: COMMISSION_RATE,
-            commissionAmount: commissionAmount,
-            netAmount: netAmount,
-            orderId: orderRef.id,
-            productId: item.productId,
-            createdAt: new Date(),
-            description: `Sale of ${item.quantity} x ${item.name}`,
-          };
+            const ledgerEntry: Omit<LedgerEntry, 'id'> = {
+              vendorId: item.vendorId,
+              type: 'sale_credit',
+              amount: grossSaleAmount,
+              commissionRate: COMMISSION_RATE,
+              commissionAmount: commissionAmount,
+              netAmount: netAmount,
+              orderId: orderRef.id,
+              productId: item.productId,
+              createdAt: toFirestoreTimestamp(new Date()),
+              description: `Sale of ${item.quantity} x ${item.name}`,
+            };
 
-          const ledgerRef = firestoreAdmin.collection('users').doc(item.vendorId).collection('ledgerEntries').doc();
-          await ledgerRef.set(ledgerEntry);
+            const ledgerRef = firestoreAdmin.collection('users').doc(item.vendorId).collection('ledgerEntries').doc();
+            transaction.set(ledgerRef, ledgerEntry);
+          }
         }
       }
-    }
+    });
   }
   console.log(`${NUM_ORDERS} orders seeded.`);
 }
