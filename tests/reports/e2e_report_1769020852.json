@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-21T13:40:52.389653",
+  "base_url": "http://localhost:3000",
+  "test_logs": [
+    "[13:40:17] STEP 0: \ud83d\ude80 STARTING COMPLETE E2E TEST",
+    "[13:40:17] STEP 1: Checking server health",
+    "\u2705 Server is running (status: 200)",
+    "[13:40:20] STEP 2: \ud83d\udccd PHASE 1: COLD START - Landing Page & Navigation",
+    "[13:40:20] STEP 0: Navigating to: http://localhost:3000/",
+    "\u2705 Landing page loaded",
+    "\u2705 Header visible",
+    "\u2705 Navigation item found",
+    "\u274c Element not found: ('xpath', \"//nav//a[contains(text(), 'Login') or contains(text(), 'Sign')]\")",
+    "[13:40:46] STEP 3: Testing responsiveness at 3 breakpoints",
+    "\u2705 Resized viewport to 1920x1080",
+    "\u2705 Desktop (1920x1080) layout responsive",
+    "\u2705 Resized viewport to 1024x768",
+    "\u2705 Tablet (1024x768) layout responsive",
+    "\u2705 Resized viewport to 375x667",
+    "\u2705 Mobile (375x667) layout responsive",
+    "\u2705 Resized viewport to 1920x1080",
+    "\u274c Test failed with error: '>' not supported between instances of 'str' and 'int'",
+    "\u2705 Screenshot saved: tests/reports/screenshots/test_failure_1769020851.png"
+  ]
+}

@@ -1,0 +1,83 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        test-suite:
+          - smoke
+          - e2e
+          - integration
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+      
+      - name: Start dev server
+        run: npm run dev &
+        timeout-minutes: 5
+      
+      - name: Wait for server
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null; then
+              echo "✅ Server ready"
+              exit 0
+            fi
+            echo "⏳ Waiting for server... ($i/30)"
+            sleep 2
+          done
+          exit 1
+      
+      - name: Run ${{ matrix.test-suite }} tests
+        run: |
+          python -m pytest tests/test_master.py -m ${{ matrix.test-suite }} -v --tb=short --html=report.html --self-contained-html
+        env:
+          BASE_URL: http://localhost:3000
+          HEADLESS: 'true'
+      
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.test-suite }}
+          path: report.html
+      
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.test-suite }}
+          path: tests/reports/screenshots/
+          if-no-files-found: ignore

@@ -1,0 +1,117 @@
+name: E2E Complete Journey Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      chrome:
+        image: selenium/standalone-chrome:latest
+        options: >-
+          --health-cmd "curl -f http://localhost:4444/wd/hub/status || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 4444:4444
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          npm install
+          pip install pytest selenium webdriver-manager requests firebase-admin
+
+      - name: Start dev server
+        run: npm run dev &
+        env:
+          NODE_ENV: test
+
+      - name: Wait for server
+        run: |
+          for i in {1..30}; do
+            curl -f http://localhost:3000 && break || sleep 2
+          done
+
+      - name: Create reports directory
+        run: mkdir -p tests/reports/screenshots
+
+      - name: Run E2E tests
+        run: |
+          python3 -m pytest tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users -v -s --tb=short
+        env:
+          BASE_URL: http://localhost:3000
+          HEADLESS: "true"
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-screenshots
+          path: tests/reports/screenshots/
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-reports
+          path: tests/reports/
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "❌ E2E Test Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "E2E Complete Journey test failed on ${{ github.ref }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+                  }
+                }
+              ]
+            }
+
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "✅ E2E Test Passed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "E2E Complete Journey test passed on ${{ github.ref }} 🎉"
+                  }
+                }
+              ]
+            }
