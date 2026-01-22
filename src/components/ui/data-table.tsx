@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/content-skeleton';
 import { cn } from '@/lib/utils';
@@ -49,7 +49,7 @@ interface DataTableProps<T> {
   emptyState?: {
     title: string;
     description?: string;
-    icon?: any;
+    icon?: LucideIcon;
   };
   mobileCard?: (item: T) => React.ReactNode;
   className?: string;
@@ -151,7 +151,7 @@ export function DataTable<T extends { id?: string }>({
                   <TableCell key={column.key} className={column.className}>
                     {column.render
                       ? column.render(item)
-                      : (item as any)[column.key]}
+                      : String((item as Record<string, unknown>)[column.key] ?? '')}
                   </TableCell>
                 ))}
               </TableRow>

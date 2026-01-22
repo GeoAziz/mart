@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getStatusBadgeVariant(status: string): "success" | "warning" | "info" | "pending" | "destructive" | "default" {
-  const statusMap: Record<string, any> = {
+  const statusMap: Record<string, "success" | "warning" | "info" | "pending" | "destructive" | "default"> = {
     delivered: "success",
     completed: "success",
     active: "success",
