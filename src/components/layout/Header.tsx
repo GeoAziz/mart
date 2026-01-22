@@ -124,8 +124,9 @@ const Header = () => {
           {currentUser ? (
             <div className="flex items-center space-x-2">
               <Link href="/account">
-                <Button variant="ghost" size="icon" className="hover:text-primary transition-colors">
+                <Button variant="ghost" size="icon" aria-label="Account" className="hover:text-primary transition-colors">
                   <UserCircle className="h-6 w-6" />
+                  <span className="sr-only">Account</span>
                 </Button>
               </Link>
               <Button 

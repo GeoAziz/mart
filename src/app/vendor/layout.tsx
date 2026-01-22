@@ -359,10 +359,12 @@ export default function VendorLayout({
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                   className={cn("h-8 w-8 shrink-0 micro-interaction tap-feedback", sidebarCollapsed && "mx-auto")}
                 >
                   {sidebarCollapsed ? <ChevronRight className="h-4 w-4 animate-pulse-glow" /> : <ChevronLeft className="h-4 w-4 animate-pulse-glow" />}
+                  <span className="sr-only">{sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
                 </Button>
               </div>
               {/* Navigation */}
@@ -388,8 +390,9 @@ export default function VendorLayout({
             <div className="flex items-center gap-4 p-4 h-16">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0 tap-feedback">
+                  <Button variant="ghost" size="icon" aria-label="Menu" className="shrink-0 tap-feedback">
                     <Menu className="h-6 w-6" />
+                    <span className="sr-only">Menu</span>
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0">

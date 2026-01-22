@@ -89,7 +89,9 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
       <Sidebar collapsible="icon" className="border-r border-border shadow-lg transition-all duration-300">
         <SidebarHeader className="p-4 items-center justify-between">
            <div className={cn("transition-opacity duration-200", !open && "opacity-0 pointer-events-none delay-0", open && "opacity-100 delay-200")}> <Logo /> </div>
-          <SidebarTrigger className={cn(open && "hidden")} />
+          <SidebarTrigger aria-label="Toggle sidebar" className={cn(open && "hidden")}>
+            <span className="sr-only">Toggle sidebar</span>
+          </SidebarTrigger>
         </SidebarHeader>
         <SidebarContent className="p-2">
           <SidebarMenu>
@@ -183,7 +185,9 @@ const DashboardNavInner: React.FC<DashboardNavProps> = ({ navItems, children, da
       </div>
       <SidebarInset className="bg-background">
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur px-6 shadow-sm">
-            <SidebarTrigger className={cn("md:hidden", !open && "md:inline-flex")}/>
+            <SidebarTrigger aria-label="Toggle sidebar" className={cn("md:hidden", !open && "md:inline-flex")}>
+              <span className="sr-only">Toggle sidebar</span>
+            </SidebarTrigger>
             <h1 className="text-xl font-semibold font-headline text-glow-primary">{dashboardTitle}</h1>
         </header>
         <main className="flex-1 p-6 overflow-auto">

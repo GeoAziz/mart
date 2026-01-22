@@ -57,6 +57,7 @@ export default function AdminLayout({
               {/* Hamburger/arrow icon */}
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right text-accent animate-pulse-glow"><path d="M9 18l6-6-6-6"/></svg>
             </span>
+            <span className="sr-only">{sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}</span>
           </button>
           <nav className="flex-1 flex flex-col gap-2 mt-4">
             {adminNavItems.map((item, idx) =>
