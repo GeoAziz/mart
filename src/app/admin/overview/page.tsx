@@ -1,8 +1,8 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Users, ShoppingCart, DollarSign, Activity, CheckCircle, AlertTriangle, HeartPulse, ListOrdered, BarChartBig, Loader2, ShoppingBag, Mail } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
@@ -18,7 +18,7 @@ const StatCard = ({ title, value, icon, change, changeType, isLoading }: { title
     </CardHeader>
     <CardContent>
       {isLoading ? (
-        <Loader2 className="h-6 w-6 animate-spin text-primary mt-1" />
+        <Skeleton className="h-8 w-32" />
       ) : (
          <>
             <div className="text-2xl font-bold text-glow-primary">{value}</div>
@@ -179,7 +179,7 @@ export default function AdminOverviewPage() {
         <CardContent>
           <div className="h-[350px] w-full">
           {isLoading ? (
-             <div className="h-full flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>
+             <Skeleton className="h-full w-full" />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart

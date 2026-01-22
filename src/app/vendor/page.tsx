@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { DashboardSkeleton } from '@/components/ui/content-skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Star, DollarSign, ShoppingBag, Wallet, Loader2 } from 'lucide-react';
 import type { DashboardData } from '@/lib/types';
@@ -27,7 +29,7 @@ const StatCard = ({ title, value, icon, isLoading }: { title: string, value: str
     </CardHeader>
     <CardContent>
       {isLoading ? (
-         <Loader2 className="h-6 w-6 animate-spin text-primary mt-1" />
+         <Skeleton className="h-8 w-32" />
       ) : (
         <div className="text-2xl font-bold text-glow-primary">{value}</div>
       )}
@@ -181,7 +183,7 @@ const VendorDashboardPage = () => {
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center items-center h-[300px]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Skeleton className="h-[300px] w-full" />
               </div>
             ) : data?.earningsChartData ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -232,8 +234,10 @@ const VendorDashboardPage = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center items-center h-[300px]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-3">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
               </div>
             ) : data?.recentOrders && data.recentOrders.length > 0 ? (
               <div className="grid gap-4">
@@ -274,8 +278,10 @@ const VendorDashboardPage = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center items-center h-[200px]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
               </div>
             ) : data?.recentReviews && data.recentReviews.length > 0 ? (
               <div className="grid gap-4">
