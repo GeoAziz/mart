@@ -72,3 +72,9 @@ DATA_INTEGRITY_IMPLEMENTATION.md
 IMPLEMENTATION_PROGRESS.md
 SENIOR_ENGINEER_REPORT.md
 tests/reports/screenshots
+tests/test_complete_e2e_workflows.py
+tests/test_complete_user_journeys_v2.py
+tests/test_complete_user_journeys.py
+tests/test_e2e_complete_flow.py
+tests/test_login_debug.py
+tests/test_login_errors.py
