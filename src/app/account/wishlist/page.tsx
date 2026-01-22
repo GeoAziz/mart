@@ -103,8 +103,6 @@ export default function WishlistPage() {
             }}
           />
         )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );
