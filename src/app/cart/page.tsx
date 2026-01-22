@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Image from 'next/image';
@@ -10,8 +9,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Minus, Plus, Trash2, Loader2, ShoppingCart, X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function CartPage() {
   const { 
@@ -28,6 +29,7 @@ export default function CartPage() {
   } = useAuth();
   
   const [couponCode, setCouponCode] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     // If a promotion is already applied in context, pre-fill the input
@@ -79,12 +81,19 @@ export default function CartPage() {
     <div className="container mx-auto py-8">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-headline font-bold text-glow-primary">Your Shopping Cart</h1>
-        {cart.length === 0 && !isCartLoading && (
-          <p className="text-lg text-muted-foreground mt-4">
-            Your cart is currently empty. <Link href="/products" className="text-primary hover:underline">Start shopping!</Link>
-          </p>
-        )}
       </div>
+
+      {cart.length === 0 && !isCartLoading && (
+        <EmptyState
+          icon={ShoppingCart}
+          title="Your cart is empty"
+          description="Add some products to get started"
+          action={{
+            label: "Browse Products",
+            onClick: () => router.push('/products'),
+          }}
+        />
+      )}
 
       {cart.length > 0 && (
         <div className="grid lg:grid-cols-3 gap-8">

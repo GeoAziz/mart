@@ -1,14 +1,15 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import ProductCard from '@/components/ecommerce/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { HeartCrack, ShoppingCart, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Heart, ShoppingCart, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 import type { WishlistItemClient } from '@/context/AuthContext';
 
 export default function WishlistPage() {
@@ -21,6 +22,7 @@ export default function WishlistPage() {
     isCartSaving 
   } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleRemoveFromWishlist = async (product: WishlistItemClient) => {
     await toggleWishlistItem({
@@ -91,13 +93,16 @@ export default function WishlistPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <HeartCrack className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
-            <p className="text-xl font-semibold text-muted-foreground">Your wishlist is empty.</p>
-            <p className="text-sm text-muted-foreground">Browse products and save your favorites!</p>
-            <Button asChild className="mt-6 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Link href="/products">Explore Products</Link>
-            </Button>
+          <EmptyState
+            icon={Heart}
+            title="No items in your wishlist"
+            description="Save items you love for later"
+            action={{
+              label: "Explore Products",
+              onClick: () => router.push('/products'),
+            }}
+          />
+        )}
           </div>
         )}
       </CardContent>

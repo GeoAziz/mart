@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,10 +5,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Package, Eye, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 import type { Order as OrderType } from '@/lib/types';
 
 
@@ -35,6 +36,7 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const fetchOrders = useCallback(async () => {
     if (!currentUser) {
@@ -132,14 +134,15 @@ export default function OrdersPage() {
           </Table>
         ) : (
           !isLoading && !error && (
-             <div className="text-center py-12">
-              <FileText className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
-              <p className="text-xl font-semibold text-muted-foreground">No orders found.</p>
-              <p className="text-sm text-muted-foreground">You haven't placed any orders yet.</p>
-              <Button asChild className="mt-6 bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Link href="/products">Start Shopping</Link>
-              </Button>
-            </div>
+            <EmptyState
+              icon={Package}
+              title="No orders yet"
+              description="When you place orders, they'll appear here"
+              action={{
+                label: "Start Shopping",
+                onClick: () => router.push('/products'),
+              }}
+            />
           )
         )}
       </CardContent>

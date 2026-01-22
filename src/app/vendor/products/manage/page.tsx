@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PlusCircle, Loader2, PackageOpen, PackageSearch, MoreVertical, Edit, Eye, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface Product {
   id: string;
@@ -49,6 +51,7 @@ export default function ManageProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -201,16 +204,16 @@ export default function ManageProductsPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <PackageOpen className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
-              <p className="text-xl font-semibold text-muted-foreground">No products listed yet.</p>
-              <p className="text-sm text-muted-foreground">Get started by adding your first product.</p>
-              <Button asChild className="mt-6 bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">
-                <Link href="/vendor/products/add">
-                  <PlusCircle className="mr-2 h-5 w-5" /> Add New Product
-                </Link>
-              </Button>
-            </div>
+            <EmptyState
+              icon={PlusCircle}
+              title="No products yet"
+              description="Start by adding your first product to your store"
+              action={{
+                label: "Add Product",
+                onClick: () => router.push('/vendor/products/add'),
+                variant: 'default',
+              }}
+            />
           )}
         </CardContent>
       </Card>
