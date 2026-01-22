@@ -7,7 +7,7 @@ import RouteGuard from '@/components/auth/RouteGuard';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Menu, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home, BarChart3, ShoppingBag, PackagePlus, Inbox, DollarSign, Star, Settings, User, ListOrdered, PlusCircle, Package, Truck, FileText, MessageCircle, Store, CreditCard } from 'lucide-react';
+import { Menu, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home, BarChart3, ShoppingBag, PackagePlus, Inbox, DollarSign, Star, Settings, User, ListOrdered, PlusCircle, Package, Truck, FileText, MessageCircle, Store, CreditCard, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ParticleBackground is rendered globally in root layout
 
@@ -409,10 +409,49 @@ export default function VendorLayout({
           </header>
           {/* Mobile Main Content */}
           <main>
-            <div className="p-4">
+            <div className="p-4 pb-20">
               {children}
             </div>
           </main>
+          
+          {/* Mobile Bottom Navigation */}
+          <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur border-t border-border">
+            <div className="grid grid-cols-5 gap-1 p-2">
+              {/* Show first 4 main items + More */}
+              {vendorNavItems.filter(i => i.href !== '#' && !i.sectionTitle && !i.isExpandable).slice(0, 4).map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-colors touch-target",
+                      isActive 
+                        ? "bg-primary/10 text-primary" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    )}
+                  >
+                    <Icon className="h-5 w-5 mb-1" />
+                    <span className="text-xs truncate w-full text-center">
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+              
+              {/* More button - opens sidebar */}
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-accent touch-target"
+                aria-label="Open menu"
+              >
+                <MoreHorizontal className="h-5 w-5 mb-1" />
+                <span className="text-xs">More</span>
+              </button>
+            </div>
+          </nav>
         </div>
         {/* ParticleBackground is rendered by the root layout */}
       </div>

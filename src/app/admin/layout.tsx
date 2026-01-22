@@ -1,10 +1,13 @@
 'use client';
 
 import DashboardNav, { type NavItem } from '@/components/dashboard/DashboardNav';
-import { Users, BarChartBig, Settings, ShoppingBag, Shield, Tag, Edit, Speaker, Palette, Briefcase, User, DollarSign, HeartPulse, ListOrdered, Star, Ticket } from 'lucide-react';
+import { Users, BarChartBig, Settings, ShoppingBag, Shield, Tag, Edit, Speaker, Palette, Briefcase, User, DollarSign, HeartPulse, ListOrdered, Star, Ticket, MoreHorizontal } from 'lucide-react';
 import RouteGuard from '@/components/auth/RouteGuard';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import clsx from 'clsx';
+import { cn } from '@/lib/utils';
 
 const adminNavItems: NavItem[] = [
   { sectionTitle: "Overview & Site", href: "#", label: "Overview & Site", icon: User },
@@ -31,6 +34,7 @@ export default function AdminLayout({
 }) {
   // Sidebar state for collapse/expand
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <RouteGuard allowedRoles={['admin']}>
@@ -113,14 +117,43 @@ export default function AdminLayout({
             {children}
           </div>
         </main>
-        {/* Mobile bottom nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden bg-card border-t border-border shadow-2xl space-x-1 px-1 py-1 justify-between">
-          {adminNavItems.filter(i => i.label).slice(0,5).map((item, idx) => (
-            <a key={item.href} href={item.href} className="flex-1 flex flex-col items-center justify-center py-1 hover:bg-accent/20 rounded transition-all tap-feedback">
-              <item.icon className="h-6 w-6 text-accent animate-pulse-glow" />
-              <span className="text-xs mt-0.5">{item.label}</span>
-            </a>
-          ))}
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur border-t border-border">
+          <div className="grid grid-cols-5 gap-1 p-2">
+            {/* Show first 4 items + More */}
+            {adminNavItems.filter(i => i.href !== '#').slice(0, 4).map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-colors touch-target",
+                    isActive 
+                      ? "bg-primary/10 text-primary" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <Icon className="h-5 w-5 mb-1" />
+                  <span className="text-xs truncate w-full text-center">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+            
+            {/* More button - opens sidebar */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-accent touch-target"
+              aria-label="Open menu"
+            >
+              <MoreHorizontal className="h-5 w-5 mb-1" />
+              <span className="text-xs">More</span>
+            </button>
+          </div>
         </nav>
       </div>
       <style jsx global>{`
