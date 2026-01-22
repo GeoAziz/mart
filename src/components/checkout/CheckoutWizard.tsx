@@ -579,6 +579,49 @@ const CheckoutWizard = () => {
         show={isPlacingOrder} 
         message={selectedPaymentMethod === 'card' ? 'Processing Payment...' : 'Creating Your Order...'}
       />
+
+      {/* Mobile Sticky Footer - Only show on payment/summary steps */}
+      {currentStep >= 1 && (
+        <div className="fixed bottom-0 left-0 right-0 lg:hidden z-50 p-4 bg-card/95 backdrop-blur border-t border-border shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-muted-foreground">Total:</span>
+            <span className="text-lg font-bold text-glow-primary">
+              KSh {total.toLocaleString()}
+            </span>
+          </div>
+          {currentStep === steps.length - 1 ? (
+            <div className="w-full">
+              {selectedPaymentMethod === 'mpesa' && (
+                <Button 
+                  className="w-full h-12 text-base glow-edge-primary"
+                  onClick={handleSubmit(handlePlaceOrder)}
+                  disabled={isPlacingOrder}
+                >
+                  {isPlacingOrder ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag className="mr-2 h-5 w-5" />
+                      Place Order
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Button 
+              className="w-full h-12 text-base"
+              onClick={handleNextStep}
+              disabled={currentStep === 0 && !isValid}
+            >
+              Continue to {steps[currentStep + 1]?.name}
+            </Button>
+          )}
+        </div>
+      )}
     </FormProvider>
   );
 };

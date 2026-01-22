@@ -222,3 +222,24 @@ body {
 .chart-space-bg {
   background: radial-gradient(ellipse at 60% 40%, hsl(var(--primary) / 0.12) 0%, transparent 80%);
 }
+
+/* Minimum touch target size (44x44px) */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+/* Apply to all buttons on mobile */
+@media (max-width: 768px) {
+  button, 
+  a[role="button"],
+  [role="button"] {
+    @apply min-h-[44px];
+  }
+  
+  /* Ensure form inputs are comfortable on mobile */
+  input,
+  select,
+  textarea {
+    @apply min-h-[44px];
+  }
+}
