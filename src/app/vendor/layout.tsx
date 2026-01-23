@@ -339,6 +339,7 @@ export default function VendorLayout({
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <RouteGuard allowedRoles={['vendor', 'admin']}>
