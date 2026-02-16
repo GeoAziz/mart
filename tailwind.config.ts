@@ -24,6 +24,8 @@ export default {
         code: ['monospace', 'monospace'],
       },
       colors: {
+        'glow-primary': '#00f0ff',
+        'glow-dark': '#00f0ff44',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -79,6 +81,16 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      boxShadow: {
+        glow: '0 0 32px 0 rgb(0 240 255 / 27%)',
+        'glow-sm': '0 0 10px rgb(0 240 255 / 25%)',
+      },
+      zIndex: {
+        sidebar: '40',
+        'mobile-nav': '50',
+        modal: '60',
+        toast: '70',
       },
       keyframes: {
         'accordion-down': {
