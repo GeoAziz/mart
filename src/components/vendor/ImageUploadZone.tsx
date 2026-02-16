@@ -101,10 +101,17 @@ export function ImageUploadZone({
 
     const fileArray = Array.from(files).filter(file => file.type.startsWith('image/'));
     const newImages: string[] = [];
+    let hasError = false;
     
     fileArray.forEach((file) => {
       if (file.size > maxSize) {
         console.error(`File ${file.name} is too large`);
+        toast({
+          title: 'File too large',
+          description: `${file.name} exceeds ${Math.floor(maxSize / (1024 * 1024))}MB limit`,
+          variant: 'destructive',
+        });
+        hasError = true;
         return;
       }
 
@@ -113,9 +120,16 @@ export function ImageUploadZone({
         const result = reader.result as string;
         newImages.push(result);
         
-        if (newImages.length === fileArray.length) {
+        if (newImages.length === fileArray.filter(f => f.size <= maxSize).length) {
           const allImages = [...images, ...newImages].slice(0, maxImages);
           onImagesChange(allImages);
+          
+          if (!hasError) {
+            toast({
+              title: 'Images added',
+              description: `Added ${newImages.length} image${newImages.length > 1 ? 's' : ''}`,
+            });
+          }
         }
       };
       reader.readAsDataURL(file);
