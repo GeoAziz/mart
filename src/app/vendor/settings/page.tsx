@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Save, UploadCloud, Image as ImageIconLucide, Phone, Mail, Link as LinkIcon, DollarSign, Loader2, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings, Save, UploadCloud, Image as ImageIconLucide, Phone, Mail, Link as LinkIcon, DollarSign, Loader2, X, Store, Bell, CreditCard, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image'; // Next.js Image component
 import { useAuth } from '@/context/AuthContext';
@@ -197,7 +198,7 @@ export default function StoreSettingsPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <div className="space-y-6">
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-headline text-glow-primary flex items-center">
@@ -209,27 +210,56 @@ export default function StoreSettingsPage() {
         </CardHeader>
       </Card>
 
-      <Card className="bg-card border-border shadow-md">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-glow-accent">Store Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="storeName" className="text-base">Store Name</Label>
-            <Input id="storeName" name="storeName" value={settings.storeName || ''} onChange={handleInputChange} className="bg-input border-primary focus:ring-accent" placeholder="Your Awesome Store" disabled={isSaving || isUploadingLogo || isUploadingBanner} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="storeDescription" className="text-base">Store Description</Label>
-            <Textarea id="storeDescription" name="storeDescription" value={settings.storeDescription || ''} onChange={handleInputChange} rows={4} className="bg-input border-primary focus:ring-accent" placeholder="Tell customers about your store..." disabled={isSaving || isUploadingLogo || isUploadingBanner} />
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="profile" className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="payout" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Payout</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="h-4 w-4" />
+            <span className="hidden sm:inline">Notifications</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <Card className="bg-card border-border shadow-md">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-glow-accent">Store Branding</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <form onSubmit={handleSubmit}>
+          {/* Store Profile Tab */}
+          <TabsContent value="profile" className="space-y-6 mt-6">
+            <Card className="bg-card border-border shadow-md">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-glow-accent">Store Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="storeName" className="text-base">Store Name</Label>
+                  <Input id="storeName" name="storeName" value={settings.storeName || ''} onChange={handleInputChange} className="bg-input border-primary focus:ring-accent" placeholder="Your Awesome Store" disabled={isSaving || isUploadingLogo || isUploadingBanner} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="storeDescription" className="text-base">Store Description</Label>
+                  <Textarea id="storeDescription" name="storeDescription" value={settings.storeDescription || ''} onChange={handleInputChange} rows={4} className="bg-input border-primary focus:ring-accent" placeholder="Tell customers about your store..." disabled={isSaving || isUploadingLogo || isUploadingBanner} />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="ml-auto" disabled={isSaving || isUploadingLogo || isUploadingBanner}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Profile
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="bg-card border-border shadow-md">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-glow-accent">Store Branding</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
           {/* Logo Upload */}
           <div className="space-y-2">
             <Label className="text-base">Store Logo (Recommended: Square, min 150x150px)</Label>

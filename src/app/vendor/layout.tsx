@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Menu, ChevronLeft, ChevronRight, Home, BarChart3, ShoppingBag, Inbox, DollarSign, Star, Settings, Package, MessageCircle, Users, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NotificationCenter } from '@/components/vendor/NotificationCenter';
 // ParticleBackground is rendered globally in root layout
 
 interface NavItem {
@@ -173,10 +174,16 @@ export default function VendorLayout({
           </aside>
           {/* Main Content - Dynamic margin based on sidebar state */}
           <main className={cn(
-            "flex-1 transition-all duration-300 ease-in-out grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+            "flex-1 transition-all duration-300 ease-in-out",
             sidebarCollapsed ? "ml-16" : "ml-64"
           )}>
-            <div className="p-6 col-span-full">
+            {/* Desktop Header with NotificationCenter */}
+            <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
+              <div className="flex items-center justify-end gap-4 p-4 h-16">
+                <NotificationCenter />
+              </div>
+            </header>
+            <div className="p-6">
               {children}
             </div>
           </main>
@@ -185,24 +192,27 @@ export default function VendorLayout({
         <div className="lg:hidden">
           {/* Mobile Header */}
           <header className="sticky top-0 z-40 bg-background border-b border-border">
-            <div className="flex items-center gap-4 p-4 h-16">
-              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Menu" className="shrink-0 tap-feedback">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                  <div className="p-4 border-b border-border">
-                    <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
-                  </div>
-                  <nav className="p-2">
-                    <VendorMobileNav items={vendorNavItems} onItemClick={() => setMobileOpen(false)} />
-                  </nav>
-                </SheetContent>
-              </Sheet>
-              <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
+            <div className="flex items-center justify-between gap-4 p-4 h-16">
+              <div className="flex items-center gap-4">
+                <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Menu" className="shrink-0 tap-feedback">
+                      <Menu className="h-6 w-6" />
+                      <span className="sr-only">Menu</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-64 p-0">
+                    <div className="p-4 border-b border-border">
+                      <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
+                    </div>
+                    <nav className="p-2">
+                      <VendorMobileNav items={vendorNavItems} onItemClick={() => setMobileOpen(false)} />
+                    </nav>
+                  </SheetContent>
+                </Sheet>
+                <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
+              </div>
+              <NotificationCenter />
             </div>
           </header>
           {/* Mobile Main Content */}
