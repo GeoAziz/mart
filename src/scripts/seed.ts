@@ -33,33 +33,160 @@ const getRandomPrice = (min: number, max: number): number => parseFloat((Math.ra
 const generateRandomDate = (start: Date, end: Date): Date => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
 /**
- * Generate contextual product images using Picsum Photos
- * Stable, reliable, and provides consistent images per product
+ * Brand to generic category mapping
+ * Maps specific product brands to searchable Unsplash categories
  */
-function generateProductImage(productName: string, category: string, index: number): string {
-  const categoryImageMap: Record<string, string[]> = {
-    'Electronics': ['smartphone', 'laptop', 'headphones', 'tablet', 'camera'],
-    'Fashion': ['clothing', 'shoes', 'fashion', 'sneakers', 'dress'],
-    'Groceries': ['food', 'grocery', 'fresh-produce', 'beverage'],
-    'Home & Kitchen': ['kitchen', 'furniture', 'home-decor', 'cookware'],
-    'Health & Beauty': ['cosmetics', 'skincare', 'wellness', 'beauty'],
-    'Baby & Kids': ['toys', 'baby-products', 'children', 'kids'],
-    'Automotive': ['car', 'automotive', 'vehicle', 'tools'],
-    'Sports & Outdoors': ['sports', 'fitness', 'outdoor', 'exercise'],
-    'Books & Stationery': ['books', 'stationery', 'reading', 'office'],
-    'Tools & Industrial': ['tools', 'workshop', 'industrial', 'equipment']
-  };
+const brandCategoryMap: Record<string, string> = {
+  'Infinix': 'smartphone',
+  'Xiaomi': 'smartphone',
+  'Tecno': 'smartphone',
+  'Nokia': 'smartphone',
+  'iTel': 'smartphone',
+  'Samsung': 'smartphone',
+  'Apple': 'smartphone',
+  'Nvidia': 'graphics card',
+  'AMD': 'processor',
+  'Intel': 'processor',
+  'Lenovo': 'laptop',
+  'HP': 'laptop',
+  'Dell': 'laptop',
+  'Acer': 'laptop',
+  'Asus': 'laptop',
+  'MSI': 'graphics card',
+  'EVGA': 'graphics card',
+  'Bata': 'shoe',
+};
 
-  const keywords = categoryImageMap[category] || ['product'];
-  const keyword = keywords[index % keywords.length];
+/**
+ * Detect if product title is a specific SKU model
+ * Examples: "Infinix Smart 7 HD", "RTX 4090", "Ryzen 7 7800X3D"
+ */
+function isSpecificSKUModel(title: string): boolean {
+  const hasNumbers = /\d/.test(title);
+  const hasMultipleWords = title.split(' ').length >= 3;
+  return hasNumbers && hasMultipleWords;
+}
+
+/**
+ * Extract generic search term from specific SKU model
+ * "Infinix Smart 7 HD" → "infinix smartphone"
+ * "RTX 4090 Graphics Card" → "nvidia graphics card"
+ */
+function getGenericSearchTerm(title: string, category: string): string {
+  const lower = title.toLowerCase();
   
-  // Use Picsum Photos - stable, reliable, consistent
-  // Seed based on product name ensures same image for same product
-  const seed = productName.replace(/\s+/g, '').substring(0, 10) + index;
-  return `https://picsum.photos/seed/${seed}/400/300?random=${index}`;
+  // Check brand mapping
+  for (const [brand, genericCategory] of Object.entries(brandCategoryMap)) {
+    if (lower.includes(brand.toLowerCase())) {
+      return `${brand.toLowerCase()} ${genericCategory}`;
+    }
+  }
+  
+  // Fallback to category name
+  return category.toLowerCase();
+}
+
+/**
+ * Generate smart search query for Unsplash
+ * Uses intelligent fallback from specific SKU to generic category
+ */
+function buildProductQuery(title: string, category: string): string {
+  let searchTerm = title.toLowerCase();
+  
+  // If it's a specific SKU model, use generic category search instead
+  if (isSpecificSKUModel(title)) {
+    searchTerm = getGenericSearchTerm(title, category);
+    console.log(`  📦 Detected specific SKU, using generic search: "${searchTerm}"`);
+  }
+  
+  // Build final query with product photography keywords
+  const query = [
+    searchTerm,
+    'product shot isolated',
+    'white background',
+    'studio lighting',
+    '-lifestyle -person -desk -workspace'
+  ].join(' ');
+  
+  return query;
+}
+
+/**
+ * Get product image from Unsplash with intelligent fallback
+ * Returns image URL or category placeholder
+ */
+async function getProductImage(productName: string, category: string): Promise<string> {
+  try {
+    // Build smart query
+    const query = buildProductQuery(productName, category);
+    
+    console.log(`  🔍 Query: "${query}"`);
+    
+    // Fetch from Unsplash (no auth required)
+    const unsplashUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape&content_filter=high`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch(unsplashUrl, {
+      headers: { 'Accept-Version': 'v1' },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.log(`  ⚠️  Unsplash API error (${response.status}), using placeholder`);
+      return getCategoryPlaceholder(category);
+    }
+
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      const imageUrl = data.results[0].urls.regular;
+      console.log(`  ✅ Found image`);
+      return imageUrl;
+    } else {
+      console.log(`  ⚠️  No results, using placeholder`);
+      return getCategoryPlaceholder(category);
+    }
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.log(`  ⏱️  Request timeout, using placeholder`);
+    } else {
+      console.log(`  ❌ Error: ${error.message}, using placeholder`);
+    }
+    return getCategoryPlaceholder(category);
+  }
+}
+
+/**
+ * Get category-based placeholder image as fallback
+ * Uses picsum.photos which returns actual PNG images (not SVG)
+ */
+function getCategoryPlaceholder(category: string): string {
+  // Using picsum.photos - returns actual PNG/JPG
+  // Format: https://picsum.photos/{width}/{height}?random={id}
+  const categoryId: Record<string, number> = {
+    "Electronics": 1,
+    "Fashion": 2,
+    "Groceries": 3,
+    "Home & Kitchen": 4,
+    "Health & Beauty": 5,
+    "Baby & Kids": 6,
+    "Automotive": 7,
+    "Sports & Outdoors": 8,
+    "Books & Stationery": 9,
+    "Tools & Industrial": 10,
+  };
+  
+  const id = categoryId[category] || 0;
+  return `https://picsum.photos/400/400?random=${id}`;
 }
 
 // --- DATA DEFINITIONS (Based on user research) ---
+// NOTE: Product images are now generated using intelligent selection system
+// See: /lib/image/selectBestImage.ts for image selection logic
 
 const categoriesData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[] = [
     { name: "Electronics", description: "Latest phones, TVs, laptops, and audio devices." },
@@ -323,7 +450,7 @@ async function seedCategories() {
 }
 
 async function seedProducts(vendors: UserProfile[], categories: Category[]) {
-    console.log('Seeding products...');
+    console.log('Seeding products with intelligent image selection...\n');
     
     // Validate that we have vendors
     if (vendors.length === 0) {
@@ -332,7 +459,6 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
     
     const allProducts = [];
     const now = toFirestoreTimestamp(new Date());
-    let productIndex = 0;
     
     for (const p of productsData) {
         const categoryDoc = categories.find(c => c.name === p.category);
@@ -348,25 +474,28 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
             continue;
         }
 
+        // Get product image with intelligent fallback strategy
+        console.log(`📸 "${p.name}" (${p.category})`);
+        const imageUrl = await getProductImage(p.name, p.category);
+        
         const newProduct: Omit<Product, 'id'> = {
             name: p.name,
             description: faker.commerce.productDescription(),
             price: getRandomPrice(p.priceRange[0], p.priceRange[1]),
             category: p.category,
             stock: faker.number.int({ min: 0, max: 100 }),
-            // Use contextual Unsplash images instead of placeholder
-            imageUrl: generateProductImage(p.name, p.category, productIndex),
+            // Use intelligent image selection system
+            imageUrl: imageUrl,
             dataAiHint: p.category.toLowerCase(),
             brand: p.brand,
             vendorId: vendor.uid,
             status: 'active',
             dateAdded: now,
             updatedAt: now,
-            rating: faker.number.float({ min: 3.5, max: 5, precision: 0.1 }),
+            rating: faker.number.float({ min: 3.5, max: 5, multipleOf: 0.1 }),
             sku: `${p.brand.substring(0,3).toUpperCase()}-${faker.string.alphanumeric(6).toUpperCase()}`
         };
         allProducts.push(newProduct);
-        productIndex++;
     }
     
     if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
@@ -377,7 +506,7 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
     }
     await batch.commit();
 
-    console.log(`${allProducts.length} products seeded.`);
+    console.log(`\n✅ ${allProducts.length} products seeded with intelligent images.`);
     const snapshot = await firestoreAdmin.collection('products').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 }

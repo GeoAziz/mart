@@ -82,6 +82,21 @@ EXCHANGE_RATE_API_KEY=your_exchangerate_api_key
 - If the API is unavailable, system falls back to conservative rate (0.0077 USD per KES)
 - Rates are cached for 1 hour to minimize API usage
 
+### Image Selection System - **NEW FEATURE #6**
+```env
+# Unsplash API Key (for intelligent product image selection)
+UNSPLASH_ACCESS_KEY=your_unsplash_access_key
+```
+
+**Image Selection System Notes:**
+- Get a free API key from https://unsplash.com/api
+- Registration takes ~2 minutes
+- Free tier: 5,000 requests/hour
+- Without this key: System still works using category-specific placeholder images
+- Used during product seeding to fetch relevant product images
+- Scoring algorithm selects best image from 8 candidates
+- Learn more: See `IMAGE_SELECTION_SYSTEM.md`
+
 ### Application Configuration
 ```env
 # Next.js Base URL

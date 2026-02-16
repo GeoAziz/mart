@@ -337,6 +337,7 @@ export default function VendorLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
