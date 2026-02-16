@@ -2,11 +2,11 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingCart, UserCircle, Menu, X, LogOutIcon as LogoutIconComp, Loader2, Shield, Landmark } from 'lucide-react';
+import { ShoppingCart, UserCircle, Menu, LogOutIcon as LogoutIconComp, Loader2 } from 'lucide-react';
 import Logo from './Logo';
 import SearchInput from './SearchInput';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import CartDrawerContent from '@/components/ecommerce/CartDrawerContent'; 
 import { useState, useMemo, useEffect } from 'react';
@@ -19,6 +19,7 @@ const Header = () => {
   const showCart = !userProfile || userProfile.role === 'customer';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const cartItemCount = cart.length;
 
   // Accessibility: keyboard shortcut for cart (Ctrl+K)
   useEffect(() => {
@@ -30,8 +31,6 @@ const Header = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showCart]);
-
-  // cartItemCount is already defined above, remove duplicate below
 
   const baseNavLinks = [
     { href: "/products", label: "All Products" },
@@ -64,11 +63,13 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-md">
-      <div className="container mx-auto flex items-center justify-between h-20 px-4">
-        <Logo />
+      <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:h-20">
+        <div className="flex min-w-0 items-center">
+          <Logo />
+        </div>
         
         {/* DESKTOP NAVIGATION */}
-        <nav className="hidden lg:flex items-center space-x-8">
+        <nav className="hidden lg:flex items-center justify-center gap-6 xl:gap-8">
           <Link href="/" className="text-muted-foreground hover:text-primary transition-colors font-medium">
             Home
           </Link>
@@ -90,8 +91,10 @@ const Header = () => {
         </nav>
 
         {/* DESKTOP RIGHT SIDE */}
-        <div className="hidden md:flex items-center space-x-4">
-          <SearchInput />
+        <div className="hidden lg:flex items-center gap-3 xl:gap-4">
+          <div className="w-44 xl:w-56">
+            <SearchInput />
+          </div>
           
           {/* Cart for customers */}
           {showCart && (
@@ -99,9 +102,9 @@ const Header = () => {
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Cart" className="relative hover:text-primary transition-colors">
                   <ShoppingCart className="h-6 w-6" />
-                  {cart.length > 0 && !isCartLoading && (
+                  {cartItemCount > 0 && !isCartLoading && (
                     <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      {cart.length}
+                      {cartItemCount > 99 ? '99+' : cartItemCount}
                     </span>
                   )}
                   {isCartLoading && (
@@ -111,7 +114,7 @@ const Header = () => {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[300px] sm:w-[350px] bg-card border-primary shadow-xl flex flex-col p-0">
+              <SheetContent className="flex w-[300px] flex-col border-primary bg-card p-0 shadow-xl sm:w-[350px]">
                 <SheetHeader className="p-4 border-b border-border">
                   <SheetTitle className="text-xl font-headline text-glow-primary">Your Cart</SheetTitle>
                 </SheetHeader>
@@ -122,7 +125,7 @@ const Header = () => {
 
           {/* User Menu */}
           {currentUser ? (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Link href="/account">
                 <Button variant="ghost" size="icon" aria-label="Account" className="hover:text-primary transition-colors">
                   <UserCircle className="h-6 w-6" />
@@ -145,7 +148,7 @@ const Header = () => {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Link href="/auth/login">
                 <Button variant="ghost" size="sm" className="hover:text-primary transition-colors">
                   Login
@@ -161,16 +164,16 @@ const Header = () => {
         </div>
 
         {/* MOBILE MENU */}
-        <div className="lg:hidden flex items-center space-x-2">
+        <div className="flex items-center gap-2 lg:hidden">
           {/* Mobile Cart */}
           {showCart && (
             <Sheet open={isCartDrawerOpen} onOpenChange={setIsCartDrawerOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Cart" className="relative hover:text-primary transition-colors">
                   <ShoppingCart className="h-6 w-6" />
-                  {cart.length > 0 && !isCartLoading && (
+                  {cartItemCount > 0 && !isCartLoading && (
                     <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      {cart.length}
+                      {cartItemCount > 99 ? '99+' : cartItemCount}
                     </span>
                   )}
                   {isCartLoading && (
@@ -180,7 +183,7 @@ const Header = () => {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[300px] sm:w-[350px] bg-card border-primary shadow-xl flex flex-col p-0">
+              <SheetContent className="flex w-[300px] flex-col border-primary bg-card p-0 shadow-xl sm:w-[350px]">
                 <SheetHeader className="p-4 border-b border-border">
                   <SheetTitle className="text-xl font-headline text-glow-primary">Your Cart</SheetTitle>
                 </SheetHeader>
@@ -196,7 +199,7 @@ const Header = () => {
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[300px] bg-card">
+            <SheetContent side="right" className="w-[300px] bg-card sm:w-[360px]">
               <SheetHeader>
                 <SheetTitle className="text-left text-xl font-headline">Menu</SheetTitle>
               </SheetHeader>
