@@ -26,37 +26,43 @@ import { faker } from '@faker-js/faker';
 import type { UserProfile, Role, Product, Category, Order, OrderItem, LedgerEntry } from '@/lib/types';
 import { toFirestoreTimestamp, ensureTimestampField } from '@/lib/timestamp-utils';
 
+interface SeedReview {
+  productId: string;
+  productName: string;
+  vendorId: string;
+  userId: string;
+  customerName: string | null;
+  customerInitials: string;
+  rating: number;
+  comment: string;
+  createdAt: Timestamp;
+}
+
 
 // --- HELPER FUNCTIONS ---
 const getRandomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const getRandomPrice = (min: number, max: number): number => parseFloat((Math.random() * (max - min) + min).toFixed(2));
 const generateRandomDate = (start: Date, end: Date): Date => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
+
+interface SeedProductDefinition {
+  category: string;
+  name: string;
+  priceRange: [number, number];
+  brand: string;
+}
+
 /**
- * Generate contextual product images using Picsum Photos
- * Stable, reliable, and provides consistent images per product
+ * Generate deterministic product images with product/category labels
+ * so seeded listings always visually match seeded product data.
  */
 function generateProductImage(productName: string, category: string, index: number): string {
-  const categoryImageMap: Record<string, string[]> = {
-    'Electronics': ['smartphone', 'laptop', 'headphones', 'tablet', 'camera'],
-    'Fashion': ['clothing', 'shoes', 'fashion', 'sneakers', 'dress'],
-    'Groceries': ['food', 'grocery', 'fresh-produce', 'beverage'],
-    'Home & Kitchen': ['kitchen', 'furniture', 'home-decor', 'cookware'],
-    'Health & Beauty': ['cosmetics', 'skincare', 'wellness', 'beauty'],
-    'Baby & Kids': ['toys', 'baby-products', 'children', 'kids'],
-    'Automotive': ['car', 'automotive', 'vehicle', 'tools'],
-    'Sports & Outdoors': ['sports', 'fitness', 'outdoor', 'exercise'],
-    'Books & Stationery': ['books', 'stationery', 'reading', 'office'],
-    'Tools & Industrial': ['tools', 'workshop', 'industrial', 'equipment']
-  };
+  const title = `${productName} (${category})`;
+  const encodedTitle = encodeURIComponent(title);
 
-  const keywords = categoryImageMap[category] || ['product'];
-  const keyword = keywords[index % keywords.length];
-  
-  // Use Picsum Photos - stable, reliable, consistent
-  // Seed based on product name ensures same image for same product
-  const seed = productName.replace(/\s+/g, '').substring(0, 10) + index;
-  return `https://picsum.photos/seed/${seed}/400/300?random=${index}`;
+  // Text-based deterministic placeholder guarantees image/content alignment.
+  // This avoids random stock photos that can misrepresent the actual product.
+  return `https://placehold.co/600x400/F5F5F5/222222?text=${encodedTitle}&font=inter`;
 }
 
 // --- DATA DEFINITIONS (Based on user research) ---
@@ -134,7 +140,7 @@ const promoBanners = [
 
 // ...existing code...
 
-const productsData = [
+const productsData: SeedProductDefinition[] = [
   // Electronics
   { category: "Electronics", name: "Infinix Smart 7 HD", priceRange: [10300, 11150], brand: "Infinix" },
   { category: "Electronics", name: "Xiaomi Redmi 10A", priceRange: [16400, 16500], brand: "Xiaomi" },
@@ -185,6 +191,22 @@ const productsData = [
   { category: "Home & Kitchen", name: "2-Door Wooden Wardrobe", priceRange: [12000, 20000], brand: "Generic" },
   { category: "Home & Kitchen", name: "Comfortable 3-Seater Sofa", priceRange: [18000, 30000], brand: "Generic" },
 ];
+function logSeedCatalogSummary(seedDefinitions: SeedProductDefinition[]): void {
+  const grouped = seedDefinitions.reduce<Record<string, string[]>>((acc, product) => {
+    if (!acc[product.category]) acc[product.category] = [];
+    acc[product.category].push(product.name);
+    return acc;
+  }, {});
+
+  console.log('Seed catalog summary (category -> product count):');
+  Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([category, names]) => {
+      console.log(`- ${category}: ${names.length} products`);
+      console.log(`  Sample items: ${names.slice(0, 3).join(', ')}`);
+    });
+}
+
 // --- CONFIGURATION ---
 const NUM_CUSTOMERS = 15;
 const NUM_VENDORS = 4;
@@ -354,7 +376,7 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
             price: getRandomPrice(p.priceRange[0], p.priceRange[1]),
             category: p.category,
             stock: faker.number.int({ min: 0, max: 100 }),
-            // Use contextual Unsplash images instead of placeholder
+            // Deterministic placeholder image ensures product/image consistency
             imageUrl: generateProductImage(p.name, p.category, productIndex),
             dataAiHint: p.category.toLowerCase(),
             brand: p.brand,
@@ -380,6 +402,90 @@ async function seedProducts(vendors: UserProfile[], categories: Category[]) {
     console.log(`${allProducts.length} products seeded.`);
     const snapshot = await firestoreAdmin.collection('products').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+}
+
+async function seedReviews(products: Product[], customers: UserProfile[]) {
+  console.log('Seeding reviews...');
+
+  if (products.length === 0 || customers.length === 0) {
+    console.warn('Not enough products or customers to seed reviews. Skipping.');
+    return;
+  }
+
+  const positiveComments = [
+    'Great quality and exactly as described.',
+    'Worth the price. Delivery was also quick.',
+    'Very satisfied with this purchase.',
+    'Looks good and works perfectly.',
+  ];
+
+  const mixedComments = [
+    'Decent product, but there is room for improvement.',
+    'Works as expected, though packaging could be better.',
+    'Average quality for the price.',
+  ];
+
+  const negativeComments = [
+    'Not what I expected from the listing.',
+    'Quality is below average for this category.',
+  ];
+
+  if (!firestoreAdmin) throw new Error('Firestore Admin is not initialized.');
+
+  const productRatings = new Map<string, number[]>();
+  const reviewBatch = firestoreAdmin.batch();
+
+  for (const product of products) {
+    const reviewCount = faker.number.int({ min: 1, max: 4 });
+
+    for (let i = 0; i < reviewCount; i++) {
+      const customer = getRandomElement(customers);
+      const rating = faker.number.int({ min: 2, max: 5 });
+      const commentPool = rating >= 4 ? positiveComments : rating === 3 ? mixedComments : negativeComments;
+      const comment = getRandomElement(commentPool);
+
+      const reviewData: SeedReview = {
+        productId: product.id,
+        productName: product.name,
+        vendorId: product.vendorId || 'unknown_vendor',
+        userId: customer.uid,
+        customerName: customer.fullName,
+        customerInitials: (customer.fullName || customer.email || 'U')
+          .split(' ')
+          .map((part) => part[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase(),
+        rating,
+        comment,
+        createdAt: toFirestoreTimestamp(generateRandomDate(new Date(2024, 0, 1), new Date())),
+      };
+
+      const reviewRef = firestoreAdmin.collection('reviews').doc();
+      reviewBatch.set(reviewRef, reviewData);
+
+      if (!productRatings.has(product.id)) {
+        productRatings.set(product.id, []);
+      }
+      productRatings.get(product.id)!.push(rating);
+    }
+  }
+
+  await reviewBatch.commit();
+
+  const productBatch = firestoreAdmin.batch();
+  for (const product of products) {
+    const ratings = productRatings.get(product.id) || [];
+    if (ratings.length === 0) continue;
+
+    const average = ratings.reduce((sum, current) => sum + current, 0) / ratings.length;
+    const productRef = firestoreAdmin.collection('products').doc(product.id);
+    productBatch.update(productRef, { rating: Number(average.toFixed(1)) });
+  }
+  await productBatch.commit();
+
+  const totalReviews = [...productRatings.values()].reduce((sum, arr) => sum + arr.length, 0);
+  console.log(`${totalReviews} reviews seeded and product ratings synchronized.`);
 }
 
 async function seedOrders(customers: UserProfile[], products: Product[]) {
@@ -548,6 +654,7 @@ async function main() {
     await deleteCollection('categories', 50);
     await deleteCollection('products', 50);
     await deleteCollection('orders', 50);
+    await deleteCollection('reviews', 50);
     await deleteCollection('users', 50); // This also deletes subcollections
     await deleteCollection('cms', 10);
     console.log('Existing Firestore collections data deleted.');
@@ -557,8 +664,11 @@ async function main() {
     const vendors = users.filter(u => u.role === 'vendor');
     const customers = users.filter(u => u.role === 'customer');
 
+    logSeedCatalogSummary(productsData);
+
     const categories = await seedCategories();
     const products = await seedProducts(vendors, categories);
+    await seedReviews(products, customers);
     await seedOrders(customers, products);
     await seedCmsHomepage(products, vendors);
 
