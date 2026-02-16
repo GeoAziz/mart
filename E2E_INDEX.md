@@ -156,6 +156,7 @@ BASE_URL=http://localhost:3000 python -m pytest \
 - **Full Details**: `E2E_MISSION_SUMMARY.md`
 - **Troubleshooting**: `E2E_EXECUTION_GUIDE.md` (bottom section)
 - **Technical Specs**: `E2E_MANIFEST.md`
+- **Story-Driven Planning**: `docs/e2e-user-stories.md`
 
 ---
 
