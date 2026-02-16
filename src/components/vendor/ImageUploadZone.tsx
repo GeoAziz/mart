@@ -4,6 +4,7 @@ import React, { useCallback, useState, useRef, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { X, Upload, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ export function ImageUploadZone({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -32,10 +34,17 @@ export function ImageUploadZone({
 
     const newImages: string[] = [];
     const fileArray = Array.from(files);
+    let hasError = false;
     
     fileArray.forEach((file) => {
       if (file.size > maxSize) {
         console.error(`File ${file.name} is too large`);
+        toast({
+          title: 'File too large',
+          description: `${file.name} exceeds ${Math.floor(maxSize / (1024 * 1024))}MB limit`,
+          variant: 'destructive',
+        });
+        hasError = true;
         return;
       }
 
@@ -44,9 +53,16 @@ export function ImageUploadZone({
         const result = reader.result as string;
         newImages.push(result);
         
-        if (newImages.length === fileArray.length) {
+        if (newImages.length === fileArray.filter(f => f.size <= maxSize).length) {
           const allImages = [...images, ...newImages].slice(0, maxImages);
           onImagesChange(allImages);
+          
+          if (!hasError) {
+            toast({
+              title: 'Images uploaded',
+              description: `Added ${newImages.length} image${newImages.length > 1 ? 's' : ''}`,
+            });
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -166,8 +182,31 @@ export function ImageUploadZone({
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
       const newImages = [...images, imageDataUrl].slice(0, maxImages);
       onImagesChange(newImages);
+      
+      toast({
+        title: 'Photo captured',
+        description: 'Your photo has been added successfully',
+      });
     } catch (error) {
       console.error('Camera capture failed:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Could not access camera';
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Camera access was denied. Please allow camera access in your browser settings.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No camera found on this device.';
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = 'Camera is already in use by another application.';
+        }
+      }
+      
+      toast({
+        title: 'Camera Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 

@@ -24,10 +24,23 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       for (const shortcut of shortcuts) {
-        const ctrlMatch = shortcut.ctrlKey === undefined || shortcut.ctrlKey === event.ctrlKey;
-        const shiftMatch = shortcut.shiftKey === undefined || shortcut.shiftKey === event.shiftKey;
-        const altMatch = shortcut.altKey === undefined || shortcut.altKey === event.altKey;
-        const metaMatch = shortcut.metaKey === undefined || shortcut.metaKey === event.metaKey;
+        // Check each modifier explicitly - if undefined, it must NOT be pressed
+        const ctrlMatch = shortcut.ctrlKey === undefined 
+          ? !event.ctrlKey && !event.metaKey  // If not specified, Ctrl/Meta must NOT be pressed
+          : (event.ctrlKey || event.metaKey) === shortcut.ctrlKey;
+        
+        const shiftMatch = shortcut.shiftKey === undefined 
+          ? !event.shiftKey  // If not specified, Shift must NOT be pressed
+          : event.shiftKey === shortcut.shiftKey;
+        
+        const altMatch = shortcut.altKey === undefined 
+          ? !event.altKey  // If not specified, Alt must NOT be pressed
+          : event.altKey === shortcut.altKey;
+        
+        const metaMatch = shortcut.metaKey === undefined 
+          ? true  // Meta is optional, handle via ctrlKey for cross-platform
+          : event.metaKey === shortcut.metaKey;
+        
         const keyMatch = shortcut.key.toLowerCase() === event.key.toLowerCase();
 
         if (ctrlMatch && shiftMatch && altMatch && metaMatch && keyMatch) {
