@@ -18,6 +18,7 @@ const Header = () => {
   const { currentUser, userProfile, logOut, loading: authLoading, cart, isCartLoading } = useAuth(); 
   // Only show cart for customers or unauthenticated
   const showCart = !userProfile || userProfile.role === 'customer';
+  const cartItemCount = useMemo(() => cart?.length ?? 0, [cart]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
