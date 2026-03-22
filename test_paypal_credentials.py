@@ -5,14 +5,25 @@ Verifies that PayPal credentials are valid and can authenticate
 """
 
 import os
+import sys
 import requests
 import json
 from base64 import b64encode
 
-# Get credentials from environment
-CLIENT_ID = os.getenv('PAYPAL_CLIENT_ID', 'AXm3NURnGpOoK22PoXRZcZXPfo1zuC6wbR_bPbERKn6RyezcEH-yKANPWQvAOqR48XqZAr2bEcQVGW5i')
-CLIENT_SECRET = os.getenv('PAYPAL_CLIENT_SECRET', 'EMcBkAJ8qn3KSR7vw4hHrfXtij_r4g8lrajX_W6iGETDsCGZBYHGTBq_1mJcLgWBVZt2D7JD0wSAl1Rq')
+# Get credentials from environment - MUST be set before running
+CLIENT_ID = os.getenv('PAYPAL_CLIENT_ID')
+CLIENT_SECRET = os.getenv('PAYPAL_CLIENT_SECRET')
 MODE = os.getenv('PAYPAL_MODE', 'sandbox')
+
+# Validate credentials are provided
+if not CLIENT_ID or not CLIENT_SECRET:
+    print('❌ ERROR: PayPal credentials not configured')
+    print('   Set these environment variables from your PayPal Developer account:')
+    print('   - PAYPAL_CLIENT_ID')
+    print('   - PAYPAL_CLIENT_SECRET')
+    print('   Get credentials from: https://developer.paypal.com/dashboard/')
+    print('   Never commit real credentials to version control!')
+    sys.exit(1)
 
 PAYPAL_API_BASE = {
     'sandbox': 'https://api-m.sandbox.paypal.com',

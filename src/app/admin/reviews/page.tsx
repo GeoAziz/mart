@@ -27,7 +27,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import type { Review as ReviewType } from '@/app/api/vendors/me/reviews/route'; // Using existing Review type
+import { toDate } from '@/lib/date';
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<ReviewType[]>([]);
@@ -54,7 +56,7 @@ export default function AdminReviewsPage() {
         throw new Error(errorData.message || 'Failed to fetch reviews');
       }
       const data: ReviewType[] = await response.json();
-      setReviews(data.map(r => ({ ...r, createdAt: new Date(r.createdAt) })));
+      setReviews(data.map(r => ({ ...r, createdAt: toDate(r.createdAt) ?? undefined })));
     } catch (error) {
       console.error('Error fetching reviews:', error);
       toast({ title: 'Error Fetching Reviews', description: error instanceof Error ? error.message : 'Could not load reviews.', variant: 'destructive' });
@@ -107,6 +109,7 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Reviews', href: '/admin/reviews' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -154,7 +157,7 @@ export default function AdminReviewsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm truncate max-w-xs">{review.comment}</TableCell>
-                    <TableCell className="text-xs">{new Date(review.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-xs">{toDate(review.createdAt)?.toLocaleDateString() ?? 'N/A'}</TableCell>
                     <TableCell className="text-right">
                      {actionLoading[review.id] ? <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /> : (
                       <AlertDialog open={!!reviewToDelete && reviewToDelete.id === review.id} onOpenChange={(isOpen) => !isOpen && setReviewToDelete(null)}>

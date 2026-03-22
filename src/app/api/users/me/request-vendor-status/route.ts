@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { toDate } from '@/lib/date';
 
 async function requestVendorStatusHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
@@ -48,8 +49,8 @@ async function requestVendorStatusHandler(req: AuthenticatedRequest) {
       fullName: updatedUserProfileData?.fullName || null,
       role: updatedUserProfileData?.role || 'customer',
       status: updatedUserProfileData?.status || 'active',
-      createdAt: updatedUserProfileData?.createdAt instanceof Timestamp ? updatedUserProfileData.createdAt.toDate() : new Date(updatedUserProfileData?.createdAt),
-      updatedAt: updatedUserProfileData?.updatedAt instanceof Timestamp ? updatedUserProfileData.updatedAt.toDate() : (updatedUserProfileData?.updatedAt ? new Date(updatedUserProfileData.updatedAt) : undefined),
+      createdAt: toDate(updatedUserProfileData?.createdAt) ?? new Date(),
+      updatedAt: toDate(updatedUserProfileData?.updatedAt) ?? undefined,
     };
 
     return NextResponse.json(responseProfile, { status: 200 });

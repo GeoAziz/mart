@@ -34,7 +34,16 @@ export const LiveSalesTracker = () => {
       }
     };
 
-    return () => ws.close();
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Properly cleanup on unmount
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   return (

@@ -6,6 +6,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { z } from 'zod';
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Promotion } from '@/lib/types';
+import { toDate } from '@/lib/date';
 
 const promotionSchema = z.object({
     code: z.string().min(4).max(20).transform(v => v.toUpperCase()),
@@ -24,10 +25,10 @@ function mapPromotionDocument(doc: FirebaseFirestore.DocumentSnapshot): Promotio
   return {
     id: doc.id,
     ...data,
-    startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
-    endDate: data.endDate ? (data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate)) : undefined,
-    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+    startDate: toDate(data.startDate) ?? undefined,
+    endDate: data.endDate ? (toDate(data.endDate) ?? undefined) : undefined,
+    createdAt: toDate(data.createdAt) ?? new Date(),
+    updatedAt: toDate(data.updatedAt) ?? new Date(),
   };
 }
 

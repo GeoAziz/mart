@@ -1,50 +1,31 @@
-import { LucideIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import * as React from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
-interface EmptyStateProps {
-  icon?: LucideIcon;
-  title: string;
-  description?: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-    variant?: 'default' | 'outline' | 'ghost';
-  };
-  className?: string;
+type Props = {
+  title?: string
+  description?: string
+  cta?: { label: string; href?: string; onClick?: () => void }
 }
 
-export function EmptyState({ 
-  icon: Icon, 
-  title, 
-  description, 
-  action,
-  className 
-}: EmptyStateProps) {
+export default function EmptyState({ title = 'No data yet', description = 'There is no data to show for this view.', cta }: Props) {
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center py-12 px-4 text-center",
-      className
-    )}>
-      {Icon && (
-        <Icon className="h-16 w-16 md:h-20 md:w-20 text-muted-foreground/40 mb-4" />
-      )}
-      <h3 className="text-xl md:text-2xl font-semibold text-foreground mb-2">
-        {title}
-      </h3>
-      {description && (
-        <p className="text-sm md:text-base text-muted-foreground mb-6 max-w-md">
-          {description}
-        </p>
-      )}
-      {action && (
-        <Button 
-          variant={action.variant || 'outline'}
-          onClick={action.onClick}
-        >
-          {action.label}
-        </Button>
-      )}
-    </div>
-  );
+    <Card className="text-center p-6">
+      <CardHeader>
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground mt-2">{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {cta && (
+          cta.href ? (
+            <a href={cta.href} className="inline-block mt-4">
+              <Button>{cta.label}</Button>
+            </a>
+          ) : (
+            <Button onClick={cta.onClick} className="mt-4">{cta.label}</Button>
+          )
+        )}
+      </CardContent>
+    </Card>
+  )
 }

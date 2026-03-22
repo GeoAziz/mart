@@ -2,34 +2,33 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import EmptyState from '@/components/ui/empty-state';
+import MotionCard from '@/components/ui/motion-card';
 import { Users, ShoppingCart, DollarSign, Activity, CheckCircle, AlertTriangle, HeartPulse, ListOrdered, BarChartBig, Loader2, ShoppingBag, Mail } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { format, parseISO } from 'date-fns';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile, Order } from '@/lib/types';
 
 
 const StatCard = ({ title, value, icon, change, changeType, isLoading }: { title: string, value: string, icon: React.ReactNode, change?: string, changeType?: 'positive' | 'negative', isLoading?: boolean }) => (
-  <Card className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow">
+  <Card isLoading={isLoading} className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       {icon}
     </CardHeader>
-    <CardContent>
-      {isLoading ? (
-        <Skeleton className="h-8 w-32" />
-      ) : (
-         <>
-            <div className="text-2xl font-bold text-glow-primary">{value}</div>
-            {change && (
-              <p className={`text-xs ${changeType === 'positive' ? 'text-green-400' : 'text-red-400'}`}>
-                {changeType === 'positive' ? '+' : '-'}{change} from last month
-              </p>
-            )}
-         </>
-      )}
-    </CardContent>
+    {!isLoading && (
+      <CardContent>
+        <div className="text-2xl font-bold text-glow-primary">{value}</div>
+        {change && (
+          <p className={`text-xs ${changeType === 'positive' ? 'text-green-400' : 'text-red-400'}`}>
+            {changeType === 'positive' ? '+' : '-'}{change} from last month
+          </p>
+        )}
+      </CardContent>
+    )}
   </Card>
 );
 
@@ -131,10 +130,31 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="space-y-8">
+    <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Overview', href: '/admin/overview' }]} />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Total Users" value={stats.totalUsers.toLocaleString()} icon={<Users className="h-5 w-5 text-blue-400"/>} isLoading={isLoading}/>
-        <StatCard title="Total Sellers" value={stats.totalSellers.toLocaleString()} icon={<Users className="h-5 w-5 text-purple-400"/>} isLoading={isLoading}/>
-        <StatCard title="Total Sales (Month)" value={formatCurrency(stats.totalSalesMonth)} icon={<DollarSign className="h-5 w-5 text-green-400"/>} isLoading={isLoading}/>
+        <MotionCard className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow p-0">
+          <div className="p-4">
+            <StatCard title="Total Users" value={stats.totalUsers.toLocaleString()} icon={<Users className="h-5 w-5 text-blue-400"/>} isLoading={isLoading}/>
+          </div>
+        </MotionCard>
+        <MotionCard className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow p-0">
+          <div className="p-4">
+            <StatCard title="Total Sellers" value={stats.totalSellers.toLocaleString()} icon={<Users className="h-5 w-5 text-purple-400"/>} isLoading={isLoading}/>
+          </div>
+        </MotionCard>
+        {stats.totalSalesMonth === 0 && !isLoading ? (
+          <MotionCard className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow p-0">
+            <div className="p-4">
+              <EmptyState title="No sales this month" description="You have no sales recorded for this month. Try approving pending products or promoting listings." cta={{ label: 'View Pending Products', href: '/admin/products?filter=pending'}} />
+            </div>
+          </MotionCard>
+        ) : (
+          <MotionCard className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow p-0">
+            <div className="p-4">
+              <StatCard title="Total Sales (Month)" value={formatCurrency(stats.totalSalesMonth)} icon={<DollarSign className="h-5 w-5 text-green-400"/>} isLoading={isLoading}/>
+            </div>
+          </MotionCard>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -178,9 +198,9 @@ export default function AdminOverviewPage() {
         </CardHeader>
         <CardContent>
           <div className="h-[350px] w-full">
-          {isLoading ? (
-             <Skeleton className="h-full w-full" />
-          ) : (
+           {isLoading ? (
+             <div className="h-full flex justify-center items-center"><div className="h-full w-full skeleton-shimmer"/></div>
+           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={salesData}
@@ -192,7 +212,20 @@ export default function AdminOverviewPage() {
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <XAxis
+                  dataKey="date"
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tickFormatter={(val: string) => {
+                    // val is YYYY-MM -> convert to short month
+                    try {
+                      const parsed = parseISO(val + '-01');
+                      return format(parsed, 'MMM yy');
+                    } catch (e) {
+                      return val;
+                    }
+                  }}
+                />
                 <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(value) => `KSh ${value/1000}k`} />
                 <Tooltip
                   contentStyle={{
@@ -203,7 +236,15 @@ export default function AdminOverviewPage() {
                   }}
                   itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
                   cursor={{ fill: 'hsl(var(--accent) / 0.2)' }}
-                   formatter={(value: number) => [`KSh ${value.toLocaleString()}`, "Sales"]}
+                   formatter={(value: number) => [`KSh ${value.toLocaleString()}`, 'Sales']}
+                  labelFormatter={(label: string) => {
+                    try {
+                      const parsed = parseISO(label + '-01');
+                      return format(parsed, 'LLLL yyyy');
+                    } catch (e) {
+                      return label;
+                    }
+                  }}
                 />
                 <Legend wrapperStyle={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                 <Line type="monotone" dataKey="Sales" strokeWidth={2} stroke="hsl(var(--chart-1))" activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'hsl(var(--card))' }} dot={{fill: 'hsl(var(--chart-1))', r:3}}/>

@@ -26,7 +26,17 @@ export default function ProfilePage() {
     if (userProfile) {
       setName(userProfile.fullName || '');
       setEmail(userProfile.email || '');
-      setJoinDate(userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : 'N/A');
+      const parseDate = (val: any): Date | null => {
+        if (!val) return null;
+        // Firestore Timestamp has a toDate() helper
+        if (typeof val === 'object' && 'toDate' in val && typeof (val as any).toDate === 'function') {
+          return (val as any).toDate();
+        }
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+      };
+      const dateObj = parseDate(userProfile.createdAt);
+      setJoinDate(dateObj ? dateObj.toLocaleDateString() : 'N/A');
     }
   }, [userProfile]);
 

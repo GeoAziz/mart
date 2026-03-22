@@ -1,45 +1,27 @@
+import React from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
-interface BreadcrumbItem {
-  label: string;
-  href?: string;
-}
+type Crumb = { label: string; href?: string };
 
-interface BreadcrumbProps {
-  items: BreadcrumbItem[];
-  className?: string;
-}
-
-export function Breadcrumb({ items, className }: BreadcrumbProps) {
+export default function Breadcrumb({ items }: { items: Crumb[] }) {
   return (
-    <nav aria-label="Breadcrumb" className={cn("flex items-center space-x-2 text-sm", className)}>
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
-        
-        return (
-          <div key={index} className="flex items-center">
-            {item.href && !isLast ? (
-              <Link 
-                href={item.href}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {item.label}
+    <nav aria-label="Breadcrumb" className="mb-4">
+      <ol className="flex items-center text-sm text-muted-foreground space-x-2">
+        {items.map((it, idx) => (
+          <li key={idx} className="flex items-center">
+            {it.href ? (
+              <Link href={it.href} className={idx === items.length - 1 ? 'font-medium text-foreground' : 'hover:underline'} aria-current={idx === items.length - 1 ? 'page' : undefined}>
+                {it.label}
               </Link>
             ) : (
-              <span className={cn(
-                isLast ? "text-foreground font-medium" : "text-muted-foreground"
-              )}>
-                {item.label}
-              </span>
+              <span className={idx === items.length - 1 ? 'font-medium text-foreground' : ''}>{it.label}</span>
             )}
-            {!isLast && (
-              <ChevronRight className="h-4 w-4 mx-2 text-muted-foreground" />
-            )}
-          </div>
-        );
-      })}
+            {idx < items.length - 1 && <span className="mx-2 text-muted-foreground">/</span>}
+          </li>
+        ))}
+      </ol>
     </nav>
   );
 }
+
+export { Breadcrumb };

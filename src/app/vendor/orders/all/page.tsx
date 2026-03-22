@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Order } from '@/app/api/orders/route'; // Import the Order type
+import type { Order } from '@/lib/types';
+import { toDate } from '@/lib/date';
 
 const getStatusBadgeVariant = (status: string) => {
   switch (status.toLowerCase()) {
@@ -75,7 +76,7 @@ export default function AllOrdersPage() {
         throw new Error(errorData.message || 'Failed to fetch orders');
       }
       const data: Order[] = await response.json();
-      setOrders(data.map(o => ({...o, createdAt: new Date(o.createdAt)}))); // Ensure date is Date object
+      setOrders(data.map(o => ({...o, createdAt: toDate((o as any).createdAt) ?? new Date()}))); // Ensure date is Date object
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Could not load orders.', variant: 'destructive' });
@@ -164,7 +165,7 @@ export default function AllOrdersPage() {
                       </Link>
                     </TableCell>
                     <TableCell>{order.userFullName || order.userEmail || 'N/A'}</TableCell>
-                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{toDate((order as any).createdAt)?.toLocaleDateString() ?? ''}</TableCell>
                     <TableCell className="text-center">{order.items.length}</TableCell>
                     <TableCell className="text-right">{order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">

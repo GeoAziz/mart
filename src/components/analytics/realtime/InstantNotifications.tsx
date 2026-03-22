@@ -38,7 +38,16 @@ export const InstantNotifications = () => {
       }
     };
 
-    return () => ws.close();
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Properly cleanup on unmount
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   const markAsRead = (id: string) => {

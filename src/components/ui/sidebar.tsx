@@ -21,6 +21,7 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+const SIDEBAR_STORAGE_KEY = "sidebar_state"
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "4rem"
@@ -83,8 +84,13 @@ const SidebarProvider = React.forwardRef<
           _setOpen(openState)
         }
 
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        // Persist sidebar preference in localStorage (migrated from cookie if present).
+        try {
+          localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState))
+        } catch (err) {
+          // fallback to cookie if localStorage not available
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        }
       },
       [setOpenProp, open]
     )
@@ -111,6 +117,39 @@ const SidebarProvider = React.forwardRef<
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
+
+    // Read persisted state from localStorage (or migrate from cookie) on mount.
+    React.useEffect(() => {
+      try {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+        if (stored !== null) {
+          // stored is "true" or "false"
+          _setOpen(stored === "true")
+          return
+        }
+      } catch (err) {
+        // ignore and try cookie
+      }
+
+      // Try to migrate from cookie if present
+      try {
+        const cookie = document.cookie
+          .split(";")
+          .map((p) => p.trim())
+          .find((p) => p.startsWith(`${SIDEBAR_COOKIE_NAME}=`))
+        if (cookie) {
+          const [, val] = cookie.split("=")
+          _setOpen(val === "true")
+          try {
+            localStorage.setItem(SIDEBAR_STORAGE_KEY, String(val === "true"))
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }, [])
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.
@@ -256,7 +295,8 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      className={cn("h-11 w-11 min-w-[44px] min-h-[44px]", className)}
+      aria-label="Toggle sidebar navigation"
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
@@ -547,6 +587,7 @@ const SidebarMenuButton = React.forwardRef<
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
+        aria-current={isActive ? "page" : undefined}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
         {...props}
       />

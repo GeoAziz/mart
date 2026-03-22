@@ -66,7 +66,15 @@ export const LiveMetricsDashboard: React.FC<LiveMetricsProps> = ({ data }) => {
       }
     };
 
-    return () => ws.close();
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   const getTrendBadge = (trend: MetricCard['trend']) => {

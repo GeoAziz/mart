@@ -35,10 +35,12 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Promotion } from '@/lib/types';
+import { toDate } from '@/lib/date';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -65,16 +67,18 @@ const promotionSchema = z.object({
 
 type PromotionFormData = z.infer<typeof promotionSchema>;
 
-const getStatusBadgeVariant = (isActive: boolean, endDate?: Date) => {
-    if (!isActive) return 'bg-gray-500/20 text-gray-300 border-gray-400';
-    if (endDate && new Date() > endDate) return 'bg-red-500/20 text-red-300 border-red-400';
-    return 'bg-green-500/20 text-green-300 border-green-400';
+const getStatusBadgeVariant = (isActive: boolean, endDate?: Date | any) => {
+  if (!isActive) return 'bg-gray-500/20 text-gray-300 border-gray-400';
+  const e = toDate(endDate);
+  if (e && e < new Date()) return 'bg-red-500/20 text-red-300 border-red-400';
+  return 'bg-green-500/20 text-green-300 border-green-400';
 }
 
-const getStatusText = (isActive: boolean, endDate?: Date) => {
-    if (!isActive) return 'Inactive';
-    if (endDate && new Date() > endDate) return 'Expired';
-    return 'Active';
+const getStatusText = (isActive: boolean, endDate?: Date | any) => {
+  if (!isActive) return 'Inactive';
+  const e = toDate(endDate);
+  if (e && e < new Date()) return 'Expired';
+  return 'Active';
 }
 
 
@@ -108,13 +112,13 @@ export default function PromotionsPage() {
       const response = await fetch('/api/promotions', { headers: { 'Authorization': `Bearer ${token}` }});
       if (!response.ok) throw new Error('Failed to fetch promotions');
       const data: Promotion[] = await response.json();
-      setPromotions(data.map(p => ({
+        setPromotions(data.map(p => ({
           ...p,
-          startDate: new Date(p.startDate),
-          endDate: p.endDate ? new Date(p.endDate) : undefined,
-          createdAt: new Date(p.createdAt),
-          updatedAt: new Date(p.updatedAt),
-      })));
+          startDate: toDate(p.startDate) ?? undefined,
+          endDate: p.endDate ? (toDate(p.endDate) ?? undefined) : undefined,
+          createdAt: toDate(p.createdAt) ?? new Date(),
+          updatedAt: toDate(p.updatedAt) ?? new Date(),
+        })));
     } catch (error) {
       console.error("Error fetching promotions:", error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : "Could not load promotions.", variant: "destructive" });
@@ -136,8 +140,8 @@ export default function PromotionsPage() {
                 type: editingPromotion.type,
                 value: editingPromotion.value,
                 isActive: editingPromotion.isActive,
-                startDate: new Date(editingPromotion.startDate),
-                endDate: editingPromotion.endDate ? new Date(editingPromotion.endDate) : undefined,
+            startDate: toDate(editingPromotion.startDate) ?? new Date(),
+            endDate: editingPromotion.endDate ? (toDate(editingPromotion.endDate) ?? undefined) : undefined,
                 usageLimit: editingPromotion.usageLimit,
                 minPurchaseAmount: editingPromotion.minPurchaseAmount,
             });
@@ -148,7 +152,7 @@ export default function PromotionsPage() {
                 isActive: true,
                 type: 'percentage',
                 value: undefined,
-                startDate: new Date(),
+              startDate: new Date(),
                 endDate: undefined,
                 usageLimit: undefined,
                 minPurchaseAmount: undefined,
@@ -209,6 +213,7 @@ export default function PromotionsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Promotions', href: '/admin/promotions' }]} />
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => { setIsFormOpen(isOpen); if (!isOpen) setEditingPromotion(null); }}>
         <DialogContent className="sm:max-w-lg bg-card border-primary shadow-xl">
           <DialogHeader>
@@ -329,7 +334,7 @@ export default function PromotionsPage() {
                     <TableCell>{p.type === 'percentage' ? `${p.value}%` : `KSh ${p.value.toLocaleString()}`}</TableCell>
                     <TableCell>{p.timesUsed} / {p.usageLimit || '∞'}</TableCell>
                     <TableCell><Badge variant="outline" className={getStatusBadgeVariant(p.isActive, p.endDate)}>{getStatusText(p.isActive, p.endDate)}</Badge></TableCell>
-                    <TableCell>{p.endDate ? format(new Date(p.endDate), 'PPP') : 'Never'}</TableCell>
+                    <TableCell>{p.endDate ? format(toDate(p.endDate) ?? new Date(p.endDate), 'PPP') : 'Never'}</TableCell>
                     <TableCell className="text-right space-x-2">
                        <Button variant="outline" size="icon" className="h-8 w-8 text-accent border-accent hover:bg-accent hover:text-accent-foreground" onClick={() => { setEditingPromotion(p); setIsFormOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
                        <AlertDialog open={!!promotionToDelete && promotionToDelete.id === p.id} onOpenChange={(isOpen) => !isOpen && setPromotionToDelete(null)}>

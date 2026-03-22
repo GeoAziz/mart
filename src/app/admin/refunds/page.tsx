@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import type { RefundRequest as RefundRequestType } from '@/app/api/refunds/route';
+import { toDate } from '@/lib/date';
 
 type RefundStatus = RefundRequestType['status'];
 
@@ -79,7 +81,7 @@ export default function RefundManagementPage() {
         throw new Error(errorData.message || 'Failed to fetch refund requests.');
       }
       const data: RefundRequestType[] = await response.json();
-      setRefundRequests(data.map(r => ({ ...r, requestedAt: new Date(r.requestedAt), processedAt: r.processedAt ? new Date(r.processedAt) : undefined })));
+      setRefundRequests(data.map(r => ({ ...r, requestedAt: toDate(r.requestedAt) ?? undefined, processedAt: r.processedAt ? (toDate(r.processedAt) ?? undefined) : undefined })));
     } catch (error) {
       console.error('Error fetching refunds:', error);
       toast({ title: 'Error Fetching Refunds', description: error instanceof Error ? error.message : 'Could not load refund requests.', variant: 'destructive' });
@@ -116,7 +118,7 @@ export default function RefundManagementPage() {
       }
       const updatedRefund: RefundRequestType = await response.json();
       setRefundRequests(prevRequests =>
-        prevRequests.map(r => (r.id === refundId ? { ...updatedRefund, requestedAt: new Date(updatedRefund.requestedAt), processedAt: updatedRefund.processedAt ? new Date(updatedRefund.processedAt) : undefined } : r))
+        prevRequests.map(r => (r.id === refundId ? { ...updatedRefund, requestedAt: toDate(updatedRefund.requestedAt) ?? undefined, processedAt: updatedRefund.processedAt ? (toDate(updatedRefund.processedAt) ?? undefined) : undefined } : r))
       );
       toast({ title: `Refund ${newStatus}`, description: `Refund ID ${refundId.substring(0,7)}... has been ${newStatus.toLowerCase()}.` });
     } catch (error) {
@@ -138,6 +140,7 @@ export default function RefundManagementPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Refunds', href: '/admin/refunds' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -183,7 +186,7 @@ export default function RefundManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-xs">{request.customerName}</TableCell>
-                    <TableCell className="text-xs">{new Date(request.requestedAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-xs">{toDate(request.requestedAt)?.toLocaleDateString() ?? 'N/A'}</TableCell>
                     <TableCell className="text-right font-semibold">{request.requestedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline" className={`flex items-center justify-center gap-1.5 text-xs ${getStatusBadgeVariant(request.status)}`}>

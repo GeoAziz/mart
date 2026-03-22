@@ -13,8 +13,15 @@ load_dotenv()
 class PayPalFlowTest:
     def __init__(self):
         self.base_url = os.getenv('BASE_URL', 'http://localhost:3000')
-        self.paypal_email = 'sb-t5anz42281618@personal.example.com'
-        self.paypal_password = '87C;nFe_'
+        self.paypal_email = os.getenv('PAYPAL_SANDBOX_EMAIL', '')
+        self.paypal_password = os.getenv('PAYPAL_SANDBOX_PASSWORD', '')
+        if not self.paypal_email or not self.paypal_password:
+            raise ValueError(
+                'PayPal sandbox credentials not configured.\n'
+                'Set environment variables:\n'
+                '  - PAYPAL_SANDBOX_EMAIL\n'
+                '  - PAYPAL_SANDBOX_PASSWORD'
+            )
         self.driver = None
         
     def setup_driver(self):

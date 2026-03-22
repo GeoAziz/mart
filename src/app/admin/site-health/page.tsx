@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle, Server, Database, Activity, Bell, Settings, ExternalLink, BarChartHorizontalBig, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label'; // Added for Progress bar labels
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 const MetricCard = ({ title, value, icon, status, description }: { title: string; value: string | number; icon: React.ReactNode; status?: 'good' | 'warning' | 'critical'; description?: string }) => {
   let statusColor = 'text-primary';
@@ -73,6 +74,7 @@ export default function SiteHealthPage() {
 
   return (
     <div className="space-y-8">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Site Health', href: '/admin/site-health' }]} />
       <Card className="bg-card border-primary shadow-xl glow-edge-primary">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">

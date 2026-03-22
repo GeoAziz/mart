@@ -4,6 +4,7 @@ import { LiveSalesTracker } from '@/components/analytics/realtime/LiveSalesTrack
 import { RealTimeInventory } from '@/components/analytics/realtime/RealTimeInventory';
 import { InstantNotifications } from '@/components/analytics/realtime/InstantNotifications';
 import { LiveMetricsDashboard } from '@/components/analytics/realtime/LiveMetricsDashboard';
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 export default function RealTimeAnalyticsPage() {
   // Provide a default/mock data prop to satisfy LiveMetricsProps
@@ -39,6 +40,7 @@ export default function RealTimeAnalyticsPage() {
   };
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Analytics', href: '/admin/analytics' }, { label: 'Realtime', href: '/admin/analytics/realtime' }]} />
       {/* Main Dashboard */}
       <LiveMetricsDashboard data={defaultData} />
 

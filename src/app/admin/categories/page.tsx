@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { PlusCircle, Edit3, Trash2, Tag, ListTree, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -166,6 +167,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Categories', href: '/admin/categories' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>

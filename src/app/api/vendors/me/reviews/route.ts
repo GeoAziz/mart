@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { toDate } from '@/lib/date';
 
 // Define Review interface, assuming it might be shared or defined elsewhere eventually
 export interface Review {
@@ -27,8 +28,8 @@ function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): Review {
   return {
     id: doc.id,
     ...data,
-    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
-    repliedAt: data.repliedAt ? (data.repliedAt.toDate ? data.repliedAt.toDate() : new Date(data.repliedAt)) : undefined,
+    createdAt: toDate(data.createdAt) ?? new Date(data.createdAt || Date.now()),
+    repliedAt: data.repliedAt ? (toDate(data.repliedAt) ?? undefined) : undefined,
   };
 }
 

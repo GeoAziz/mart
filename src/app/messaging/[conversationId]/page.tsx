@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Conversation, Message } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { toDate } from '@/lib/date';
 
 export default function ConversationPage() {
   const params = useParams();
@@ -165,7 +166,7 @@ export default function ConversationPage() {
               )}>
                 <p className="whitespace-pre-wrap">{msg.text}</p>
                 <p className={cn("text-xs mt-1", msg.senderId === currentUser?.uid ? "text-primary-foreground/70 text-right" : "text-muted-foreground/70")}>
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {toDate(msg.timestamp)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>

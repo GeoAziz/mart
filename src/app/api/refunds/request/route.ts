@@ -3,8 +3,9 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
-import type { Order, OrderItem } from '@/app/api/orders/route'; // Import Order and OrderItem types
+import type { Order, OrderItem } from '@/lib/types'; // Import Order and OrderItem types
 import type { RefundRequest } from '@/app/api/refunds/route'; // Import RefundRequest type
+import { toDate } from '@/lib/date';
 import { z } from 'zod';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -97,7 +98,7 @@ async function submitRefundRequestHandler(req: AuthenticatedRequest) {
     const createdRefundResponse: RefundRequest = {
       id: refundDocRef.id,
       ...newRefundRequestData,
-      requestedAt: newRefundRequestData.requestedAt.toDate(), // Convert to Date for client
+      requestedAt: toDate(newRefundRequestData.requestedAt) ?? new Date(), // Convert to Date for client
     };
 
     return NextResponse.json(createdRefundResponse, { status: 201 });

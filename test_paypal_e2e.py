@@ -36,13 +36,22 @@ from selenium.common.exceptions import (
 class TestConfig:
     """Test configuration settings"""
     base_url: str = "http://localhost:3000"
-    paypal_sandbox_email: str = "sb-t5anz42281618@personal.example.com"
-    paypal_sandbox_password: str = "87C;nFe_"
+    # PayPal sandbox credentials from environment - NEVER hardcode
+    paypal_sandbox_email: str = os.getenv("PAYPAL_SANDBOX_EMAIL", "")
+    paypal_sandbox_password: str = os.getenv("PAYPAL_SANDBOX_PASSWORD", "")
     test_user_email: str = "test@example.com"
     test_user_password: str = "testpassword123"
     headless: bool = False
     timeout: int = 30
     screenshot_dir: str = "./test_screenshots"
+    
+    def __post_init__(self):
+        """Validate configuration"""
+        if not self.paypal_sandbox_email or not self.paypal_sandbox_password:
+            print("⚠️  WARNING: PayPal sandbox credentials not configured")
+            print("   Set environment variables to enable PayPal tests:")
+            print("   - PAYPAL_SANDBOX_EMAIL")
+            print("   - PAYPAL_SANDBOX_PASSWORD")
 
 
 class TestStatus(Enum):

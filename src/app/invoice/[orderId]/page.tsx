@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Order } from '@/lib/types';
 import Logo from '@/components/layout/Logo';
 import { Separator } from '@/components/ui/separator';
+import { toDate } from '@/lib/date';
 
 export default function InvoicePage() {
   const params = useParams();
@@ -92,7 +93,7 @@ export default function InvoicePage() {
                 <div className="text-right">
                     <h1 className="text-3xl font-bold uppercase text-glow-primary print-text-primary">Invoice</h1>
                     <p className="text-muted-foreground">#{order.id}</p>
-                    <p className="text-muted-foreground mt-2">Date: {new Date(order.createdAt).toLocaleDateString()}</p>
+                    <p className="text-muted-foreground mt-2">Date: {toDate(order.createdAt)?.toLocaleDateString() ?? 'N/A'}</p>
                 </div>
             </header>
 

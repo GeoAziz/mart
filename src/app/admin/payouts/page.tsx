@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Payout } from '@/app/api/vendors/me/payouts/route'; // Assuming this type is suitable
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 type PayoutWithVendorInfo = Payout & { vendorName?: string };
 
@@ -195,6 +196,7 @@ export default function AdminPayoutsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Payouts', href: '/admin/payouts' }]} />
       <Dialog open={!!processingPayout} onOpenChange={(isOpen) => { if (!isOpen) { setProcessingPayout(null); setProcessAction(null); setTransactionId(''); setAdminNotes(''); } }}>
         <DialogContent className="sm:max-w-md bg-card border-primary shadow-xl">
           <DialogHeader>

@@ -27,9 +27,10 @@ class TestConfig:
     implicit_wait: int = 10
     explicit_wait: int = 20
     
-    # PayPal credentials
-    paypal_email: str = os.getenv("PAYPAL_EMAIL", "sb-t5anz42281618@personal.example.com")
-    paypal_password: str = os.getenv("PAYPAL_PASSWORD", "87C;nFe_")
+    # PayPal credentials - ONLY from environment variables
+    # NEVER hardcode credentials in source code
+    paypal_email: str = os.getenv("PAYPAL_EMAIL", "")
+    paypal_password: str = os.getenv("PAYPAL_PASSWORD", "")
     paypal_client_id: str = os.getenv("PAYPAL_CLIENT_ID", "")
     paypal_secret: str = os.getenv("PAYPAL_SECRET", "")
     

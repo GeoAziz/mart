@@ -5,6 +5,7 @@ import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { z } from 'zod';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { toDate } from '@/lib/date';
 import type { Category } from '@/lib/types';
 
 const categorySchema = z.object({
@@ -17,8 +18,8 @@ function mapCategoryDocument(doc: FirebaseFirestore.DocumentSnapshot): Category 
   return {
     id: doc.id,
     ...data,
-    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt || Date.now()),
+    createdAt: toDate(data.createdAt) ?? new Date(data.createdAt || Date.now()),
+    updatedAt: toDate(data.updatedAt) ?? new Date(data.updatedAt || Date.now()),
   };
 }
 

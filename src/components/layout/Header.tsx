@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ShoppingCart, UserCircle, Menu, LogOutIcon as LogoutIconComp, Loader2 } from 'lucide-react';
 import Logo from './Logo';
 import SearchInput from './SearchInput';
+import CommandPalette from '@/components/command/CommandPalette';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
@@ -19,7 +20,7 @@ const Header = () => {
   const showCart = !userProfile || userProfile.role === 'customer';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
-  const cartItemCount = cart.length;
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
 
   // Accessibility: keyboard shortcut for cart (Ctrl+K)
   useEffect(() => {
@@ -31,6 +32,20 @@ const Header = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showCart]);
+
+  // Command palette: Ctrl/Cmd+Shift+K
+  useEffect(() => {
+    const handleCmdPalette = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', handleCmdPalette);
+    return () => window.removeEventListener('keydown', handleCmdPalette);
+  }, []);
+
+  // cartItemCount is already defined above, remove duplicate below
 
   const baseNavLinks = [
     { href: "/products", label: "All Products" },
@@ -91,10 +106,9 @@ const Header = () => {
         </nav>
 
         {/* DESKTOP RIGHT SIDE */}
-        <div className="hidden lg:flex items-center gap-3 xl:gap-4">
-          <div className="w-44 xl:w-56">
-            <SearchInput />
-          </div>
+        <div className="hidden md:flex items-center space-x-4">
+          <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} />
+          <SearchInput />
           
           {/* Cart for customers */}
           {showCart && (

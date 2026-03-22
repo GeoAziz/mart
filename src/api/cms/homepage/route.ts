@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
-import type { Timestamp } from 'firebase-admin/firestore';
+import { toDate } from '@/lib/date';
 
 // Re-defining interfaces here to match potential Firestore structure (e.g. Timestamps)
 // Ideally, these would be shared types if more complex or used across many places.
@@ -75,11 +75,11 @@ export async function GET(req: NextRequest) {
     const data = docSnap.data() as HomepageCmsData;
     // Convert Firestore Timestamp to Date for client if necessary
     const responseData = {
-        ...data,
-        heroSlides: data.heroSlides || [],
-        featuredItems: data.featuredItems || [],
-        promoBanners: data.promoBanners || [],
-        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt || Date.now()),
+      ...data,
+      heroSlides: data.heroSlides || [],
+      featuredItems: data.featuredItems || [],
+      promoBanners: data.promoBanners || [],
+      updatedAt: toDate((data as any).updatedAt) ?? new Date((data as any).updatedAt || Date.now()),
     };
 
     return NextResponse.json(responseData, { status: 200 });
@@ -114,8 +114,8 @@ async function updateHomepageCmsHandler(req: AuthenticatedRequest) {
 
     // Return the saved data, converting timestamp for client consistency
     const responseData = {
-        ...dataToSave,
-        updatedAt: dataToSave.updatedAt instanceof Timestamp ? dataToSave.updatedAt.toDate() : new Date(dataToSave.updatedAt || Date.now()),
+      ...dataToSave,
+      updatedAt: toDate((dataToSave as any).updatedAt) ?? new Date(),
     };
     
     return NextResponse.json(responseData, { status: 200 });

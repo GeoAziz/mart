@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Edit, FileText } from 'lucide-react';
 import Link from 'next/link';
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 export default function CmsContentPage() {
   return (
     <div className="space-y-8">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'CMS', href: '/admin/cms' }, { label: 'Content', href: '/admin/cms/content' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-headline text-glow-primary flex items-center">

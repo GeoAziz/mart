@@ -4,6 +4,8 @@ Comprehensive PayPal Integration Test
 Tests the full PayPal checkout flow with detailed error reporting
 """
 
+import os
+import sys
 import requests
 import json
 import time
@@ -14,8 +16,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 BASE_URL = "http://localhost:3000"
-PAYPAL_EMAIL = "sb-t5anz42281618@personal.example.com"
-PAYPAL_PASSWORD = "87C;nFe_"
+PAYPAL_EMAIL = os.getenv('PAYPAL_SANDBOX_EMAIL', '')
+PAYPAL_PASSWORD = os.getenv('PAYPAL_SANDBOX_PASSWORD', '')
+
+if not PAYPAL_EMAIL or not PAYPAL_PASSWORD:
+    print('⚠️  WARNING: PayPal sandbox credentials not configured')
+    print('   Set these environment variables to run full tests:')
+    print('   - PAYPAL_SANDBOX_EMAIL (e.g., sb-xxxxx@personal.example.com)')
+    print('   - PAYPAL_SANDBOX_PASSWORD')
+    print('   Sandbox tests will be skipped.')
 
 def test_paypal_api():
     """Test the PayPal API endpoints directly"""

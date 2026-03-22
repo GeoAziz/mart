@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Order } from '@/app/api/orders/route'; // Import the Order type
+import type { Order } from '@/lib/types';
+import { toDate } from '@/lib/date';
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 const getStatusBadgeVariant = (status: Order['status']) => {
   switch (status.toLowerCase()) {
@@ -79,7 +81,7 @@ export default function AdminOrdersPage() {
         throw new Error(errorData.message || 'Failed to fetch orders');
       }
       const data: Order[] = await response.json();
-      setOrders(data.map(o => ({...o, createdAt: new Date(o.createdAt), updatedAt: new Date(o.updatedAt) })));
+      setOrders(data.map(o => ({...o, createdAt: toDate((o as any).createdAt) ?? new Date(), updatedAt: toDate((o as any).updatedAt) ?? new Date() })));
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Could not load orders.', variant: 'destructive' });
@@ -130,6 +132,7 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Orders', href: '/admin/orders' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
             <div>

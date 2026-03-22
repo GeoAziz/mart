@@ -1,7 +1,7 @@
 'use client';
 
 import type { User } from 'firebase/auth';
-import { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode, useCallback, useRef } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -27,6 +27,8 @@ export interface UserProfile {
   createdAt: Date; 
   updatedAt?: Date;
 }
+
+export type Role = UserProfile['role'];
 
 export interface CartItemClient {
   productId: string;
@@ -247,27 +249,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, [fetchAndSetUserProfile, fetchCart, fetchWishlist]);
 
+  // Use ref to track abort controller for preventing concurrent saves
+  const cartSaveAbortControllerRef = useRef<AbortController | null>(null);
+  
   const saveCartToServer = useCallback(debounce(async (itemsToSave: CartItemClient[], user: User | null) => {
     if (!user) return;
     setIsCartSaving(true);
     try {
+      // Cancel previous save request if still pending
+      if (cartSaveAbortControllerRef.current) {
+        cartSaveAbortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller for this save
+      cartSaveAbortControllerRef.current = new AbortController();
+      
       const token = await user.getIdToken();
       const apiPayload: SaveCartApiItem[] = itemsToSave.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
       }));
+      
       const response = await fetch('/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ items: apiPayload }),
+        signal: cartSaveAbortControllerRef.current.signal,
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to save cart to server.');
       }
-    } catch (error) {
-      console.error('Error saving cart to server:', error);
-      toast({ title: 'Cart Sync Error', description: 'Could not save cart changes.', variant: 'destructive' });
+    } catch (error: any) {
+      // Don't log abort errors as they're expected when requests are cancelled
+      if (error.name === 'AbortError') {
+        console.log('Previous cart save was cancelled (newer save in progress)');
+      } else {
+        console.error('Error saving cart to server:', error);
+        toast({ title: 'Cart Sync Error', description: 'Could not save cart changes.', variant: 'destructive' });
+      }
     } finally {
       setIsCartSaving(false);
     }

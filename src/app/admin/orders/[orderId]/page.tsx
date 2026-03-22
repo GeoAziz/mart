@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Order, OrderItem, ShippingAddress } from '@/lib/types';
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 const getStatusBadgeVariant = (status: string) => {
   switch (status.toLowerCase()) {
@@ -175,6 +176,7 @@ export default function AdminOrderDetailPage() {
 
   return (
     <div className="space-y-8">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Orders', href: '/admin/orders' }, { label: `#${orderId}`, href: `/admin/orders/${orderId}` }]} />
       <div className="flex items-center justify-between">
         <Button variant="outline" asChild className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
           <Link href="/admin/orders">

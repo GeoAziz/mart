@@ -28,14 +28,14 @@ export function CategoryChart({
               <Pie
                 data={data}
                 dataKey="revenue"
-                nameKey="category"
+                nameKey="name"
                 cx="50%"
                 cy="50%"
                 outerRadius={150}
                 label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
               >
                 {data.map((entry, index) => (
-                  <Cell key={entry.category} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  <Cell key={entry.id || entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip

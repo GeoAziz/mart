@@ -6,6 +6,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { Promotion, AppliedPromotion } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
+import { toDate } from '@/lib/date';
 
 const applyCodeSchema = z.object({
   code: z.string().min(1).transform(v => v.toUpperCase()),
@@ -17,8 +18,10 @@ function validatePromotion(promotion: Promotion, subtotal: number): { isValid: b
     if (!promotion.isActive) return { isValid: false, message: 'This promotion is not currently active.' };
     
     const now = new Date();
-    if (promotion.startDate && new Date(promotion.startDate) > now) return { isValid: false, message: 'This promotion has not started yet.' };
-    if (promotion.endDate && new Date(promotion.endDate) < now) return { isValid: false, message: 'This promotion has expired.' };
+    const start = toDate(promotion.startDate);
+    const end = toDate(promotion.endDate);
+    if (start && start > now) return { isValid: false, message: 'This promotion has not started yet.' };
+    if (end && end < now) return { isValid: false, message: 'This promotion has expired.' };
     
     if (promotion.usageLimit && promotion.timesUsed >= promotion.usageLimit) return { isValid: false, message: 'This promotion has reached its usage limit.' };
     
@@ -48,13 +51,14 @@ async function applyPromotionHandler(req: AuthenticatedRequest) {
     }
 
     const doc = promoSnapshot.docs[0];
+    const raw = doc.data();
     const promotion: Promotion = {
-        id: doc.id,
-        ...doc.data(),
-        startDate: doc.data().startDate.toDate(),
-        endDate: doc.data().endDate ? doc.data().endDate.toDate() : undefined,
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
+      id: doc.id,
+      ...raw,
+      startDate: toDate(raw.startDate) ?? undefined,
+      endDate: raw.endDate ? (toDate(raw.endDate) ?? undefined) : undefined,
+      createdAt: toDate(raw.createdAt) ?? new Date(),
+      updatedAt: toDate(raw.updatedAt) ?? new Date(),
     } as Promotion;
 
     const validation = validatePromotion(promotion, subtotal);

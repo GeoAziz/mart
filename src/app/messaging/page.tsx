@@ -10,6 +10,7 @@ import { Inbox, Loader2, AlertCircle, Edit } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Conversation } from '@/lib/types';
+import { toDate } from '@/lib/date';
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -94,7 +95,7 @@ export default function InboxPage() {
                     <div className="flex-grow overflow-hidden">
                       <div className="flex justify-between items-start">
                         <p className={`font-semibold ${isUnread ? 'text-primary' : 'text-foreground'}`}>{otherParticipantName}</p>
-                        <p className="text-xs text-muted-foreground shrink-0 ml-2">{new Date(convo.lastMessage.timestamp).toLocaleDateString()}</p>
+                        <p className="text-xs text-muted-foreground shrink-0 ml-2">{toDate(convo.lastMessage.timestamp)?.toLocaleDateString() ?? 'N/A'}</p>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         <span className="font-medium">{convo.lastMessage.senderId === currentUser?.uid ? "You: " : ""}</span>

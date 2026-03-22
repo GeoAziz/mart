@@ -5,7 +5,8 @@ import * as tf from '@tensorflow/tfjs-node';
 
 export class MLService {
   private static instance: MLService;
-  private models: Map<string, tf.LayersModel>;
+  // Use `any` for model/tensor types to avoid strict TF type coupling in this environment
+  private models: Map<string, any>;
 
   private constructor() {
     this.models = new Map();
@@ -39,7 +40,7 @@ export class MLService {
     }
   }
 
-  private async createSalesPredictionModel(): Promise<tf.LayersModel> {
+  private async createSalesPredictionModel(): Promise<any> {
     const model = tf.sequential();
     
     model.add(tf.layers.lstm({
@@ -60,7 +61,7 @@ export class MLService {
     return model;
   }
 
-  private async createInventoryOptimizationModel(): Promise<tf.LayersModel> {
+  private async createInventoryOptimizationModel(): Promise<any> {
     const model = tf.sequential();
     
     model.add(tf.layers.dense({
@@ -81,7 +82,7 @@ export class MLService {
     return model;
   }
 
-  private async createCustomerSegmentationModel(): Promise<tf.LayersModel> {
+  private async createCustomerSegmentationModel(): Promise<any> {
     const model = tf.sequential();
     
     model.add(tf.layers.dense({
@@ -109,7 +110,7 @@ export class MLService {
       if (!model) throw new Error('Sales prediction model not initialized');
 
       const tensor = tf.tensor3d([historicalData]);
-      const prediction = await model.predict(tensor) as tf.Tensor;
+      const prediction = await model.predict(tensor) as any;
       const result = await prediction.data();
       
       return result[0];
@@ -125,7 +126,7 @@ export class MLService {
       if (!model) throw new Error('Inventory optimization model not initialized');
 
       const tensor = tf.tensor2d([features]);
-      const prediction = await model.predict(tensor) as tf.Tensor;
+      const prediction = await model.predict(tensor) as any;
       const result = await prediction.data();
       
       return result[0];
@@ -141,7 +142,7 @@ export class MLService {
       if (!model) throw new Error('Customer segmentation model not initialized');
 
       const tensor = tf.tensor2d([features]);
-      const prediction = await model.predict(tensor) as tf.Tensor;
+      const prediction = await model.predict(tensor) as any;
       const result = await prediction.data();
       
       return Array.from(result).indexOf(Math.max(...Array.from(result)));

@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import type { Product, ProductStatus } from '@/lib/types';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import Breadcrumb from '@/components/ui/breadcrumb';
 
 // Utility to convert Firestore Timestamp or Date to JS Date
 function convertToDate(value: any): Date {
@@ -211,6 +212,7 @@ export default function ProductModerationPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Products', href: '/admin/products' }]} />
       <Card className="bg-card border-border shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>

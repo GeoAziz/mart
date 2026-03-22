@@ -38,7 +38,16 @@ export const RealTimeInventory = () => {
       }
     };
 
-    return () => ws.close();
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Properly cleanup on unmount and reconnect attempts
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   return (

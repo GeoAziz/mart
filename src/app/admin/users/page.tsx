@@ -31,6 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, type UserProfile, type Role } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
+import Breadcrumb from '@/components/ui/breadcrumb';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -277,6 +278,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Users', href: '/admin/users' }]} />
       {/* Edit User Dialog */}
       <Dialog open={isEditUserDialogOpen} onOpenChange={(isOpen) => { setIsEditUserDialogOpen(isOpen); if (!isOpen) setEditingUser(null); }}>
         <DialogContent className="sm:max-w-md bg-card border-primary shadow-xl">

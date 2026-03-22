@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { Timestamp } from 'firebase-admin/firestore';
+import { toDate } from '@/lib/date';
 
 // Re-defining interfaces here to match potential Firestore structure (e.g. Timestamps)
 // Ideally, these would be shared types if more complex or used across many places.
@@ -90,11 +91,11 @@ export async function GET(req: NextRequest) {
     }
 
     const responseData = {
-        ...data,
-        heroSlides: data.heroSlides || [],
-        featuredItems: data.featuredItems || [],
-        promoBanners: data.promoBanners || [],
-        updatedAt: updatedAtClient,
+      ...data,
+      heroSlides: data.heroSlides || [],
+      featuredItems: data.featuredItems || [],
+      promoBanners: data.promoBanners || [],
+      updatedAt: updatedAtClient,
     };
 
     return NextResponse.json(responseData, { status: 200 });
@@ -129,8 +130,8 @@ async function updateHomepageCmsHandler(req: AuthenticatedRequest) {
 
     // Return the saved data, converting timestamp for client consistency
     const responseData = {
-        ...dataToSave,
-        updatedAt: new Date(dataToSave.updatedAt || Date.now()),
+      ...dataToSave,
+      updatedAt: toDate(dataToSave.updatedAt) ?? new Date(),
     };
     
     return NextResponse.json(responseData, { status: 200 });

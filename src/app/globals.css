@@ -238,23 +238,74 @@ body {
   background: radial-gradient(ellipse at 60% 40%, hsl(var(--primary) / 0.12) 0%, transparent 80%);
 }
 
-/* Minimum touch target size (48x48px) */
-.touch-target {
-  @apply min-h-[48px] min-w-[48px];
+/* Sidebar active menu item styling: left accent border and subtle background */
+[data-sidebar="menu-button"][data-active="true"] {
+  background: hsl(var(--sidebar-accent) / 0.14) !important;
+  border-left: 3px solid hsl(var(--sidebar-accent));
 }
 
-/* Apply to all buttons on mobile */
-@media (max-width: 768px) {
-  button, 
-  a[role="button"],
-  [role="button"] {
-    @apply min-h-[48px];
+/* Improve contrast for sidebar section headers */
+[data-sidebar="group-label"] {
+  color: hsl(var(--sidebar-foreground) / 0.6) !important;
+}
+
+/* Skeleton shimmer animation for more polished loading placeholders */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, hsl(var(--muted) / 1) 8%, hsl(var(--primary) / 0.06) 18%, hsl(var(--muted) / 0.9) 33%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
   }
-  
-  /* Ensure form inputs are comfortable on mobile */
-  input,
-  select,
-  textarea {
-    @apply min-h-[44px];
+  100% {
+    background-position: -200% 0;
   }
+}
+
+/* Sidebar polish per UX analysis */
+.sidebar-section {
+  margin-bottom: 32px; /* increase spacing between sections */
+}
+
+.sidebar-section-header, [data-sidebar="group-label"] {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--sidebar-foreground) / 0.6) !important;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.sidebar-menu-item, .sci-fi-nav-item {
+  padding: 12px 16px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  transition: all 0.18s ease-in-out;
+}
+
+.sidebar-menu-item:hover, .sci-fi-nav-item:hover {
+  background: hsl(var(--muted) / 0.05);
+}
+
+.sidebar-menu-item.active, .sci-fi-nav-item[aria-current="page"], [data-sidebar="menu-button"][data-active="true"] {
+  background: hsl(var(--primary) / 0.12) !important;
+  border-left: 3px solid hsl(var(--primary));
+}
+
+/* Focus-visible for keyboard users */
+.sci-fi-nav-item:focus-visible, .sidebar-menu-item:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Ensure toggle has minimum touch size for accessibility */
+.toggle-button {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
