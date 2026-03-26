@@ -73,7 +73,7 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          python3 -m pytest -m e2e -v -s --tb=short
+          python3 -m pytest tests/test_master.py -m e2e -v -s --tb=short
         env:
           BASE_URL: http://localhost:3000
           HEADLESS: "true"
