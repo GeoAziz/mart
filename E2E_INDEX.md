@@ -24,7 +24,7 @@ bash tests/run_e2e.sh
 
 1. 👉 **READ**: `E2E_READY_TO_SHIP.md` (executive summary)
 2. 👉 **READ**: `E2E_MISSION_SUMMARY.md` (how it works)
-3. 👉 **CHECK**: `tests/test_complete_journey.py` (actual code)
+3. 👉 **CHECK**: `tests/test_complete_user_journeys.py` (actual code)
 
 ---
 
@@ -40,7 +40,7 @@ bash tests/run_e2e.sh
 
 1. 👉 **READ**: `E2E_MANIFEST.md` (technical specs)
 2. 👉 **READ**: `E2E_MISSION_SUMMARY.md` (architecture)
-3. 👉 **REVIEW**: `tests/test_complete_journey.py` (code review)
+3. 👉 **REVIEW**: `tests/test_complete_user_journeys.py` (code review)
 4. 👉 **CHECK**: `tests/requirements_e2e.txt` (dependencies)
 
 ---
@@ -73,7 +73,7 @@ bash tests/run_e2e.sh
 ### Test Files
 | File | Purpose | Language |
 |------|---------|----------|
-| `tests/test_complete_journey.py` | Main test (850 lines) | Python |
+| `tests/test_complete_user_journeys.py` | Main test (complete journey) | Python |
 | `tests/run_e2e.sh` | Test runner | Bash |
 | `tests/diagnose.sh` | System diagnostics | Bash |
 | `validate_e2e.sh` | Validation check | Bash |
@@ -107,7 +107,7 @@ open tests/reports/logs/report.html
 ### Run Specific Phase
 ```bash
 BASE_URL=http://localhost:3000 python -m pytest \
-  tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey \
+  tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users \
   -v -s
 ```
 

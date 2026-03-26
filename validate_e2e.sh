@@ -9,7 +9,7 @@ echo ""
 # Check all files exist
 echo "📋 Checking Files..."
 FILES=(
-  "tests/test_complete_journey.py"
+  "tests/test_complete_user_journeys.py"
   "tests/run_e2e.sh"
   "tests/diagnose.sh"
   "tests/requirements_e2e.txt"

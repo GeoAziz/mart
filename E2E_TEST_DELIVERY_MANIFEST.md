@@ -12,7 +12,7 @@
 
 | File | Size | Purpose |
 |------|------|---------|
-| `tests/test_complete_user_journeys.py` | 581 lines | Master E2E test (all 3 user types) |
+| `tests/test_complete_user_journeys.py` | 817 lines | Master E2E test (all 3 user types) |
 | `tests/utils/backend_validator.py` | 280+ lines | Firestore + API validation |
 | `tests/preflight_check.py` | 120 lines | Pre-execution verification |
 | `run_e2e_test.sh` | 90 lines | One-command test runner |
@@ -366,7 +366,7 @@ python tests/preflight_check.py
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Master Test | ✅ Complete | 581 lines, all phases |
+| Master Test | ✅ Complete | 817 lines, all phases |
 | Backend Validation | ✅ Complete | Firestore + API |
 | Documentation | ✅ Complete | 4 docs, no fluff |
 | Test Infrastructure | ✅ Complete | Fixtures, config, utils |

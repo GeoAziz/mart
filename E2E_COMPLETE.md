@@ -11,9 +11,9 @@
 
 ## 🎯 WHAT YOU GOT
 
-### 1. MAIN TEST FILE (850 Lines)
+### 1. MAIN TEST FILE (817 Lines)
 ```
-tests/test_complete_journey.py
+tests/test_complete_user_journeys.py
 ├── Phase 0: Bootstrap (Server/API health)
 ├── Phase 1: Landing Page (Navigation & UI)
 ├── Phase 2: Customer Journey (Full shopping flow)
@@ -114,7 +114,7 @@ bash tests/run_e2e.sh
 | Test Phases | 4 |
 | User Roles Tested | 3 |
 | Test Steps | 50+ |
-| Test Code Lines | 850+ |
+| Test Code Lines | 817 |
 | Documentation | 30+ KB |
 | Python Version | 3.9+ |
 | Browser Support | Chrome/Chromium |
@@ -141,7 +141,7 @@ open tests/reports/logs/report.html
 ### Run One Phase
 ```bash
 BASE_URL=http://localhost:3000 python -m pytest \
-  tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey \
+  tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users \
   -v -s
 ```
 
@@ -239,7 +239,7 @@ bash tests/run_e2e.sh
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **Test Code** | ✅ | 850 lines, 4 phases, 50+ steps |
+| **Test Code** | ✅ | 817 lines, 4 phases, 50+ steps |
 | **Scripts** | ✅ | Run, diagnose, validate |
 | **Documentation** | ✅ | 9 comprehensive guides |
 | **Configuration** | ✅ | Dependencies, credentials, env |

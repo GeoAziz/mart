@@ -56,7 +56,7 @@ bash run_e2e_test.sh
 
 | File | Purpose |
 |------|---------|
-| `tests/test_complete_user_journeys.py` | Main test (581 lines) |
+| `tests/test_complete_user_journeys.py` | Main test (817 lines) |
 | `tests/utils/backend_validator.py` | Firebase validation |
 | `run_e2e_test.sh` | One-command runner |
 | `tests/preflight_check.py` | Pre-test verification |

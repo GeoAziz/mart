@@ -4,7 +4,7 @@
 
 ### Core E2E Framework
 ```
-✅ tests/test_complete_user_journeys.py (581 lines)
+✅ tests/test_complete_user_journeys.py (817 lines)
    - Master consolidated test covering ALL user types
    - Single execution = complete product validation
    - 4 phases: Bootstrap → Landing → Customer → Vendor → Admin

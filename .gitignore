@@ -78,3 +78,5 @@ tests/test_complete_user_journeys.py
 tests/test_e2e_complete_flow.py
 tests/test_login_debug.py
 tests/test_login_errors.py
+
+.github/Analyse_COdebase_skill.md

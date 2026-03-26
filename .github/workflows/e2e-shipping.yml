@@ -12,6 +12,8 @@ jobs:
   e2e-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
     services:
       chrome:
@@ -51,15 +53,22 @@ jobs:
       - name: Wait for server
         run: |
           for i in {1..30}; do
-            curl -f http://localhost:3000 && break || sleep 2
+            if curl -fsS http://localhost:3000 > /dev/null; then
+              echo "✅ Server ready"
+              exit 0
+            fi
+            echo "⏳ Waiting for server... ($i/30)"
+            sleep 2
           done
+          echo "❌ Server did not become healthy in time"
+          exit 1
 
       - name: Create reports directory
         run: mkdir -p tests/reports/screenshots
 
       - name: Run E2E tests
         run: |
-          python3 -m pytest tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users -v -s --tb=short
+          python3 -m pytest -m e2e -v -s --tb=short
         env:
           BASE_URL: http://localhost:3000
           HEADLESS: "true"
@@ -79,10 +88,11 @@ jobs:
           path: tests/reports/
 
       - name: Notify Slack on failure
-        if: failure()
+        if: failure() && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v1
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK }}
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
           payload: |
             {
               "text": "❌ E2E Test Failed",
@@ -98,10 +108,11 @@ jobs:
             }
 
       - name: Notify Slack on success
-        if: success()
+        if: success() && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v1
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK }}
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
           payload: |
             {
               "text": "✅ E2E Test Passed",

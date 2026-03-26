@@ -11,8 +11,8 @@ Mission: Consolidated End-to-End Test for Complete User Journeys
 ## 📦 DELIVERABLES
 
 ### Core Test File
-- **File**: `tests/test_complete_journey.py`
-- **Lines**: 850+ lines of production-grade test code
+- **File**: `tests/test_complete_user_journeys.py`
+- **Lines**: 817 lines of production-grade test code
 - **Type**: Python + Selenium + Pytest
 - **Coverage**: 4 complete phases (landing, customer, vendor, admin)
 
@@ -282,7 +282,7 @@ Before deploying to production, verify:
 
 ### New Files
 ```
-tests/test_complete_journey.py    (850+ lines)
+tests/test_complete_user_journeys.py    (complete journey test)
 tests/run_e2e.sh                  (Runner script)
 tests/diagnose.sh                 (Diagnostics)
 E2E_EXECUTION_GUIDE.md            (How-to guide)
@@ -305,7 +305,7 @@ CREDENTIALS.md                    (Referenced for test creds)
 ## 🎓 LEARNING RESOURCES
 
 ### Understand the Test
-1. Open `tests/test_complete_journey.py`
+1. Open `tests/test_complete_user_journeys.py`
 2. Look for `class TestCompleteUserJourney`
 3. Each `test_phase_X()` is a complete user journey
 4. Each phase has numbered steps with descriptions
@@ -391,7 +391,7 @@ Start-Process tests/reports/logs/report.html
 For debugging:
 ```bash
 BASE_URL=http://localhost:3000 python -m pytest \
-  tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey \
+   tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users \
   -v -s
 ```
 
@@ -401,7 +401,7 @@ BASE_URL=http://localhost:3000 python -m pytest \
 
 | Component | Status | File |
 |-----------|--------|------|
-| Test Consolidation | ✅ Done | `test_complete_journey.py` |
+| Test Consolidation | ✅ Done | `test_complete_user_journeys.py` |
 | Test Runner | ✅ Done | `run_e2e.sh` |
 | Diagnostics | ✅ Done | `diagnose.sh` |
 | Documentation | ✅ Done | `E2E_EXECUTION_GUIDE.md` |

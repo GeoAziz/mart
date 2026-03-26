@@ -48,11 +48,11 @@ done
 # 4. Check test file
 echo ""
 echo "4️⃣  Test File Check"
-if [ -f "tests/test_complete_journey.py" ]; then
-    LINES=$(wc -l < tests/test_complete_journey.py)
-    echo "   ✅ tests/test_complete_journey.py ($LINES lines)"
+if [ -f "tests/test_complete_user_journeys.py" ]; then
+    LINES=$(wc -l < tests/test_complete_user_journeys.py)
+    echo "   ✅ tests/test_complete_user_journeys.py ($LINES lines)"
 else
-    echo "   ❌ tests/test_complete_journey.py not found"
+    echo "   ❌ tests/test_complete_user_journeys.py not found"
     exit 1
 fi
 

@@ -5,7 +5,7 @@
 ## 📦 What's Here
 
 ### Main Test
-- **`test_complete_user_journeys.py`** (581 lines)
+- **`test_complete_user_journeys.py`** (817 lines)
   - Master consolidated E2E test
   - Covers: Landing → Customer → Vendor → Admin
   - Backend validation included

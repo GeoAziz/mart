@@ -18,7 +18,7 @@ fi
 
 echo "Configuration:"
 echo "  Base URL: $BASE_URL"
-echo "  Test File: tests/test_complete_journey.py"
+echo "  Test File: tests/test_complete_user_journeys.py"
 echo ""
 
 # Create report directories
@@ -29,7 +29,7 @@ echo "1️⃣  Installing dependencies..."
 pip install -q -r tests/requirements_e2e.txt
 
 echo "2️⃣  Running E2E tests..."
-BASE_URL=$BASE_URL python -m pytest tests/test_complete_journey.py -v --tb=short -s
+BASE_URL=$BASE_URL python -m pytest tests/test_complete_user_journeys.py -m e2e -v --tb=short -s
 
 echo ""
 echo "3️⃣  Opening report..."

@@ -65,7 +65,7 @@ bash tests/diagnose.sh
 Example: Run only customer journey
 ```bash
 BASE_URL=http://localhost:3000 python -m pytest \
-  tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey \
+  tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users \
   -v -s
 ```
 
@@ -84,7 +84,7 @@ BASE_URL=http://localhost:3000 python -m pytest \
 ## 📂 FILES
 
 ```
-tests/test_complete_journey.py   ← Main test (850 lines)
+tests/test_complete_user_journeys.py   ← Main test (complete journey)
 tests/run_e2e.sh                 ← Runner script
 tests/diagnose.sh                ← Pre-flight checks
 tests/requirements_e2e.txt       ← Dependencies
@@ -151,10 +151,10 @@ cat tests/reports/logs/report.html
 ls tests/reports/screenshots/
 
 # Run specific test
-python -m pytest tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey -v
+python -m pytest tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users -v
 
 # Run with verbose output
-BASE_URL=http://localhost:3000 pytest tests/test_complete_journey.py -vv -s
+BASE_URL=http://localhost:3000 pytest tests/test_complete_user_journeys.py -m e2e -vv -s
 
 # Run headless (no browser window)
 HEADLESS=true bash tests/run_e2e.sh

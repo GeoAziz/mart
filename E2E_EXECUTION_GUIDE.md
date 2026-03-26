@@ -3,7 +3,7 @@
 ## STATUS: READY TO RUN
 
 ### What Was Built
-✅ Single consolidated E2E test: `tests/test_complete_journey.py`
+✅ Single consolidated E2E test: `tests/test_complete_user_journeys.py`
 ✅ Test runner script: `tests/run_e2e.sh`
 ✅ Requirements file: `tests/requirements_e2e.txt`
 
@@ -64,10 +64,10 @@ cd /mnt/devmandrive/projects/mart
 bash tests/run_e2e.sh
 
 # Option B: Direct pytest (if script doesn't work)
-BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_journey.py -v -s
+BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_user_journeys.py -m e2e -v -s
 
-# Option C: Run specific phase only
-BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey -v -s
+# Option C: Run the master journey test directly
+BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users -v -s
 ```
 
 ### Step 3: Check Results
@@ -153,39 +153,23 @@ cat .env | grep -E "BASE_URL|PAYPAL|FIREBASE"
 
 Configuration:
   Base URL: http://localhost:3000
-  Test File: tests/test_complete_journey.py
+  Test File: tests/test_complete_user_journeys.py
 
 1️⃣  Installing dependencies...
 2️⃣  Running E2E tests...
 
 ================== test session starts ==================
-collected 4 items
+collected 1 item
 
-tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_1_landing_page
+tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users
 [13:45:02] ✅ BOOTSTRAP | Step 1: Server health check (0.23s)
 [13:45:03] ✅ BOOTSTRAP | Step 2: API health check (0.15s)
 [13:45:10] ✅ LANDING | Step 1: Navigate to homepage (2.34s)
 [13:45:12] ✅ LANDING | Step 2: Header visible (1.20s)
 ...
-PASSED [25%]
-
-tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey
-[13:46:00] ✅ CUSTOMER | Step 1: Navigate to login page (1.50s)
-[13:46:05] ✅ CUSTOMER | Step 2: Customer login successful (4.23s)
-...
-PASSED [50%]
-
-tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_3_vendor_journey
-[13:50:00] ✅ VENDOR | Step 1: Navigate to login page (1.20s)
-...
-PASSED [75%]
-
-tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_4_admin_journey
-[13:54:00] ✅ ADMIN | Step 1: Navigate to login page (1.10s)
-...
 PASSED [100%]
 
-================== 4 passed in 8m23s ==================
+================== 1 passed in 8m23s ==================
 
 3️⃣  Opening report...
 ✅ Report generated: tests/reports/logs/report.html
@@ -222,7 +206,7 @@ npm run dev  # in separate terminal
 ```bash
 # Error: "Element not found" or "Timeout"
 # Solution: Increase wait time or check selectors
-# Edit test_complete_journey.py, increase timeout from 10 to 20
+# Edit test_complete_user_journeys.py, increase timeout from 10 to 20
 ```
 
 ### Login Fails
@@ -270,7 +254,7 @@ mkdir -p tests/reports/logs tests/reports/screenshots
 4. Verify backend is responding correctly
 5. Run only that phase to debug:
    ```bash
-   BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey -v -s
+  BASE_URL=http://localhost:3000 python -m pytest tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users -v -s
    ```
 
 ### To Add More Tests
@@ -304,7 +288,7 @@ jobs:
       - run: npm run dev &
       - run: sleep 5
       - run: pip install -r tests/requirements_e2e.txt
-      - run: BASE_URL=http://localhost:3000 pytest tests/test_complete_journey.py -v
+      - run: BASE_URL=http://localhost:3000 pytest tests/test_complete_user_journeys.py -m e2e -v
 ```
 
 ### Performance Monitoring

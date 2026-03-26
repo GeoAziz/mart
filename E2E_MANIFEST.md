@@ -12,8 +12,8 @@
 ## 📦 DELIVERABLES (7 Files)
 
 ### 1. MAIN TEST FILE
-**File**: `tests/test_complete_journey.py`  
-**Size**: 33 KB (850+ lines)  
+**File**: `tests/test_complete_user_journeys.py`  
+**Size**: 817 lines  
 **Type**: Production-grade Python + Selenium + Pytest  
 **Contains**:
 - Bootstrap checks (server health, API health)
@@ -282,7 +282,7 @@ bash tests/diagnose.sh
 ### Run Specific Phase
 ```bash
 BASE_URL=http://localhost:3000 python -m pytest \
-  tests/test_complete_journey.py::TestCompleteUserJourney::test_phase_2_customer_journey \
+  tests/test_complete_user_journeys.py::TestCompleteUserJourneys::test_complete_journey_all_users \
   -v -s
 ```
 
@@ -306,7 +306,7 @@ ls -la tests/reports/screenshots/
 
 | File | Purpose | Size |
 |------|---------|------|
-| test_complete_journey.py | Main test logic | 33 KB |
+| test_complete_user_journeys.py | Main test logic | 817 lines |
 | run_e2e.sh | Test runner | 1.5 KB |
 | diagnose.sh | System check | 3.0 KB |
 | validate_e2e.sh | Validation | 2.0 KB |
@@ -346,7 +346,7 @@ bash tests/run_e2e.sh
 
 Ready to commit to version control:
 
-- [ ] `git add tests/test_complete_journey.py`
+- [ ] `git add tests/test_complete_user_journeys.py`
 - [ ] `git add tests/run_e2e.sh`
 - [ ] `git add tests/diagnose.sh`
 - [ ] `git add E2E_*.md`
