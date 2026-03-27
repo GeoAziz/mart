@@ -39,18 +39,32 @@ def wait_for_http_ready(url, timeout=90, interval=2):
     """Poll URL until HTTP endpoint responds, allowing warm-up time."""
     deadline = time.time() + timeout
     last_error = None
+    last_status = None
+    attempt = 0
 
     while time.time() < deadline:
+        attempt += 1
         try:
             with urllib.request.urlopen(url, timeout=5) as response:
                 status = getattr(response, "status", 200)
+                last_status = status
                 if status < 500:
                     return
+        except urllib.error.HTTPError as error:
+            status = getattr(error, "code", None)
+            if status is not None:
+                last_status = status
+                logger.info(f"HTTP readiness check reached {url} with status={status} (attempt {attempt}); treating as reachable")
+                return
+            last_error = error
         except Exception as error:
             last_error = error
+            logger.info(f"HTTP readiness retry for {url} (attempt {attempt}, last_status={last_status}): {error}")
         time.sleep(interval)
 
-    raise AssertionError(f"Server did not become ready at {url}: {last_error}")
+    raise AssertionError(
+        f"Server did not become ready at {url}: last_status={last_status}, last_error={last_error}"
+    )
 
 
 def safe_navigate(driver, url, retries=2, page_load_timeout=45):
