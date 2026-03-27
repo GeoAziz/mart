@@ -53,7 +53,6 @@ pnpm-debug.log*
 # sensitive files
 serviceAccountKey.json
 *.log
-.next/
 clean-mart/
 
 ASSISTANT_BOUNDARIES.md
@@ -80,3 +79,9 @@ tests/test_login_debug.py
 tests/test_login_errors.py
 
 .github/Analyse_COdebase_skill.md
+
+# local scratch / analysis artifacts
+brainstorm.md
+sentinel-landing.html
+skills/
+.github/workflows/Analyse_Codebase_skill.md
