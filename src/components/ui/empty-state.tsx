@@ -8,7 +8,7 @@ type Props = {
   cta?: { label: string; href?: string; onClick?: () => void }
 }
 
-export default function EmptyState({ title = 'No data yet', description = 'There is no data to show for this view.', cta }: Props) {
+export function EmptyState({ title = 'No data yet', description = 'There is no data to show for this view.', cta }: Props) {
   return (
     <Card className="text-center p-6">
       <CardHeader>
@@ -29,3 +29,5 @@ export default function EmptyState({ title = 'No data yet', description = 'There
     </Card>
   )
 }
+
+export default EmptyState

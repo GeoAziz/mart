@@ -5,6 +5,7 @@ import RouteGuard from '@/components/auth/RouteGuard';
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
+import { User, BarChartBig, Users, HeartPulse, ShoppingBag, Tag, ListOrdered, Star, DollarSign, Shield, Palette, Ticket, Edit } from 'lucide-react';
 
 const adminNavItems: NavItem[] = [
   { sectionTitle: "Overview & Site", href: "#", label: "Overview & Site", icon: User },
