@@ -99,11 +99,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
           />
           {/* Stock Badge (priority) - shows availability status */}
           {stock !== undefined && (
-            <div className={`absolute top-12 right-2 z-10 px-2 py-1 text-xs font-semibold rounded text-white whitespace-nowrap ${
-              isOutOfStock 
-                ? 'bg-red-500/90' 
-                : isLowStock 
-                ? 'bg-yellow-500/90' 
+            <div className={`absolute top-2 left-2 md:left-auto md:top-12 md:right-2 z-10 px-2 py-1 text-xs font-semibold rounded text-white whitespace-nowrap ${
+              isOutOfStock
+                ? 'bg-red-500/90'
+                : isLowStock
+                ? 'bg-yellow-500/90'
                 : 'bg-green-500/90'
             }`}>
               {isOutOfStock ? 'Out of Stock' : isLowStock ? `Low Stock (${stock})` : 'In Stock'}

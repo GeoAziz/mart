@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CheckoutPage() {
   const { cart, isCartLoading, currentUser, loading: authLoading } = useAuth();
@@ -35,9 +36,22 @@ export default function CheckoutPage() {
   // Show loading state while auth or cart is loading, or while redirecting
   if (authLoading || isCartLoading || isRedirecting) {
     return (
-      <div className="container mx-auto py-8 text-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">Loading checkout...</p>
+      <div className="container mx-auto py-8">
+        <div className="mb-8 text-center">
+          <Skeleton className="h-10 w-48 mx-auto mb-4" />
+          <Skeleton className="h-6 w-64 mx-auto" />
+        </div>
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Wizard steps skeleton */}
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-96 w-full rounded-lg" />
+          </div>
+          <div>
+            {/* Order summary skeleton */}
+            <Skeleton className="h-96 w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -45,9 +59,20 @@ export default function CheckoutPage() {
   // Additional safety check - don't render checkout if conditions aren't met
   if (!currentUser || cart.length === 0) {
     return (
-      <div className="container mx-auto py-8 text-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">Redirecting...</p>
+      <div className="container mx-auto py-8">
+        <div className="mb-8 text-center">
+          <Skeleton className="h-10 w-48 mx-auto mb-4" />
+          <Skeleton className="h-6 w-64 mx-auto" />
+        </div>
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-96 w-full rounded-lg" />
+          </div>
+          <div>
+            <Skeleton className="h-96 w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }

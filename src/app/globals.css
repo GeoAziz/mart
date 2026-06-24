@@ -15,7 +15,7 @@
     --secondary: 300 80% 50%; /* Bright magenta for secondary actions */
     --secondary-foreground: 260 30% 5%;
     --muted: 260 30% 20%;
-    --muted-foreground: 180 50% 70%;
+    --muted-foreground: 180 45% 78%;
     --accent: 300 100% 70%; /* Bright pink/magenta for accents */
     --accent-foreground: 260 30% 5%;
     --destructive: 0 80% 60%; /* Red for destructive actions */
@@ -301,11 +301,20 @@ body {
   outline-offset: 2px;
 }
 
-/* Ensure toggle has minimum touch size for accessibility */
+/* Ensure toggle has minimum touch size for accessibility (WCAG 2.2 SC 2.5.8) */
 .toggle-button {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel-slide {
+    transition: none !important;
+  }
+  .carousel-auto-play {
+    animation-play-state: paused !important;
+  }
 }

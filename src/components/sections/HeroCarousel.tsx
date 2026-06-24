@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface HeroSlide {
@@ -23,6 +23,10 @@ const HeroCarousel = () => {
   const [promos, setPromos] = useState<HeroSlide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const prefersReducedMotion = useRef(
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  const [isPaused, setIsPaused] = useState(prefersReducedMotion.current);
 
   useEffect(() => {
     const fetchCmsData = async () => {
@@ -64,11 +68,11 @@ const HeroCarousel = () => {
   };
 
   useEffect(() => {
-    if (promos.length > 1) {
-      const intervalId = setInterval(nextSlide, 5000); // Auto-play every 5 seconds
-      return () => clearInterval(intervalId); // Cleanup interval on component unmount
+    if (promos.length > 1 && !isPaused) {
+      const intervalId = setInterval(nextSlide, 5000);
+      return () => clearInterval(intervalId);
     }
-  }, [nextSlide, promos.length]);
+  }, [nextSlide, promos.length, isPaused]);
 
   if (isLoading) {
     return (
@@ -85,7 +89,16 @@ const HeroCarousel = () => {
   const currentPromo = promos[currentIndex];
 
   return (
-    <section ref={addToRefs} className="scroll-reveal mb-12 md:mb-16 relative">
+    <section
+      ref={addToRefs}
+      className="scroll-reveal mb-12 md:mb-16 relative"
+      aria-label="Promotional carousel"
+      aria-roledescription="carousel"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => !prefersReducedMotion.current && setIsPaused(false)}
+      onFocusCapture={() => setIsPaused(true)}
+      onBlurCapture={() => !prefersReducedMotion.current && setIsPaused(false)}
+    >
       <Card className="relative w-full h-[400px] md:h-[500px] lg:h-[600px] overflow-hidden rounded-lg shadow-2xl glow-edge-primary">
         {promos.map((promo, index) => (
           <div
@@ -121,6 +134,9 @@ const HeroCarousel = () => {
 
       {promos.length > 1 && (
         <>
+          <div aria-live="polite" aria-atomic="true" className="sr-only">
+            Slide {currentIndex + 1} of {promos.length}: {currentPromo.title}
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -140,12 +156,22 @@ const HeroCarousel = () => {
             <ChevronRight className="h-6 w-6" />
           </Button>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex space-x-2">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsPaused((p) => !p)}
+              aria-label={isPaused ? 'Play carousel' : 'Pause carousel'}
+              className="h-8 w-8 rounded-full bg-background/50 hover:bg-primary hover:text-primary-foreground"
+            >
+              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </Button>
             {promos.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
                 aria-label={`Go to slide ${index + 1}`}
+                aria-current={index === currentIndex ? 'true' : undefined}
                 className={`w-3 h-3 rounded-full ${index === currentIndex ? 'bg-primary scale-125' : 'bg-muted hover:bg-primary/50'} transition-all duration-300`}
               ></button>
             ))}

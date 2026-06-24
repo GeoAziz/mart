@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types'; // Import main Product type
 
@@ -37,6 +38,8 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 }
 
 export default function ProductListingPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,15 +48,21 @@ export default function ProductListingPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]);
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
-  
+
   // UI/Control States
   const [sortOption, setSortOption] = useState<string>("newest");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
+
   // Pagination States
-  const [currentPage, setCurrentPage] = useState(1);
+  const currentPage = Number(searchParams.get('page')) || 1;
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+
+  const updatePageUrl = useCallback((page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(page));
+    router.push(`/products?${params.toString()}`);
+  }, [router, searchParams]);
 
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
@@ -92,8 +101,8 @@ export default function ProductListingPage() {
   
   // Reset page to 1 when filters other than page change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedCategory, selectedBrand, priceRange, selectedRating, sortOption]);
+    updatePageUrl(1);
+  }, [selectedCategory, selectedBrand, priceRange, selectedRating, sortOption, updatePageUrl]);
   
   const debouncedPriceChangeHandler = useCallback(
     debounce((value: [number, number]) => {
@@ -238,24 +247,50 @@ export default function ProductListingPage() {
                 <div className="mt-12 flex justify-center">
                   <Pagination>
                     <PaginationContent>
-                      <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(1, p - 1)); }} aria-disabled={currentPage === 1} className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}/></PaginationItem>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href={currentPage > 1 ? `/products?page=${currentPage - 1}` : '#'}
+                          onClick={(e) => {
+                            if (currentPage <= 1) e.preventDefault();
+                          }}
+                          aria-disabled={currentPage === 1}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
                       {Array.from({ length: totalPages }).map((_, i) => (
                         <PaginationItem key={i}>
-                          <PaginationLink href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(i + 1); }} isActive={currentPage === i + 1}>{i + 1}</PaginationLink>
+                          <PaginationLink
+                            href={`/products?page=${i + 1}`}
+                            isActive={currentPage === i + 1}
+                          >
+                            {i + 1}
+                          </PaginationLink>
                         </PaginationItem>
                       ))}
-                      <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.min(totalPages, p + 1)); }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}/></PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          href={currentPage < totalPages ? `/products?page=${currentPage + 1}` : '#'}
+                          onClick={(e) => {
+                            if (currentPage >= totalPages) e.preventDefault();
+                          }}
+                          aria-disabled={currentPage === totalPages}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
                     </PaginationContent>
                   </Pagination>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center py-12 bg-card border border-border rounded-lg shadow-md">
-                <PackageSearch className="mx-auto h-20 w-20 text-muted-foreground/40 mb-6" />
+            <div className="text-center py-12 bg-card border border-border rounded-lg shadow-md" role="status" aria-live="polite">
+                <PackageSearch className="mx-auto h-20 w-20 text-muted-foreground/40 mb-6" aria-hidden="true" />
                 <p className="text-2xl font-semibold text-muted-foreground mb-2">No Products Found</p>
-                <p className="text-md text-muted-foreground mb-6">Try adjusting your filters or check back later.</p>
-                <Button variant="outline" onClick={resetFilters} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"><Filter className="mr-2 h-4 w-4" /> Reset All Filters</Button>
+                <p className="text-md text-muted-foreground mb-6">No products match your current filters. Try removing a filter or browsing all categories.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button variant="outline" onClick={resetFilters} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"><Filter className="mr-2 h-4 w-4" /> Reset All Filters</Button>
+                  <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground"><a href="/categories">Browse Categories</a></Button>
+                </div>
             </div>
           )}
         </main>

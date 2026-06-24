@@ -87,10 +87,14 @@ export default function CartPage() {
         <EmptyState
           icon={ShoppingCart}
           title="Your cart is empty"
-          description="Add some products to get started"
+          description="Start building your order. We've saved your wishlist for easy checkout later."
           action={{
-            label: "Browse Products",
+            label: "Browse Popular Products",
             onClick: () => router.push('/products'),
+          }}
+          secondaryAction={{
+            label: "View Wishlist",
+            onClick: () => router.push('/account/wishlist'),
           }}
         />
       )}
@@ -123,12 +127,13 @@ export default function CartPage() {
                   )}
                 </div>
                 <div className="flex items-center space-x-2 my-2 sm:my-0">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleQuantityChange(item.productId, item.quantity, -1)} 
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleQuantityChange(item.productId, item.quantity, -1)}
                     className="h-8 w-8"
                     disabled={isCartSaving || item.quantity <= 1}
+                    aria-label={`Decrease quantity for ${item.name}`}
                   >
                     <Minus size={16}/>
                   </Button>
@@ -152,23 +157,24 @@ export default function CartPage() {
                     className="w-16 h-8 text-center bg-transparent focus-visible:ring-1"
                     disabled={isCartSaving}
                   />
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleQuantityChange(item.productId, item.quantity, 1)} 
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleQuantityChange(item.productId, item.quantity, 1)}
                     className="h-8 w-8"
                     disabled={isCartSaving || (item.stock !== undefined && item.quantity >= item.stock)}
+                    aria-label={`Increase quantity for ${item.name}`}
                   >
                     <Plus size={16}/>
                   </Button>
                 </div>
                 <p className="font-semibold w-24 text-center sm:text-right">KSh {(item.price * item.quantity).toLocaleString()}</p>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => removeCartItem(item.productId)} 
-                  className="text-destructive hover:text-destructive/80" 
-                  aria-label="Remove item"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeCartItem(item.productId)}
+                  className="text-destructive hover:text-destructive/80"
+                  aria-label={`Remove ${item.name} from cart`}
                   disabled={isCartSaving}
                 >
                   <Trash2 size={20}/>

@@ -351,9 +351,12 @@ const CheckoutWizard = () => {
                 <Controller
                   name="phone"
                   control={control}
-                  render={({ field }) => <Input id="phone" type="tel" placeholder="e.g., +254 7XX XXX XXX" {...field} className={`bg-input border-primary focus:ring-accent ${errors.phone ? 'border-destructive focus:ring-destructive' : ''}`}/>}
+                  render={({ field }) => <Input id="phone" type="tel" placeholder="e.g., +254 7XX XXX XXX" aria-describedby="phone-hint phone-error" {...field} className={`bg-input border-primary focus:ring-accent ${errors.phone ? 'border-destructive focus:ring-destructive' : ''}`}/>}
                 />
-                {errors.phone && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.phone.message}</p>}
+                {!errors.phone && (
+                  <p id="phone-hint" className="text-xs text-muted-foreground mt-1">Format: +254712345678, 0712345678, or 712345678</p>
+                )}
+                {errors.phone && <p id="phone-error" role="alert" className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.phone.message}</p>}
               </div>
               <div className="flex items-center space-x-2 pt-2">
                 <Controller
