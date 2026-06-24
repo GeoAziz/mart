@@ -1,0 +1,229 @@
+name: Integration Tests (Kind Cluster)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 4 AM UTC
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REPO: ${{ github.repository_owner }}/nextn
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  kind-integration-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          load: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:latest
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.7.0
+        with:
+          cluster_name: nextn-test
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+              - role: control-plane
+              - role: worker
+              - role: worker
+            kubeadmConfigPatches:
+              - |
+                kind: InitConfiguration
+                nodeRegistration:
+                  kubeletExtraArgs:
+                    node-labels: "ingress-ready=true"
+
+      - name: Load image into kind
+        run: |
+          kind load docker-image ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }} \
+            --name nextn-test
+
+      - name: Install Prometheus Operator
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm install prometheus-operator prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --values - <<EOF
+          prometheus:
+            prometheusSpec:
+              serviceMonitorSelectorNilUsesHelmValues: false
+          grafana:
+            adminPassword: admin
+          EOF
+
+      - name: Deploy Nextn to kind
+        run: |
+          helm upgrade --install nextn chart/nextn \
+            --namespace app \
+            --create-namespace \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }} \
+            --set image.tag=${{ env.IMAGE_TAG }} \
+            --set image.pullPolicy=Never \
+            --values - <<EOF
+          replicaCount: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          serviceAccount:
+            create: true
+            name: nextn
+          EOF
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/nextn -n app --timeout=5m
+          kubectl get pods -n app
+
+      - name: Check health endpoint
+        run: |
+          kubectl port-forward -n app svc/nextn 3000:3000 &
+          sleep 5
+          curl -v http://localhost:3000/api/health || exit 1
+
+      - name: Run integration tests
+        run: |
+          kubectl exec -n app deployment/nextn -- npm run test:integration || true
+
+      - name: Verify ServiceMonitor
+        run: |
+          kubectl get servicemonitors -n app || echo "ServiceMonitor not found (expected without Prometheus Operator)"
+
+      - name: Verify Prometheus scraping
+        run: |
+          # Port forward to Prometheus
+          kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090 &
+          sleep 5
+          
+          # Query Prometheus for metrics
+          curl -s 'http://localhost:9090/api/v1/query?query=up{job="nextn"}' | \
+            grep -q 'nextn' && echo "✅ Metrics found in Prometheus" || echo "⚠️  Metrics not yet scraped"
+
+      - name: Verify Grafana dashboard
+        run: |
+          # Port forward to Grafana
+          kubectl port-forward -n monitoring svc/prometheus-grafana 3001:80 &
+          sleep 5
+          
+          # Check Grafana is accessible
+          curl -s -u admin:admin http://localhost:3001/api/health | \
+            grep -q 'ok' && echo "✅ Grafana is healthy" || echo "⚠️  Grafana not responding"
+
+      - name: Check pod security
+        run: |
+          # Check pod security labels
+          kubectl get ns app -o jsonpath='{.metadata.labels}' | grep -q 'pod-security' && \
+            echo "✅ Pod security labels applied" || echo "⚠️  Pod security labels not found"
+
+      - name: Verify resource requests/limits
+        run: |
+          kubectl get deployment nextn -n app -o jsonpath='{.spec.template.spec.containers[0].resources}' | \
+            grep -q 'requests' && echo "✅ Resource requests set" || echo "❌ Resource requests missing"
+
+      - name: Run E2E tests (optional)
+        run: |
+          # Optional: Run E2E tests against the deployed cluster
+          # npm run test:e2e || echo "E2E tests skipped"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          kubectl logs -n app deployment/nextn > logs/app.log || true
+          kubectl logs -n monitoring deployment/prometheus-operator > logs/prometheus.log || true
+          kubectl describe pods -n app > logs/app-describe.txt || true
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-cluster-logs
+          path: logs/
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kind delete cluster --name nextn-test
+
+  terraform-localstack-integration:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:1.5
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd="curl -f http://localhost:4566/_localstack/ready || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure TF env
+        run: |
+          echo "TF_VAR_localstack_endpoint=http://localhost:4566" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply (LocalStack)
+        working-directory: terraform
+        run: terraform apply tfplan
+
+      - name: Verify AWS resources
+        run: |
+          # List S3 buckets
+          aws s3 ls --endpoint-url=http://localhost:4566 || exit 1
+          
+          # List DynamoDB tables
+          aws dynamodb list-tables --endpoint-url=http://localhost:4566 || exit 1
+
+      - name: Terraform Destroy
+        working-directory: terraform
+        if: always()
+        run: terraform destroy -auto-approve

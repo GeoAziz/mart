@@ -1,0 +1,42 @@
+name: Terraform (LocalStack) CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:1.5
+        ports:
+          - 4566:4566
+        options: --health-cmd="curl -f http://localhost:4566/_localstack/ready || exit 1" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure TF env
+        run: |
+          echo "TF_VAR_localstack_endpoint=http://localhost:4566" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate || true
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan

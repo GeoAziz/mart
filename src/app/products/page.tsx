@@ -11,7 +11,7 @@ import { Filter, LayoutGrid, LayoutList, PackageSearch, ListFilter } from 'lucid
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types'; // Import main Product type
@@ -37,7 +37,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 }
 
-export default function ProductListingPage() {
+function ProductListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
@@ -121,7 +121,7 @@ export default function ProductListingPage() {
     setSelectedBrand("All");
     setSelectedRating(null);
     setSortOption("newest");
-    setCurrentPage(1);
+    updatePageUrl(1);
   };
   
   const getResultsText = () => {
@@ -296,5 +296,13 @@ export default function ProductListingPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function ProductListingPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-8 text-center text-muted-foreground">Loading products...</div>}>
+      <ProductListingContent />
+    </Suspense>
   );
 }

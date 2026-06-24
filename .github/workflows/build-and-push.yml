@@ -1,0 +1,113 @@
+name: Build, Publish and Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REPO: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  KUBE_NAMESPACE: ${{ vars.KUBE_NAMESPACE || 'app' }}
+  PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST || 'example.com' }}
+  CERT_MANAGER_ISSUER: ${{ vars.CERT_MANAGER_ISSUER || 'letsencrypt-prod' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests (if any)
+        run: |
+          if npm run | grep -q "test"; then npm test; else echo "no tests"; fi
+
+      - name: Set image tag
+        run: |
+          echo "IMAGE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name == 'push' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        if: ${{ github.event_name == 'push' }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:latest
+
+      - name: Set image variables for deploy
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          echo "IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+
+      - name: Prepare kubeconfig from secret
+        if: ${{ github.event_name == 'push' && secrets.KUBECONFIG != '' }}
+        run: |
+          echo "Using provided KUBECONFIG secret"
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+          mkdir -p $HOME/.kube
+          mv kubeconfig $HOME/.kube/config
+
+      - name: Configure AWS credentials via GitHub OIDC
+        if: ${{ github.event_name == 'push' && secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig for EKS
+        if: ${{ github.event_name == 'push' && secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        env:
+          EKS_CLUSTER_NAME: ${{ env.EKS_CLUSTER_NAME }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          if [ "${EKS_CLUSTER_NAME}" = "" ]; then
+            echo "EKS_CLUSTER_NAME not set; cannot update kubeconfig"
+            exit 1
+          fi
+          aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}"
+
+      - name: Deploy Helm chart
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          # setup helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+          helm repo update || true
+
+          helm upgrade --install nextn chart/nextn -n "${KUBE_NAMESPACE}" --create-namespace \
+            -f chart/nextn/values-production.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }} \
+            --set image.tag=${{ env.IMAGE_TAG }} \
+            --set ingress.host="${PRODUCTION_HOST}" \
+            --set ingress.tls.issuer="${CERT_MANAGER_ISSUER}"

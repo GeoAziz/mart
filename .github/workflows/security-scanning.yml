@@ -1,0 +1,164 @@
+name: Image & Dependency Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/nextn:${{ github.sha }} .
+          docker tag ghcr.io/${{ github.repository_owner }}/nextn:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/nextn:latest
+
+      - name: Run Trivy vulnerability scanner (Docker)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/nextn:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-docker.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy vulnerability scanner (Filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy Docker results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-docker.sarif'
+          category: 'trivy-docker'
+
+      - name: Upload Trivy Filesystem results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-fs.sarif'
+          category: 'trivy-fs'
+
+      - name: Check for critical vulnerabilities
+        run: |
+          # Fail if critical vulnerabilities found
+          if grep -q '"severity":"CRITICAL"' trivy-docker.sarif; then
+            echo "❌ CRITICAL vulnerabilities found in Docker image!"
+            exit 1
+          fi
+          echo "✅ No critical vulnerabilities found"
+
+  snyk-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Snyk test
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Upload Snyk results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'snyk.sarif'
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          path: '.'
+          format: 'SARIF'
+          args: >
+            --enable-experimental
+            --exclude node_modules
+            --exclude tests
+
+      - name: Upload OWASP results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: './reports/dependency-check-report.sarif'
+
+  sbom-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/nextn:latest
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-spdx.json
+
+  report:
+    runs-on: ubuntu-latest
+    needs: [scan, snyk-scan, dependency-check]
+    if: always()
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Create scan summary
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trivy**: Image and filesystem scanned" >> $GITHUB_STEP_SUMMARY
+          echo "- **Snyk**: Dependency vulnerabilities scanned" >> $GITHUB_STEP_SUMMARY
+          echo "- **OWASP Dependency-Check**: Component vulnerabilities scanned" >> $GITHUB_STEP_SUMMARY
+          echo "- **Syft**: SBOM generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any scan failed with critical vulnerabilities
+        if: needs.scan.result == 'failure' || needs.snyk-scan.result == 'failure'
+        run: exit 1

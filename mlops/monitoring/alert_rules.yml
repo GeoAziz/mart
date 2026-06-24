@@ -1,0 +1,98 @@
+"""
+Prometheus Alert Rules for MLOps
+"""
+
+groups:
+  - name: mlops_alerts
+    interval: 15s
+    rules:
+      # ========================================================================
+      # Model Inference Alerts
+      # ========================================================================
+      - alert: ModelInferenceLatencyHigh
+        expr: histogram_quantile(0.99, rate(model_inference_latency_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: inference
+        annotations:
+          summary: "Model inference P99 latency > 1s"
+          description: "{{ $labels.model_name }} P99 latency is {{ $value }}s"
+
+      - alert: ModelInferenceErrorRateHigh
+        expr: rate(model_inference_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: inference
+        annotations:
+          summary: "Model inference error rate > 5%"
+          description: "{{ $labels.model_name }} error rate is {{ $value | humanizePercentage }}"
+
+      # ========================================================================
+      # Model Drift Alerts
+      # ========================================================================
+      - alert: DataDriftDetected
+        expr: model_data_drift_score > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "High data drift detected"
+          description: "Drift score for {{ $labels.model_name }} is {{ $value }}"
+
+      - alert: ModelPerformanceDegraded
+        expr: (model_performance_baseline - model_performance_current) / model_performance_baseline > 0.1
+        for: 30m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Model performance degraded > 10%"
+          description: "{{ $labels.model_name }} performance dropped"
+
+      # ========================================================================
+      # Training Pipeline Alerts
+      # ========================================================================
+      - alert: TrainingPipelineFailed
+        expr: increase(model_training_failures_total[1h]) > 0
+        labels:
+          severity: critical
+          component: training
+        annotations:
+          summary: "Model training pipeline failed"
+          description: "Training job for {{ $labels.model_name }} failed"
+
+      # ========================================================================
+      # Service Health Alerts
+      # ========================================================================
+      - alert: InferenceServiceDown
+        expr: up{job="mlops-inference"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: inference
+        annotations:
+          summary: "Inference service is down"
+          description: "MLOps inference service is not responding"
+
+      - alert: MLflowServerDown
+        expr: up{job="mlflow"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: mlflow
+        annotations:
+          summary: "MLflow server is down"
+          description: "MLflow service is not responding"
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus monitoring service is down"

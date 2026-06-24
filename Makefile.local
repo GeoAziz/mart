@@ -1,0 +1,77 @@
+.PHONY: help local-setup local-start local-stop local-logs local-validate \
+        localstack-init terraform-plan terraform-apply k8s-bootstrap \
+        mlops-setup mlops-start dev-fresh dev-clean
+
+# Local Development Makefile
+
+help:
+	@echo "Local Development Commands:"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make local-setup      - Initialize local development environment"
+	@echo "  make localstack-init  - Initialize LocalStack with Terraform"
+	@echo "  make mlops-setup      - Set up MLOps infrastructure"
+	@echo ""
+	@echo "Running Services:"
+	@echo "  make local-start      - Start all services"
+	@echo "  make local-stop       - Stop all services"
+	@echo "  make local-logs       - View logs from all services"
+	@echo "  make local-validate   - Validate local setup"
+	@echo ""
+	@echo "Development:"
+	@echo "  make dev-fresh        - Full clean start"
+	@echo "  make dev-clean        - Clean up Docker volumes and caches"
+	@echo ""
+	@echo "Infrastructure:"
+	@echo "  make terraform-plan   - Show Terraform changes"
+	@echo "  make terraform-apply  - Apply Terraform configuration"
+	@echo "  make k8s-bootstrap    - Bootstrap local Kubernetes cluster"
+	@echo ""
+
+local-setup:
+	@bash scripts/local-setup.sh
+
+local-start:
+	@bash scripts/dev.sh all
+
+local-stop:
+	@bash scripts/dev.sh stop
+
+local-logs:
+	@bash scripts/dev.sh logs
+
+local-validate:
+	@bash scripts/validate-local.sh
+
+localstack-init:
+	@docker compose -f docker-compose.localstack.yml up -d
+	@sleep 5
+	@bash scripts/setup-local-credentials.sh
+
+terraform-plan:
+	@cd terraform && terraform plan
+
+terraform-apply:
+	@cd terraform && terraform apply -auto-approve
+
+k8s-bootstrap:
+	@bash scripts/bootstrap-local-k8s.sh
+
+mlops-setup:
+	@bash mlops/mlflow-setup.sh
+
+mlops-start:
+	@docker compose -f docker-compose.mlops.yml up -d
+
+dev-fresh: dev-clean local-setup local-start local-validate
+
+dev-clean:
+	@echo "Cleaning up Docker resources..."
+	@docker compose -f docker-compose.yml down -v 2>/dev/null || true
+	@docker compose -f docker-compose.mlops.yml down -v 2>/dev/null || true
+	@docker compose -f monitoring/docker-compose.yml down -v 2>/dev/null || true
+	@docker compose -f docker-compose.localstack.yml down -v 2>/dev/null || true
+	@rm -rf terraform.tfstate* 2>/dev/null || true
+	@echo "Cleanup complete"
+
+.DEFAULT_GOAL := help

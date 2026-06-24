@@ -1,0 +1,38 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default-receiver'
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  routes:
+    - match:
+        severity: 'critical'
+      receiver: 'slack-critical'
+      continue: true
+    - match:
+        severity: 'warning'
+      receiver: 'slack-warning'
+
+receivers:
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://localhost:5001/'
+        send_resolved: true
+
+  - name: 'slack-critical'
+    # Replace the api_url below with your Slack webhook URL or mount a secret file.
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/REPLACE/REPLACE/REPLACE'
+        channel: '#alerts'
+        send_resolved: true
+
+  - name: 'slack-warning'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/REPLACE/REPLACE/REPLACE'
+        channel: '#alerts'
+        send_resolved: false
+
+# In local/dev, replace Slack URLs or run a local receiver service.
+# Do NOT commit real webhook URLs to the repository. Use secrets management.

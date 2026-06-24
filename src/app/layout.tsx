@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+// import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import AIChatbotButton from '@/components/ai/AIChatbotButton';
@@ -11,18 +11,12 @@ import ConditionalShell from '@/components/layout/ConditionalShell';
 
 /**
  * Root Layout
- * 
+ *
  * Minimal wrapper for all routes. Uses ConditionalShell to manage
  * Header/Footer visibility based on route context (public vs dashboard).
- * 
+ *
  * See ConditionalShell for long-term refactor notes regarding route groups.
  */
-
-// Configure font
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
 
 export const metadata: Metadata = {
   title: 'ZilaCart – Kenya’s Digital Marketplace',
@@ -41,7 +35,7 @@ export default function RootLayout({
 }>) {
 
   return (
-    <html lang="en" className={`${inter.variable} dark`}>
+    <html lang="en" className="dark">
       <head>
         {/* Font links are now handled by next/font */}
       </head>

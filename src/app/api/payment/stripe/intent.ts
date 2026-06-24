@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
-});
+import { getStripeClient } from '@/lib/stripe';
 
 export async function POST(req: Request) {
   try {
+    const stripe = getStripeClient();
+
+    if (!stripe) {
+      return NextResponse.json(
+        { message: 'Stripe configuration error: STRIPE_SECRET_KEY is required.' },
+        { status: 500 }
+      );
+    }
+
     const { amount, currency, metadata } = await req.json();
     const paymentIntent = await stripe.paymentIntents.create({
       amount,

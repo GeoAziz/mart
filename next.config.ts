@@ -42,15 +42,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Server-side packages
   experimental: {
     serverActions: {},
   },
-  
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Handle node: protocol imports
-      // Add handlebars loader configuration
       config.module = {
         ...config.module,
         rules: [
@@ -77,7 +74,6 @@ const nextConfig: NextConfig = {
           stream: require.resolve('stream-browserify'),
           util: require.resolve('util/'),
           buffer: require.resolve('buffer/'),
-          // Disable other Node.js modules on client-side
           fs: false,
           path: false,
           os: false,
@@ -92,7 +88,6 @@ const nextConfig: NextConfig = {
         }
       };
 
-      // Add necessary plugins
       config.plugins.push(
         new webpack.NormalModuleReplacementPlugin(
           /^node:/,

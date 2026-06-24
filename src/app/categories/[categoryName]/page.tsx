@@ -273,11 +273,14 @@ export default function CategoryProductListingPage() {
               )}
             </>
           ) : (
-            <div className="text-center py-12 bg-card border border-border rounded-lg shadow-md">
-                <PackageSearch className="mx-auto h-20 w-20 text-muted-foreground/40 mb-6" />
+            <div className="text-center py-12 bg-card border border-border rounded-lg shadow-md" role="status" aria-live="polite">
+                <PackageSearch className="mx-auto h-20 w-20 text-muted-foreground/40 mb-6" aria-hidden="true" />
                 <p className="text-2xl font-semibold text-muted-foreground mb-2">No Products Found</p>
-                <p className="text-md text-muted-foreground mb-6">Try adjusting your filters or check back later.</p>
-                <Button variant="outline" onClick={resetFilters} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"><Filter className="mr-2 h-4 w-4" /> Reset All Filters</Button>
+                <p className="text-md text-muted-foreground mb-6">No products match your current filters in this category. Try removing a filter or search across all products.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button variant="outline" onClick={resetFilters} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"><Filter className="mr-2 h-4 w-4" /> Reset All Filters</Button>
+                  <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground"><a href="/products">Search All Products</a></Button>
+                </div>
             </div>
           )}
         </main>

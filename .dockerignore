@@ -1,0 +1,93 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+.npm
+npm-debug.log
+yarn.lock
+package-lock.json
+mlops_venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+tests
+test_screenshots
+pytest.ini
+.coverage
+htmlcov
+
+# Documentation
+docs
+README.md
+*.md
+
+# Development files
+.env
+.env.local
+.env.*.local
+.next
+.nuxt
+dist
+build
+out
+
+# Docker and CI/CD
+docker-compose*.yml
+.dockerignore
+Dockerfile*
+.github
+.gitlab-ci.yml
+Makefile*
+
+# Python virtual environments
+venv
+env
+.venv
+mlops_venv
+
+# Terraform and IaC
+terraform/.terraform
+terraform/*.tfstate
+terraform/*.tfvars
+terraform/override.tf*
+
+# Kubernetes and Helm
+k8s/*.yaml
+chart/
+
+# Temporary files
+*.tmp
+*.log
+mlops.log
+workspace
+
+# Development and local setup
+scripts
+bin
+fix_layout.ps1
+LOCAL_SETUP.md
+local-setup.sh
+
+# Database and artifacts
+mlflow_artifacts
+mlflow_backend
+.localstack
+
+# Build artifacts
+.turbo
+.cache

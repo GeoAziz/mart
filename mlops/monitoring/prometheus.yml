@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'zilacart-mlops'
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alertmanager:9093
+
+rule_files:
+  - '/etc/prometheus/alert_rules.yml'
+
+scrape_configs:
+  # ============================================================================
+  # Prometheus Self
+  # ============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ============================================================================
+  # MLOps Inference API
+  # ============================================================================
+  - job_name: 'mlops-inference'
+    static_configs:
+      - targets: ['inference:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # ============================================================================
+  # MLflow Server
+  # ============================================================================
+  - job_name: 'mlflow'
+    static_configs:
+      - targets: ['mlflow:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # ============================================================================
+  # Node Exporter (if running)
+  # ============================================================================
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']

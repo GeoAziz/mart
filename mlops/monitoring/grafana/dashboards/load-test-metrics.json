@@ -1,0 +1,86 @@
+{
+  "dashboard": {
+    "title": "ZilaCart Load Test Metrics",
+    "tags": ["load-test", "performance", "locust"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Current Load (Users)",
+        "type": "gauge",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "locust_active_users",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Requests/sec",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "rate(locust_requests_total[1m])",
+            "legendFormat": "{{method}} {{name}} - {{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 4, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time p95 (ms)",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(locust_request_duration_seconds_bucket[1m])) by (le, method, name)) * 1000",
+            "legendFormat": "{{method}} {{name}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Error Rate %",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "rate(locust_failures_total[1m]) / (rate(locust_requests_total[1m]) + rate(locust_failures_total[1m])) * 100",
+            "legendFormat": "{{method}} {{name}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Response Time Distribution",
+        "type": "heatmap",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum(increase(locust_request_duration_seconds_bucket[1m])) by (le)",
+            "legendFormat": "le={{le}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "endpoint",
+          "type": "query",
+          "datasource": "Prometheus",
+          "definition": "label_values(locust_requests_total, name)",
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    }
+  }
+}

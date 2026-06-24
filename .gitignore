@@ -14,6 +14,12 @@
 
 # testing
 /coverage
+/backend/tests/screenshots/
+/backend/tests/reports/
+/backend/tests/test_data/
+/*.csv
+/locust*.csv
+/locust*.db
 
 # next.js
 /.next/
@@ -22,6 +28,7 @@
 # build outputs
 /build
 /dist
+backend/**/__pycache__/
 
 # misc
 .DS_Store
@@ -59,29 +66,11 @@ ASSISTANT_BOUNDARIES.md
 
 .venv/
 __pycache__/
-Screenshot at 2026-01-18 02-29-07.png
-test_screenshots/
-venv/
+*.pyc
+*.pyo
 
 .idx/
-test_paypal_checkout_e2e.py
-test_paypal_checkout_flow.py
-DATA_INTEGRITY_FIXES.md
-DATA_INTEGRITY_IMPLEMENTATION.md
-IMPLEMENTATION_PROGRESS.md
-SENIOR_ENGINEER_REPORT.md
-tests/reports/screenshots
-tests/test_complete_e2e_workflows.py
-tests/test_complete_user_journeys_v2.py
-tests/test_complete_user_journeys.py
-tests/test_e2e_complete_flow.py
-tests/test_login_debug.py
-tests/test_login_errors.py
-
-.github/Analyse_COdebase_skill.md
 
 # local scratch / analysis artifacts
 brainstorm.md
 sentinel-landing.html
-skills/
-.github/workflows/Analyse_Codebase_skill.md

@@ -1,0 +1,47 @@
+name: Bootstrap Terraform Backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+  TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_VAR_environment: production
+  TF_VAR_use_localstack: "false"
+  TF_VAR_terraform_state_bucket: ${{ vars.TERRAFORM_STATE_BUCKET || 'nextn-terraform-state' }}
+  TF_VAR_terraform_locks_table: ${{ vars.TERRAFORM_LOCKS_TABLE || 'nextn-terraform-locks' }}
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS credentials via GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false -backend=false
+
+      - name: Terraform Apply backend resources
+        working-directory: terraform
+        run: terraform apply -auto-approve
+
+      - name: Show backend outputs
+        working-directory: terraform
+        run: terraform output -json || true

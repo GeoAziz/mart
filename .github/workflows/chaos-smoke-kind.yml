@@ -1,0 +1,136 @@
+name: Chaos Smoke Test (Kind + Chaos Mesh)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REPO: ${{ github.repository_owner }}/nextn
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  chaos-smoke-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:latest
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: nextn-chaos
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+              - role: control-plane
+              - role: worker
+              - role: worker
+
+      - name: Load image into kind
+        run: |
+          kind load docker-image ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }} --name nextn-chaos
+
+      - name: Install Chaos Mesh
+        run: |
+          helm repo add chaos-mesh https://charts.chaos-mesh.org
+          helm repo update
+          kubectl create namespace chaos-mesh --dry-run=client -o yaml | kubectl apply -f -
+          helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
+            --namespace chaos-mesh \
+            --set dashboard.create=false \
+            --set controllerManager.replicas=1 \
+            --set webhook.replicas=1
+
+      - name: Wait for Chaos Mesh pods
+        run: |
+          kubectl wait --for=condition=Available deployment/chaos-controller-manager -n chaos-mesh --timeout=5m
+          kubectl wait --for=condition=Available deployment/chaos-daemon -n chaos-mesh --timeout=5m || true
+
+      - name: Deploy Nextn to kind
+        run: |
+          helm upgrade --install nextn chart/nextn \
+            --namespace app \
+            --create-namespace \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }} \
+            --set image.tag=${{ env.IMAGE_TAG }} \
+            --set image.pullPolicy=Never \
+            --values - <<'EOF'
+          replicaCount: 2
+          serviceAccount:
+            create: true
+            name: nextn
+          ingress:
+            enabled: false
+          EOF
+
+      - name: Wait for app rollout
+        run: |
+          kubectl rollout status deployment/nextn -n app --timeout=5m
+          kubectl get pods -n app -o wide
+
+      - name: Pre-chaos health check
+        run: |
+          kubectl port-forward -n app svc/nextn 3000:3000 >/tmp/nextn-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill ${PF_PID} || true' EXIT
+          sleep 5
+          curl -fsS http://localhost:3000/api/health
+
+      - name: Apply PodChaos
+        run: |
+          kubectl create namespace chaos-testing --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f chaos/kubernetes/podchaos-nextn.yaml
+
+      - name: Verify service survives chaos
+        run: |
+          sleep 45
+          kubectl get podchaos -n chaos-testing
+          kubectl rollout status deployment/nextn -n app --timeout=5m
+          kubectl get pods -n app -o wide
+          kubectl port-forward -n app svc/nextn 3000:3000 >/tmp/nextn-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill ${PF_PID} || true' EXIT
+          sleep 5
+          curl -fsS http://localhost:3000/api/health
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          kubectl get podchaos -A -o yaml > logs/podchaos.yaml || true
+          kubectl logs -n chaos-mesh deployment/chaos-controller-manager > logs/chaos-controller-manager.log || true
+          kubectl logs -n app deployment/nextn > logs/nextn.log || true
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-smoke-logs
+          path: logs/
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kubectl delete -f chaos/kubernetes/podchaos-nextn.yaml --ignore-not-found
+          kind delete cluster --name nextn-chaos

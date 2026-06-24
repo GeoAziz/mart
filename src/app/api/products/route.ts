@@ -6,36 +6,30 @@ export type Product = import('@/lib/types').Product;
 import type { Timestamp } from 'firebase-admin/firestore';
 
 // Helper to map Firestore doc to a client-friendly Product type
+// Optimized for performance: minimal processing, lazy timestamp conversion
 function mapProductDocument(doc: FirebaseFirestore.DocumentSnapshot): Product {
   const data = doc.data() as Omit<Product, 'id'>;
+  
+  // Fast path: assume data is well-formed (no fallbacks for normal data)
+  const convertTimestamp = (ts: any): Date => {
+    if (ts instanceof Date) return ts;
+    if (ts && typeof ts.toDate === 'function') return ts.toDate();
+    if (typeof ts === 'number') return new Date(ts);
+    return new Date();
+  };
+  
   return {
     id: doc.id,
     name: data.name || 'Unnamed Product',
     description: data.description || '',
     price: data.price || 0,
     category: data.category || 'Uncategorized',
-    stock: data.stock === undefined ? 0 : data.stock,
+    stock: data.stock ?? 0,
     imageUrl: data.imageUrl || 'https://placehold.co/400x300/cccccc/E0E0E0?text=No+Image',
     additionalImageUrls: data.additionalImageUrls || [],
     brand: data.brand || 'Unknown Brand',
-    dateAdded: data.dateAdded instanceof Date
-      ? data.dateAdded
-      : (data.dateAdded && typeof (data.dateAdded as Timestamp).toDate === 'function'
-          ? (data.dateAdded as Timestamp).toDate()
-          : new Date(
-              typeof data.dateAdded === 'string' || typeof data.dateAdded === 'number'
-                ? data.dateAdded
-                : Date.now()
-            )),
-    updatedAt: data.updatedAt instanceof Date
-      ? data.updatedAt
-      : (data.updatedAt && typeof data.updatedAt.toDate === 'function'
-          ? data.updatedAt.toDate()
-          : new Date(
-              typeof data.updatedAt === 'string' || typeof data.updatedAt === 'number'
-                ? data.updatedAt
-                : Date.now()
-            )),
+    dateAdded: convertTimestamp(data.dateAdded),
+    updatedAt: convertTimestamp(data.updatedAt),
     dataAiHint: data.dataAiHint || data.category?.toLowerCase().split(' ')[0] || "product",
     vendorId: data.vendorId,
     status: data.status || 'pending_approval',
@@ -58,7 +52,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '9', 10);
     const role = searchParams.get('role'); // e.g. 'admin' to fetch all including non-active
 
-    // Build a simpler base query
+    // Build query with constraints in optimal order
     let query: FirebaseFirestore.Query = firestoreAdmin.collection('products');
 
     if (role !== 'admin') {
@@ -71,46 +65,75 @@ export async function GET(request: NextRequest) {
       query = query.where('brand', '==', brand);
     }
     
-    // Fetch all documents that match the base query
-    const snapshot = await query.get();
+    // Apply Firestore-level ordering when no complex filtering is needed
+    // This allows Firestore to use indexes and limits reduce data transfer
+    const hasComplexFilters = minPrice !== null || maxPrice !== null || rating !== null;
+    
+    if (!hasComplexFilters) {
+      // Use Firestore orderBy for better performance
+      switch (sortBy) {
+        case 'price-asc':
+          query = query.orderBy('price', 'asc');
+          break;
+        case 'price-desc':
+          query = query.orderBy('price', 'desc');
+          break;
+        case 'newest':
+          query = query.orderBy('dateAdded', 'desc');
+          break;
+        case 'rating':
+          query = query.orderBy('rating', 'desc');
+          break;
+        default:
+          query = query.orderBy('name', 'asc');
+      }
+    }
+    
+    // Fetch paginated results (fetch extra for safety margin)
+    const fetchLimit = hasComplexFilters ? limit * 3 : limit * 2;
+    const snapshot = await query.limit(fetchLimit).get();
     let allProducts = snapshot.docs.map(mapProductDocument);
 
     // Apply filters that are difficult to combine in Firestore (price, rating) in-memory
-    allProducts = allProducts.filter(p => {
+    if (hasComplexFilters) {
+      allProducts = allProducts.filter(p => {
         const priceMatch = (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
         const ratingMatch = (rating === null || (p.rating && p.rating >= rating));
         return priceMatch && ratingMatch;
-    });
+      });
+    }
 
-    // In-memory sorting
-    allProducts.sort((a, b) => {
+    // In-memory sorting only if we already applied Firestore orderBy
+    if (hasComplexFilters) {
+      allProducts.sort((a, b) => {
         switch (sortBy) {
-            case 'price-asc':
-                return a.price - b.price;
-            case 'price-desc':
-                return b.price - a.price;
-            case 'newest':
-                const dateA = a.dateAdded instanceof Date
-                    ? a.dateAdded.getTime()
-                    : (a.dateAdded && typeof (a.dateAdded as any).toDate === 'function'
-                        ? (a.dateAdded as any).toDate().getTime()
-                        : (typeof a.dateAdded === 'string' || typeof a.dateAdded === 'number'
-                            ? new Date(a.dateAdded).getTime()
-                            : 0));
-                const dateB = b.dateAdded instanceof Date
-                    ? b.dateAdded.getTime()
-                    : (b.dateAdded && typeof (b.dateAdded as any).toDate === 'function'
-                        ? (b.dateAdded as any).toDate().getTime()
-                        : (typeof b.dateAdded === 'string' || typeof b.dateAdded === 'number'
-                            ? new Date(b.dateAdded).getTime()
-                            : 0));
-                return dateB - dateA;
-            case 'rating':
-                return (b.rating || 0) - (a.rating || 0);
-            default:
-                return a.name.localeCompare(b.name);
+          case 'price-asc':
+            return a.price - b.price;
+          case 'price-desc':
+            return b.price - a.price;
+          case 'newest':
+            const dateA = a.dateAdded instanceof Date
+              ? a.dateAdded.getTime()
+              : (a.dateAdded && typeof (a.dateAdded as any).toDate === 'function'
+                ? (a.dateAdded as any).toDate().getTime()
+                : (typeof a.dateAdded === 'string' || typeof a.dateAdded === 'number'
+                  ? new Date(a.dateAdded).getTime()
+                  : 0));
+            const dateB = b.dateAdded instanceof Date
+              ? b.dateAdded.getTime()
+              : (b.dateAdded && typeof (b.dateAdded as any).toDate === 'function'
+                ? (b.dateAdded as any).toDate().getTime()
+                : (typeof b.dateAdded === 'string' || typeof b.dateAdded === 'number'
+                  ? new Date(b.dateAdded).getTime()
+                  : 0));
+            return dateB - dateA;
+          case 'rating':
+            return (b.rating || 0) - (a.rating || 0);
+          default:
+            return a.name.localeCompare(b.name);
         }
-    });
+      });
+    }
 
     // Pagination logic
     const totalProducts = allProducts.length;

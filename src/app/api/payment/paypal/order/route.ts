@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
+import { createPaypalOrderSchema } from '@/lib/validation-schemas';
+import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
 
 // List of PayPal supported currencies (major ones)
 const SUPPORTED_PAYPAL_CURRENCIES = [
@@ -42,100 +44,63 @@ async function getPayPalAccessToken(): Promise<string> {
 // Creates a PayPal order using REST API v2 (no deprecated SDK)
 export async function POST(req: Request) {
   try {
-    // Validate PayPal credentials are configured
     if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_CLIENT_SECRET) {
-      console.error('❌ PayPal credentials missing from environment');
-      return NextResponse.json({ 
-        message: 'PayPal configuration error: Missing credentials. Please ensure PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are set.' 
-      }, { status: 500 });
+      throw createApiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        'PayPal configuration error: Missing credentials',
+        500
+      );
     }
 
-    // Validate credentials are not empty strings
     if (env.PAYPAL_CLIENT_ID.trim() === '' || env.PAYPAL_CLIENT_SECRET.trim() === '') {
-      console.error('❌ PayPal credentials are empty strings');
-      return NextResponse.json({ 
-        message: 'PayPal configuration error: Credentials are empty' 
-      }, { status: 500 });
+      throw createApiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        'PayPal configuration error: Credentials are empty',
+        500
+      );
     }
 
-    console.log('🚀 PayPal API Route Called (REST API v2)');
-    console.log('   Client ID available:', !!env.PAYPAL_CLIENT_ID);
-    console.log('   Client ID length:', env.PAYPAL_CLIENT_ID.length);
-    console.log('   Client Secret available:', !!env.PAYPAL_CLIENT_SECRET);
-    console.log('   Mode:', env.PAYPAL_MODE || 'sandbox');
+    const body = await req.json();
+    const validated = createPaypalOrderSchema.parse(body);
 
-    const { amount, currency } = await req.json();
-    if (typeof amount !== 'number' && typeof amount !== 'string') {
-      return NextResponse.json({ message: 'Invalid amount type.' }, { status: 400 });
-    }
-    if (!currency || typeof currency !== 'string') {
-      return NextResponse.json({ message: 'Missing or invalid currency.' }, { status: 400 });
-    }
-
-    // Always use a PayPal-supported currency (default to USD if not supported)
-    let currencyCode = currency.toUpperCase();
+    let currencyCode = validated.currency;
     let amountStr: string;
     let conversionNotice: string | undefined = undefined;
 
     if (!SUPPORTED_PAYPAL_CURRENCIES.includes(currencyCode)) {
-      // If not supported, convert to USD (hardcoded rate for demo, replace with real FX API in production)
-      const KES_TO_USD = 1 / 129; // Hardcoded: 129 KES = 1 USD
+      const KES_TO_USD = 1 / 129;
       if (currencyCode === 'KES') {
-        let amountNum = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/,/g, '').trim());
-        if (isNaN(amountNum)) {
-          return NextResponse.json({ message: 'Invalid amount.' }, { status: 400 });
-        }
-        const usdAmount = amountNum * KES_TO_USD;
+        const usdAmount = validated.amount * KES_TO_USD;
         amountStr = usdAmount.toFixed(2);
-        
-        // PayPal requires minimum $0.01
+
         const minAmount = parseFloat(amountStr);
         if (minAmount < 0.01) {
-          console.warn('❌ Amount too small for PayPal:', amountStr);
-          return NextResponse.json({ 
-            message: 'Order total too small (minimum is 1.29 KES)',
-            minAmount: '1.29'
-          }, { status: 400 });
+          throw createApiError(
+            ErrorCodes.PAYMENT_ERROR,
+            'Order total too small (minimum is 1.29 KES)',
+            400
+          );
         }
-        
+
         currencyCode = 'USD';
-        conversionNotice = `Converted from KES to USD at rate 129 KES = 1 USD.`;
+        conversionNotice = 'Converted from KES to USD at rate 129 KES = 1 USD';
       } else {
-        // For any other unsupported currency, just force USD and warn
-        console.warn(`Currency '${currency}' is not supported by PayPal. Defaulting to USD.`);
-        let amountNum = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/,/g, '').trim());
-        if (isNaN(amountNum)) {
-          return NextResponse.json({ message: 'Invalid amount.' }, { status: 400 });
-        }
-        amountStr = amountNum.toFixed(2);
+        amountStr = validated.amount.toFixed(2);
         currencyCode = 'USD';
-        conversionNotice = `Converted from ${currency} to USD. (No FX rate applied)`;
+        conversionNotice = `Converted from ${validated.currency} to USD`;
       }
     } else {
-      // Supported currency
-      if (typeof amount === 'number') {
-        amountStr = amount.toFixed(2);
-      } else {
-        const parsed = parseFloat(String(amount).replace(/,/g, '').trim());
-        if (isNaN(parsed)) {
-          return NextResponse.json({ message: 'Invalid amount.' }, { status: 400 });
-        }
-        amountStr = parsed.toFixed(2);
-      }
+      amountStr = validated.amount.toFixed(2);
     }
 
-    // Validate minimum amount for PayPal (minimum $0.01)
     const finalAmount = parseFloat(amountStr);
     if (finalAmount < 0.01) {
-      console.error('❌ Amount too small for PayPal:', amountStr);
-      return NextResponse.json({ 
-        message: 'Order total too small for PayPal (minimum $0.01)',
-        amount: amountStr,
-        currency: currencyCode
-      }, { status: 400 });
+      throw createApiError(
+        ErrorCodes.PAYMENT_ERROR,
+        'Order total too small for PayPal (minimum $0.01)',
+        400
+      );
     }
-
-    console.log('📦 Final PayPal order amount:', amountStr, currencyCode);
 
     // Get access token
     console.log('🔐 PayPal: Getting access token...');
@@ -186,56 +151,40 @@ export async function POST(req: Request) {
     const orderData = await orderResponse.json();
 
     if (!orderResponse.ok) {
-      console.error('❌ PayPal order creation failed:');
-      console.error('   Status:', orderResponse.status);
-      console.error('   Response:', JSON.stringify(orderData, null, 2));
-
-      // Handle specific error cases
       if (orderData?.details?.[0]?.issue === 'CURRENCY_NOT_SUPPORTED') {
-        return NextResponse.json({
-          message: `Currency '${currencyCode}' is not supported by PayPal.`
-        }, { status: 400 });
+        throw createApiError(
+          ErrorCodes.PAYMENT_ERROR,
+          `Currency '${currencyCode}' is not supported by PayPal`,
+          400
+        );
       }
 
-      return NextResponse.json({ 
-        message: orderData?.message || 'Failed to create PayPal order',
-        details: process.env.NODE_ENV === 'development' ? orderData : undefined
-      }, { status: orderResponse.status });
+      throw createApiError(
+        ErrorCodes.PAYMENT_ERROR,
+        orderData?.message || 'Failed to create PayPal order',
+        orderResponse.status
+      );
     }
 
     if (!orderData.id) {
-      console.error('❌ PayPal response missing order ID:', orderData);
-      return NextResponse.json({ 
-        message: 'PayPal returned invalid response (no order ID)',
-        details: process.env.NODE_ENV === 'development' ? orderData : undefined
-      }, { status: 500 });
+      throw createApiError(
+        ErrorCodes.PAYMENT_ERROR,
+        'PayPal returned invalid response (no order ID)',
+        500
+      );
     }
 
-    console.log('✅ PayPal: Order created successfully:', orderData.id);
-    console.log('   Amount:', amountStr, currencyCode);
-    console.log('   Status:', orderData.status);
-
-    // Return order id for PayPal Buttons
-    return NextResponse.json({ 
-      id: orderData.id, 
-      currency: currencyCode, 
-      amount: amountStr,
-      conversionNotice 
-    }, { status: 200 });
-
-  } catch (error: any) {
-    console.error('❌ PayPal order creation error:', error);
-    
-    // Handle network/timeout errors
-    if (error?.cause?.code === 'ECONNREFUSED' || error?.cause?.code === 'ENOTFOUND') {
-      return NextResponse.json({ 
-        message: 'Cannot connect to PayPal. Please check your internet connection.',
-        error: 'NETWORK_ERROR'
-      }, { status: 503 });
-    }
-
-    return NextResponse.json({ 
-      message: error?.message || 'PayPal error' 
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        id: orderData.id,
+        currency: currencyCode,
+        amount: amountStr,
+        conversionNotice,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    const { response } = formatApiError(error);
+    return response;
   }
 }

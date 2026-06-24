@@ -6,22 +6,8 @@ import admin from 'firebase-admin';
 import type { Order, OrderItem, ShippingAddress, Promotion, Product } from '@/lib/types';
 import { sendOrderConfirmation } from '@/lib/email';
 import { getIdempotencyResult, storeIdempotencyResult } from '@/lib/idempotency';
-
-interface ClientCartItem {
-  productId: string;
-  quantity: number;
-}
-
-interface CreateOrderInput {
-  items: ClientCartItem[];
-  shippingAddress: ShippingAddress;
-  paymentMethod: string;
-  promotionCode?: string;
-  clientSubtotal?: number;
-  clientShippingCost?: number;
-  clientTaxAmount?: number;
-  clientTotalAmount?: number;
-}
+import { createOrderSchema } from '@/lib/validation-schemas';
+import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
   const data = doc.data() as Omit<Order, 'id'>;
@@ -71,55 +57,47 @@ async function createOrderHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
 
   try {
-    // Check for idempotency key
     const idempotencyKey = req.headers.get('x-idempotency-key');
     if (idempotencyKey) {
       const cachedResult = await getIdempotencyResult(idempotencyKey);
       if (cachedResult) {
-        console.log(`[Idempotency] Returning cached result for key: ${idempotencyKey}`);
         return NextResponse.json(cachedResult, { status: 201 });
       }
     }
 
-    const body = await req.json() as CreateOrderInput;
-
-    if (!body.items || body.items.length === 0) {
-      return NextResponse.json({ message: 'Order must contain at least one item.' }, { status: 400 });
-    }
-    if (!body.shippingAddress || !body.shippingAddress.fullName || !body.shippingAddress.address) {
-      return NextResponse.json({ message: 'Incomplete shipping address.' }, { status: 400 });
-    }
-    if (!body.paymentMethod) {
-      return NextResponse.json({ message: 'Payment method is required.' }, { status: 400 });
-    }
+    const body = await req.json();
+    const validated = createOrderSchema.parse(body);
 
     const ordersCollectionRef = firestoreAdmin.collection('orders');
     const productsCollectionRef = firestoreAdmin.collection('products');
     let createdOrder = {} as Order;
 
     await firestoreAdmin.runTransaction(async (transaction) => {
-      // PHASE 1: READ ALL DATA FIRST
       const processedOrderItems: OrderItem[] = [];
       let calculatedSubtotal = 0;
       const orderVendorIdsSet = new Set<string>();
       const productStockUpdates: { ref: FirebaseFirestore.DocumentReference, quantityToDecrement: number, currentStock: number }[] = [];
 
-      // Read all product documents
-      for (const clientItem of body.items) {
-        if (clientItem.quantity <= 0) {
-          throw new Error(`Invalid quantity for product ID ${clientItem.productId}.`);
-        }
+      for (const clientItem of validated.items) {
         const productDocRef = productsCollectionRef.doc(clientItem.productId);
         const productDocSnap = await transaction.get(productDocRef);
 
         if (!productDocSnap.exists) {
-          throw new Error(`Product with ID ${clientItem.productId} not found.`);
+          throw createApiError(
+            ErrorCodes.NOT_FOUND,
+            `Product with ID ${clientItem.productId} not found`,
+            404
+          );
         }
-        
+
         const productData = productDocSnap.data() as Product;
 
-        if (productData.stock === undefined || productData.stock < clientItem.quantity) {
-          throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock ?? 0}, Requested: ${clientItem.quantity}.`);
+        if (!productData.stock || productData.stock < clientItem.quantity) {
+          throw createApiError(
+            ErrorCodes.INVENTORY_ERROR,
+            `Insufficient stock for ${productData.name}. Available: ${productData.stock ?? 0}, Requested: ${clientItem.quantity}`,
+            409
+          );
         }
 
         processedOrderItems.push({
@@ -140,31 +118,29 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         });
       }
 
-      // Read promotion code if provided
       let discountAmount = 0;
       let promoDocRef: FirebaseFirestore.DocumentReference | null = null;
-      if (body.promotionCode) {
-        const promoQuery = firestoreAdmin.collection('promotions').where('code', '==', body.promotionCode).limit(1);
+      if (validated.promotionCode) {
+        const promoQuery = firestoreAdmin.collection('promotions').where('code', '==', validated.promotionCode).limit(1);
         const promoSnapshot = await transaction.get(promoQuery);
-        
+
         if (!promoSnapshot.empty) {
           const promoDoc = promoSnapshot.docs[0];
           const promotionData = promoDoc.data() as Promotion;
-          
+
           const now = new Date();
-          if (promotionData.isActive && 
-              now >= promotionData.startDate && 
-              (!promotionData.endDate || now <= promotionData.endDate) &&
-              (!promotionData.usageLimit || promotionData.timesUsed < promotionData.usageLimit) &&
-              (!promotionData.minPurchaseAmount || calculatedSubtotal >= promotionData.minPurchaseAmount))
-          {
-              if (promotionData.type === 'percentage') {
-                  discountAmount = calculatedSubtotal * (promotionData.value / 100);
-              } else {
-                  discountAmount = promotionData.value;
-              }
-              discountAmount = Math.min(discountAmount, calculatedSubtotal);
-              promoDocRef = promoDoc.ref;
+          if (promotionData.isActive &&
+            now >= promotionData.startDate &&
+            (!promotionData.endDate || now <= promotionData.endDate) &&
+            (!promotionData.usageLimit || promotionData.timesUsed < promotionData.usageLimit) &&
+            (!promotionData.minPurchaseAmount || calculatedSubtotal >= promotionData.minPurchaseAmount)) {
+            if (promotionData.type === 'percentage') {
+              discountAmount = calculatedSubtotal * (promotionData.value / 100);
+            } else {
+              discountAmount = promotionData.value;
+            }
+            discountAmount = Math.min(discountAmount, calculatedSubtotal);
+            promoDocRef = promoDoc.ref;
           }
         }
       }
@@ -181,8 +157,8 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         userFullName: authenticatedUser.fullName,
         userEmail: authenticatedUser.email,
         items: processedOrderItems,
-        shippingAddress: body.shippingAddress,
-        paymentMethod: body.paymentMethod,
+        shippingAddress: validated.shippingAddress as ShippingAddress,
+        paymentMethod: validated.paymentMethod,
         status: 'pending',
         statusHistory: [{
           status: 'pending',
@@ -194,7 +170,7 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         shippingCost,
         taxAmount: calculatedTaxAmount,
         totalAmount,
-        promotionCode: body.promotionCode,
+        promotionCode: validated.promotionCode,
         discountAmount,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -257,11 +233,9 @@ async function createOrderHandler(req: AuthenticatedRequest) {
     }
 
     return NextResponse.json(clientSafeOrder, { status: 201 });
-
-  } catch (error: any) {
-    console.error('Error creating order:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error while creating order.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
+  } catch (error) {
+    const { response } = formatApiError(error);
+    return response;
   }
 }
 
@@ -280,7 +254,11 @@ async function listOrdersHandler(req: AuthenticatedRequest) {
     } else if (authenticatedUser.role === 'vendor') {
       query = ordersCollection.where('vendorIds', 'array-contains', authenticatedUser.uid);
     } else {
-      return NextResponse.json({ message: 'Forbidden: You do not have permission to view these orders.' }, { status: 403 });
+      throw createApiError(
+        ErrorCodes.AUTHORIZATION_ERROR,
+        'You do not have permission to view these orders',
+        403
+      );
     }
 
     const snapshot = await query.get();
@@ -295,13 +273,9 @@ async function listOrdersHandler(req: AuthenticatedRequest) {
     }
 
     return NextResponse.json(orders, { status: 200 });
-
-  } catch (error: any) {
-    console.error('Error listing orders:', error);
-    if (error.code === 'failed-precondition') {
-        console.error('Firestore query failed, likely due to a missing index.');
-    }
-    return NextResponse.json({ message: 'Internal Server Error while listing orders.' }, { status: 500 });
+  } catch (error) {
+    const { response } = formatApiError(error);
+    return response;
   }
 }
 

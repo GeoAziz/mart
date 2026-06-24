@@ -1,0 +1,62 @@
+name: Deploy Helm Chart
+
+on:
+  push:
+    branches: [ staging ]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  KUBE_NAMESPACE: ${{ vars.KUBE_NAMESPACE || 'app' }}
+  STAGING_HOST: ${{ vars.STAGING_HOST || 'example.com' }}
+  CERT_MANAGER_ISSUER: ${{ vars.CERT_MANAGER_ISSUER || 'letsencrypt-staging' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Kubeconfig
+        uses: azure/setup-kubectl@v3
+        with:
+          version: '1.28'
+
+      - name: Configure kubeconfig
+        if: ${{ secrets.KUBECONFIG != '' }}
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+          mkdir -p $HOME/.kube
+          mv kubeconfig $HOME/.kube/config
+
+      - name: Configure AWS credentials via GitHub OIDC
+        if: ${{ secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig for EKS
+        if: ${{ secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        run: |
+          if [ "${EKS_CLUSTER_NAME}" = "" ]; then
+            echo "EKS_CLUSTER_NAME not set; cannot update kubeconfig"
+            exit 1
+          fi
+          aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy Helm chart
+        run: |
+          helm upgrade --install nextn chart/nextn -n "${KUBE_NAMESPACE}" --create-namespace \
+            --set image.repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} \
+            --set image.tag=latest \
+            --set ingress.host="${STAGING_HOST}" \
+            --set ingress.tls.issuer="${CERT_MANAGER_ISSUER}"

@@ -422,8 +422,8 @@ export default function CmsHomePage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="h-8 w-8 text-accent border-accent hover:bg-accent hover:text-accent-foreground" onClick={() => handleEditFeaturedItem(item)}><Edit3 size={16}/></Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => handleDeleteFeaturedItem(item.id)}><Trash2 size={16}/></Button>
+                    <Button variant="outline" size="icon" aria-label={`Edit ${item.displayName}`} className="h-8 w-8 text-accent border-accent hover:bg-accent hover:text-accent-foreground" onClick={() => handleEditFeaturedItem(item)}><Edit3 size={16}/></Button>
+                    <Button variant="outline" size="icon" aria-label={`Delete ${item.displayName}`} className="h-8 w-8 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => handleDeleteFeaturedItem(item.id)}><Trash2 size={16}/></Button>
                 </div>
             </Card>
           ))}

@@ -24,6 +24,19 @@ export class CachingService {
     return CachingService.instance;
   }
 
+  get<T>(key: string): T | undefined {
+    const value = this.cache.get<T>(key);
+    if (value !== undefined) {
+      logger.debug(`Cache hit for key: ${key}`);
+    }
+    return value;
+  }
+
+  set<T>(key: string, value: T, ttl: number = 600): void {
+    this.cache.set(key, value, ttl);
+    logger.debug(`Cache set for key: ${key}, ttl: ${ttl}`);
+  }
+
   async getOrSet<T>(
     key: string,
     fetchFn: () => Promise<T>,
