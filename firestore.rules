@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isVendor() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor';
+    }
+
+    function isCustomer() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+    }
+
+    function ownedByUser(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function ownedByVendor(vendorId) {
+      return request.auth.uid == vendorId;
+    }
+
+    // Users collection - can read own profile, admins can read all
+    match /users/{userId} {
+      allow read: if isSignedIn() && (ownedByUser(userId) || isAdmin());
+      allow create: if isSignedIn() && ownedByUser(userId);
+      allow update: if isSignedIn() && (ownedByUser(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Products collection - anyone can read, vendors can write own, admins can manage all
+    match /products/{productId} {
+      allow read: if true; // Public product catalog
+
+      // Vendors can only create/update/delete their own products
+      allow create: if isSignedIn() && isVendor() && request.resource.data.vendorId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+    }
+
+    // Orders collection - customers see own, vendors see theirs, admins see all
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && (
+        ownedByUser(resource.data.userId) ||
+        (isVendor() && request.auth.uid in resource.data.vendorIds) ||
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() && isCustomer() && ownedByUser(request.resource.data.userId);
+
+      allow update: if isSignedIn() && (
+        (isCustomer() && ownedByUser(resource.data.userId)) ||
+        (isVendor() && request.auth.uid in resource.data.vendorIds) ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+
+      // Allow subcollections (messages, payments, etc.)
+      match /{document=**} {
+        allow read, write: if isSignedIn() && (
+          ownedByUser(get(/databases/$(database)/documents/orders/$(orderId)).data.userId) ||
+          (isVendor() && request.auth.uid in get(/databases/$(database)/documents/orders/$(orderId)).data.vendorIds) ||
+          isAdmin()
+        );
+      }
+    }
+
+    // Cart - only customer can access their own
+    match /users/{userId}/cart/{cartItem} {
+      allow read, write: if isSignedIn() && ownedByUser(userId);
+    }
+
+    // Wishlist - only customer can access their own
+    match /users/{userId}/wishlist/{wishlistItem} {
+      allow read, write: if isSignedIn() && ownedByUser(userId);
+    }
+
+    // Addresses - only customer can access their own
+    match /users/{userId}/addresses/{address} {
+      allow read, write: if isSignedIn() && ownedByUser(userId);
+    }
+
+    // Refunds - customer can read own, vendors can read own, admins can read all
+    match /refunds/{refundId} {
+      allow read: if isSignedIn() && (
+        (isAdmin()) ||
+        (isVendor() && request.auth.uid == resource.data.vendorId) ||
+        (isCustomer() && request.auth.uid in get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.userId)
+      );
+
+      allow create: if isSignedIn() && isCustomer();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Payouts - only vendors can read own, admins can read all
+    match /payouts/{payoutId} {
+      allow read: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Ledger - vendors can read own, admins can read all
+    match /ledger/{ledgerId} {
+      allow read: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Promotions - public read, only admin can write
+    match /promotions/{promotionId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Conversations - participants can read/write, others cannot
+    match /conversations/{conversationId} {
+      allow read, write: if isSignedIn() && (
+        request.auth.uid in resource.data.participants ||
+        isAdmin()
+      );
+
+      // Messages within conversation
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() && (
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants ||
+          isAdmin()
+        );
+      }
+    }
+
+    // Webhook events - admin only (system-generated)
+    match /webhook_events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

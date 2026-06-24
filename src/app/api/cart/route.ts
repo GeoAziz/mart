@@ -61,26 +61,42 @@ async function getCartHandler(req: AuthenticatedRequest) {
         updatedAtClient = new Date();
     }
 
-    // Enrich cart items with current stock levels
+    // Enrich cart items with current stock levels using batch fetching (avoids N+1 query)
     const enrichedItems: CartItem[] = [];
-    for (const item of cartData.items || []) {
-      const productDocRef = firestoreAdmin.collection('products').doc(item.productId);
-      const productDocSnap = await productDocRef.get();
-      
-      if (productDocSnap.exists) {
-        const productData = productDocSnap.data() as ProductSnapshot;
-        enrichedItems.push({
-          ...item,
-          stock: productData.stock,
-          // Also update price in case it changed
-          price: productData.price,
+    const cartItems = cartData.items || [];
+
+    if (cartItems.length > 0) {
+      // Batch fetch products in chunks of 30 (Firestore 'in' query limit)
+      const productIds = cartItems.map(item => item.productId);
+      const productMap = new Map<string, ProductSnapshot>();
+
+      for (let i = 0; i < productIds.length; i += 30) {
+        const chunk = productIds.slice(i, i + 30);
+        const productsSnapshot = await firestoreAdmin
+          .collection('products')
+          .where('__name__', 'in', chunk.map(id => firestoreAdmin.collection('products').doc(id)))
+          .get();
+
+        productsSnapshot.docs.forEach(doc => {
+          productMap.set(doc.id, doc.data() as ProductSnapshot);
         });
-      } else {
-        // Product no longer exists, still include it but mark stock as 0
-        enrichedItems.push({
-          ...item,
-          stock: 0,
-        });
+      }
+
+      // Enrich items with product data
+      for (const item of cartItems) {
+        const productData = productMap.get(item.productId);
+        if (productData) {
+          enrichedItems.push({
+            ...item,
+            stock: productData.stock,
+            price: productData.price,
+          });
+        } else {
+          enrichedItems.push({
+            ...item,
+            stock: 0,
+          });
+        }
       }
     }
 
@@ -114,31 +130,43 @@ async function saveCartHandler(req: AuthenticatedRequest) {
     }
     
     const enrichedItems: CartItem[] = [];
-    const productIds = body.items.map(item => item.productId);
+    const productIds = body.items
+      .filter(item => item.quantity > 0)
+      .map(item => item.productId);
 
     if (productIds.length > 0) {
-        // Fetch all products in one go if possible, or iterate if product IDs are too many for a single 'in' query (max 30 for 'in' query).
-        // For simplicity, fetching one by one, but batching is better for performance.
+        // Batch fetch products in chunks of 30 (Firestore 'in' query limit)
+        const productMap = new Map<string, ProductSnapshot>();
+
+        for (let i = 0; i < productIds.length; i += 30) {
+            const chunk = productIds.slice(i, i + 30);
+            const productsSnapshot = await firestoreAdmin
+                .collection('products')
+                .where('__name__', 'in', chunk.map(id => firestoreAdmin.collection('products').doc(id)))
+                .get();
+
+            productsSnapshot.docs.forEach(doc => {
+                productMap.set(doc.id, doc.data() as ProductSnapshot);
+            });
+        }
+
+        // Enrich items with product data
         for (const item of body.items) {
-            if (item.quantity <= 0) continue; // Skip items with zero or negative quantity
+            if (item.quantity <= 0) continue;
 
-            const productDocRef = firestoreAdmin.collection('products').doc(item.productId);
-            const productDocSnap = await productDocRef.get();
-
-            if (productDocSnap.exists) {
-                const productData = productDocSnap.data() as ProductSnapshot;
+            const productData = productMap.get(item.productId);
+            if (productData) {
                 enrichedItems.push({
                     productId: item.productId,
                     quantity: item.quantity,
                     name: productData.name,
-                    price: productData.price, // Price at the time of saving cart
+                    price: productData.price,
                     imageUrl: productData.imageUrl,
                     dataAiHint: productData.dataAiHint,
-                    stock: productData.stock, // Include current stock level
+                    stock: productData.stock,
                 });
             } else {
                 console.warn(`Product with ID ${item.productId} not found while saving cart for user ${authenticatedUser.uid}. Skipping.`);
-                // Optionally, notify the user that some items were not found
             }
         }
     }
