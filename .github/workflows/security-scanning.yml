@@ -25,7 +25,7 @@ jobs:
           docker tag ghcr.io/${{ github.repository_owner }}/nextn:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/nextn:latest
 
       - name: Run Trivy vulnerability scanner (Docker)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@8bd2f63177ef7b12d46e686b07a960007538e248 # v0.11.0
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/nextn:${{ github.sha }}
           format: 'sarif'
@@ -33,7 +33,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy vulnerability scanner (Filesystem)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@8bd2f63177ef7b12d46e686b07a960007538e248 # v0.11.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -82,7 +82,7 @@ jobs:
         run: npm ci
 
       - name: Run Snyk test
-        uses: snyk/actions/node@master
+        uses: snyk/actions/node@b583b3134f88f83de3414e5b13b3fab4b31da879 # v0.3.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:

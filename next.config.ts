@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next';
 import webpack from 'webpack';
 
+// Sentry initialization for error tracking
+if (process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN) {
+  require('./sentry.server.config');
+}
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,

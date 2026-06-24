@@ -22,17 +22,25 @@ receivers:
         send_resolved: true
 
   - name: 'slack-critical'
-    # Replace the api_url below with your Slack webhook URL or mount a secret file.
+    # Configure Slack webhook via GitHub Secret:
+    # 1. Create a Slack Incoming Webhook at https://api.slack.com/apps
+    # 2. Store in GitHub Secret: SLACK_CRITICAL_WEBHOOK_URL
+    # 3. Inject at deploy: kubectl create secret generic alertmanager-slack \
+    #      --from-literal=critical-url="<webhook-url>"
     slack_configs:
-      - api_url: 'https://hooks.slack.com/services/REPLACE/REPLACE/REPLACE'
-        channel: '#alerts'
+      - api_url: '{{ env "SLACK_CRITICAL_WEBHOOK_URL" }}'
+        channel: '#alerts-critical'
         send_resolved: true
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
 
   - name: 'slack-warning'
     slack_configs:
-      - api_url: 'https://hooks.slack.com/services/REPLACE/REPLACE/REPLACE'
-        channel: '#alerts'
+      - api_url: '{{ env "SLACK_WARNING_WEBHOOK_URL" }}'
+        channel: '#alerts-warning'
         send_resolved: false
+        title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
 
-# In local/dev, replace Slack URLs or run a local receiver service.
-# Do NOT commit real webhook URLs to the repository. Use secrets management.
+# Setup instructions:
+# In production, inject webhook URLs via environment variables or Kubernetes secrets.
+# Do NOT commit real webhook URLs to the repository. Use GitHub Actions secrets.
+# For local testing, mock the webhook receiver or disable Slack notifcations.

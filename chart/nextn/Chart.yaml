@@ -1,0 +1,13 @@
+apiVersion: v2
+name: nextn
+description: ZilaCart multi-vendor e-commerce marketplace
+type: application
+version: 1.0.0
+appVersion: "0.1.0"
+keywords:
+  - ecommerce
+  - marketplace
+  - vendor
+maintainers:
+  - name: ZilaCart Team
+    email: team@zilacart.local

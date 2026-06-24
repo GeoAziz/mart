@@ -59,6 +59,8 @@ pnpm-debug.log*
 
 # sensitive files
 serviceAccountKey.json
+*service-account*.json
+src/lib/*.json
 *.log
 clean-mart/
 
