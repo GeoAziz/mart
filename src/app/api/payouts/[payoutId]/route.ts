@@ -5,6 +5,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { Payout, LedgerEntry } from '@/lib/types';
 import { z } from 'zod';
 import { Timestamp } from 'firebase-admin/firestore';
+import { writeAuditLog } from '@/lib/audit-log';
 
 const payoutUpdateSchema = z.object({
   status: z.enum(['Completed', 'Failed']),
@@ -106,6 +107,16 @@ async function updatePayoutHandler(
 
     const updatedDocSnap = await payoutDocRef.get();
     const updatedPayoutResponse = mapPayoutDocument(updatedDocSnap);
+
+    await writeAuditLog({
+      actor: req.userProfile.uid,
+      role: req.userProfile.role,
+      action: 'payout_status_updated',
+      resourceType: 'payout',
+      resourceId: payoutId,
+      before: { status: 'Pending' },
+      after: { status, transactionId: transactionId ?? null, adminNotes: adminNotes ?? null },
+    });
 
     return NextResponse.json(updatedPayoutResponse, { status: 200 });
 

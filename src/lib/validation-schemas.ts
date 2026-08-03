@@ -6,6 +6,15 @@
 import { z } from 'zod';
 import { PaymentConfig, CartConfig, PromotionConfig, InventoryConfig } from '@/lib/config';
 
+const OrderItemSchema = z.object({
+  productId: z.string().min(1, 'Product ID is required'),
+  quantity: z
+    .number()
+    .int()
+    .min(CartConfig.MIN_QUANTITY, `Minimum quantity is ${CartConfig.MIN_QUANTITY}`)
+    .max(CartConfig.MAX_QUANTITY_PER_ITEM, `Maximum quantity is ${CartConfig.MAX_QUANTITY_PER_ITEM}`),
+});
+
 /**
  * Payment & Checkout Validation
  */
@@ -35,6 +44,10 @@ export const PayPalOrderSchema = z.object({
   returnUrl: z.string().url('Invalid return URL'),
   cancelUrl: z.string().url('Invalid cancel URL'),
 });
+
+export const CreatePaymentIntentSchema = StripePaymentIntentSchema;
+export const createPaymentIntentSchema = StripePaymentIntentSchema;
+export const createPaypalOrderSchema = PayPalOrderSchema;
 
 /**
  * Cart Operations
@@ -74,9 +87,18 @@ export const AddressSchema = z.object({
   fullName: z.string().min(1, 'Full name is required').max(255),
   address: z.string().min(1, 'Address is required').max(500),
   city: z.string().min(1, 'City is required').max(100),
-  postalCode: z.string().optional().max(20),
+  postalCode: z.string().max(20).optional(),
   phone: PhoneNumberSchema,
 });
+
+export const CreateOrderSchema = z.object({
+  items: z.array(OrderItemSchema).min(1, 'At least one item is required'),
+  shippingAddress: AddressSchema,
+  paymentMethod: z.string().min(1, 'Payment method is required'),
+  promotionCode: z.string().optional(),
+});
+
+export const createOrderSchema = CreateOrderSchema;
 
 /**
  * Refund Request Validation
@@ -99,5 +121,6 @@ export type StripePaymentIntentInput = z.infer<typeof StripePaymentIntentSchema>
 export type PayPalOrderInput = z.infer<typeof PayPalOrderSchema>;
 export type AddToCartInput = z.infer<typeof AddToCartSchema>;
 export type AddressInput = z.infer<typeof AddressSchema>;
+export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
 export type CreateRefundRequestInput = z.infer<typeof CreateRefundRequestSchema>;
 export type RequestPayoutInput = z.infer<typeof RequestPayoutSchema>;

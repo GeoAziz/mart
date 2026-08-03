@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
-import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware'; 
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { Order, LedgerEntry } from '@/lib/types';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { writeAuditLog } from '@/lib/audit-log';
 
 // Define OrderTracking type if not already imported
 type OrderTracking = {
@@ -189,6 +190,16 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
 
     const updatedOrderSnap = await orderDocRef.get();
     const updatedOrder = mapOrderDocument(updatedOrderSnap);
+
+    await writeAuditLog({
+      actor: authenticatedUser.uid,
+      role: authenticatedUser.role,
+      action: 'order_status_changed',
+      resourceType: 'order',
+      resourceId: orderId,
+      before: { status: updatedOrder.statusHistory.at(-2)?.status ?? 'unknown' },
+      after: { status, note: note ?? null },
+    });
 
     return NextResponse.json(updatedOrder, { status: 200 });
 

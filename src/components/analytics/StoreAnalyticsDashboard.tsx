@@ -51,7 +51,7 @@ export default function StoreAnalyticsDashboard() {
       if (!currentUser) return
       try {
         const token = await currentUser.getIdToken()
-        const response = await fetch('/api/vendor/me/products/analytics', {
+        const response = await fetch('/api/vendors/me/products/analytics', {
           headers: {
             Authorization: `Bearer ${token}`
           }

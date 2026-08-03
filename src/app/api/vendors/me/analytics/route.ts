@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { analyticsService } from '@/lib/services/analytics-service';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 
 export const GET = withAuth(
   async (req: AuthenticatedRequest) => {

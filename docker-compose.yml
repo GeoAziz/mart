@@ -1,0 +1,216 @@
+services:
+  # ── Core Services (Always Run) ───────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-demo-api-key}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-localhost}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-zilacart-local}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-zilacart-local.appspot.com}
+        NEXT_PUBLIC_FIREBASE_EMULATOR: ${NEXT_PUBLIC_FIREBASE_EMULATOR:-true}
+        NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: ${NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST:-localhost:9099}
+        NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: ${NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST:-localhost:8080}
+        # Server-side Firebase vars are consumed at build time because `next build`
+        # executes route modules that import firebase-admin at module scope.
+        FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-firebase-emulator:8080}
+        FIREBASE_AUTH_EMULATOR_HOST: ${FIREBASE_AUTH_EMULATOR_HOST:-firebase-emulator:9099}
+        FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-zilacart-local}
+        FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
+        FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+    container_name: mart-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-zilacart-local}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET:-zilacart-local.appspot.com}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # Firebase Emulators - Admin SDK auto-discovers these env vars.
+      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      # AWS/LocalStack
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - AWS_S3_ENDPOINT=http://localstack:4566
+      - AWS_DYNAMODB_ENDPOINT=http://localstack:4566
+      - AWS_SQS_ENDPOINT=http://localstack:4566
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_PUSHGATEWAY=http://prometheus-pushgateway:9091
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => { if (r.statusCode !== 200) throw new Error(String(r.statusCode)) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile.ws
+    container_name: mart-websocket
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - WS_PORT=3001
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-zilacart-local}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
+      # Firebase Emulators - Admin SDK auto-discovers these env vars.
+      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      - PROMETHEUS_PUSHGATEWAY=http://prometheus-pushgateway:9091
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => { if (r.statusCode !== 200) throw new Error(String(r.statusCode)) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: mart-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+  # ── Dev Services (Run with --profile dev) ────────────────────────────────
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: mart-localstack
+    profiles: ["dev"]
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,dynamodb,sqs,sns,apigateway
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - "./scripts/localstack-init.sh:/docker-entrypoint-initaws.d/init.sh"
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "awslocal", "s3", "ls"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  firebase-emulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.emulator
+    container_name: mart-firebase-emulator
+    profiles: ["dev"]
+    working_dir: /app
+    command: ["firebase", "emulators:start", "--project", "zilacart-local"]
+    volumes:
+      - ./firebase.json:/app/firebase.json:ro
+    ports:
+      - "4000:4000"
+      - "8080:8080"
+      - "9099:9099"
+      - "8085:8085"
+    networks:
+      - mart-network
+
+  # ── Monitoring Services (Run with --profile monitoring) ──────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mart-prometheus
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules.yml:/etc/prometheus/rules/rules.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    environment:
+      - PROMETHEUS_STORAGE_RETENTION=7d
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus-pushgateway:
+    image: prom/pushgateway:latest
+    container_name: mart-pushgateway
+    profiles: ["monitoring"]
+    ports:
+      - "9091:9091"
+    networks:
+      - mart-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mart-grafana
+    profiles: ["monitoring"]
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - mart-network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  mart-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:

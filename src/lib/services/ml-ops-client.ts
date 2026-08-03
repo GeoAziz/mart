@@ -5,7 +5,7 @@
  */
 
 import { logger } from './logging-service';
-import { cacheService } from './caching-service';
+import { syncCache as cacheService } from '@/lib/cache-service';
 
 interface DemandForecastRequest {
   vendor_id: string;

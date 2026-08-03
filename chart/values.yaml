@@ -1,0 +1,123 @@
+# Default values for zilamart Helm chart
+# Used as base for all environments
+
+replicaCount: 1
+
+image:
+  repository: mart-app
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+  prometheus.io/path: "/api/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: zilamart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Environment-specific overrides
+env:
+  NODE_ENV: development
+
+# Firebase
+firebase:
+  enabled: true
+  emulator:
+    enabled: false
+    firestorePort: 9099
+    authPort: 9199
+
+# Redis
+redis:
+  enabled: true
+  host: redis
+  port: 6379
+  auth:
+    enabled: false
+
+# LocalStack (AWS emulation)
+localstack:
+  enabled: false
+  endpoint: http://localstack:4566
+
+# Prometheus
+prometheus:
+  enabled: true
+  scrapeInterval: 10s
+
+# Grafana
+grafana:
+  enabled: true
+  adminPassword: admin
+
+# WebSocket Server
+websocket:
+  enabled: true
+  replicaCount: 1
+  port: 3001
+
+# Queue Workers
+queueWorkers:
+  enabled: false
+  orders:
+    replicas: 1
+  products:
+    replicas: 1
+  payments:
+    replicas: 1
+  notifications:
+    replicas: 1

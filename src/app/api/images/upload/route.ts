@@ -21,12 +21,17 @@ async function uploadImageHandler(req: AuthenticatedRequest) {
     if (!base64Data) {
         return NextResponse.json({ message: 'Malformed image data URI.' }, { status: 400 });
     }
-    
+
     const mimeType = header.split(':')[1]; // e.g., "image/jpeg"
     if (!mimeType || !mimeType.startsWith('image/')) {
         return NextResponse.json({ message: 'Invalid image MIME type.' }, { status: 400 });
     }
-    
+
+    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (Buffer.byteLength(base64Data, 'base64') > MAX_BYTES) {
+      return NextResponse.json({ message: 'Image exceeds maximum allowed size of 10 MB.' }, { status: 413 });
+    }
+
     const fileExtension = mimeType.split('/')[1] || 'bin'; // e.g., "jpeg"
     const imageBuffer = Buffer.from(base64Data, 'base64');
 

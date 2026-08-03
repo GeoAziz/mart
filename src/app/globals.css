@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --font-inter: "Inter", "Segoe UI", sans-serif;
     --background: 260 30% 10%; /* Deep indigo/purple */
     --foreground: 180 80% 90%; /* Light cyan for text */
     --card: 260 30% 15%;

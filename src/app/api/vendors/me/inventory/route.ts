@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import type { InventoryUpdateItem, InventoryHistory, ProductInventorySettings } from '@/lib/types';
 
 // Handler for getting vendor's inventory settings
@@ -8,6 +10,7 @@ async function getInventoryHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
 
   try {
+    requireVendor(authenticatedUser);
     if (!firestoreAdmin) {
       return NextResponse.json(
         { message: 'Firestore is not initialized' },
@@ -28,10 +31,8 @@ async function getInventoryHandler(req: AuthenticatedRequest) {
     return NextResponse.json(inventory);
   } catch (error) {
     console.error('Error fetching inventory:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch inventory settings' },
-      { status: 500 }
-    );
+    const { response } = formatApiError(error);
+    return response;
   }
 }
 
@@ -40,6 +41,7 @@ async function updateInventoryHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
 
   try {
+    requireVendor(authenticatedUser);
     if (!firestoreAdmin) {
       return NextResponse.json(
         { message: 'Firestore is not initialized' },

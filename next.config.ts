@@ -7,6 +7,7 @@ if (process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN) {
 }
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   typescript: {
     ignoreBuildErrors: true,
   },

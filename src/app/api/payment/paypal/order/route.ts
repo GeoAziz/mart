@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { createPaypalOrderSchema } from '@/lib/validation-schemas';
 import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
+import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
 // List of PayPal supported currencies (major ones)
 const SUPPORTED_PAYPAL_CURRENCIES = [
@@ -21,7 +22,7 @@ async function getPayPalAccessToken(): Promise<string> {
   
   const auth = Buffer.from(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`).toString('base64');
   
-  const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
+  const response = await fetchWithRetry(`${baseUrl}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
 
     console.log('📦 PayPal: Creating order with amount:', amountStr, 'currency:', currencyCode);
 
-    const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders`, {
+    const orderResponse = await fetchWithRetry(`${baseUrl}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

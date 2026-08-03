@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 
 export const firebaseConfig = {
@@ -35,6 +35,19 @@ if (isFirebaseConfigured) {
     
     authClient = getAuth(app);
     db = getFirestore(app);
+
+    // Point the client SDK at local Firebase emulators when running a full
+    // local stack (docker compose). Emulator hosts are exposed on localhost.
+    if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === 'true' && typeof window !== 'undefined') {
+      const authHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST ?? 'localhost:9099';
+      connectAuthEmulator(authClient, `http://${authHost}`, { disableWarnings: true });
+
+      const firestoreHost =
+        (process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST ?? 'localhost:8080').split(':')[0];
+      const firestorePort =
+        Number((process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST ?? 'localhost:8080').split(':')[1] ?? 8080);
+      connectFirestoreEmulator(db, firestoreHost, firestorePort);
+    }
 
     // Only initialize analytics in production and on client side
     if (typeof window !== 'undefined') {

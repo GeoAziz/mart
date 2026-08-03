@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getStripeClient } from '@/lib/stripe';
+import { StripePaymentIntentSchema, PayPalOrderSchema, CreateRefundRequestSchema } from '@/lib/validation-schemas';
+import { formatApiError } from '@/lib/api-errors';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const limited = await applyRateLimit(req, rateLimitPresets.payment);
+  if (limited) return limited;
+
   try {
     const stripe = getStripeClient();
 

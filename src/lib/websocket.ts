@@ -2,7 +2,9 @@ import { WebSocket } from 'ws';
 
 export interface WebSocketClient extends WebSocket {
   isAlive: boolean;
-  userId?: string;
+  userId: string;
+  role: 'customer' | 'vendor' | 'admin';
+  vendorId?: string; // set when role === 'vendor'
 }
 
 export interface WebSocketMessage {
@@ -10,10 +12,26 @@ export interface WebSocketMessage {
   payload: any;
 }
 
-export const broadcastMessage = (clients: Set<WebSocketClient>, message: WebSocketMessage) => {
+/**
+ * Send a message to a single client.
+ */
+export const sendMessage = (client: WebSocketClient, message: WebSocketMessage): void => {
+  if (client.readyState === WebSocket.OPEN) {
+    client.send(JSON.stringify(message));
+  }
+};
+
+/**
+ * Broadcast to all clients that pass the optional predicate.
+ */
+export const broadcastMessage = (
+  clients: Set<WebSocketClient>,
+  message: WebSocketMessage,
+  predicate?: (c: WebSocketClient) => boolean,
+): void => {
   const messageString = JSON.stringify(message);
   clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === WebSocket.OPEN && (!predicate || predicate(client))) {
       client.send(messageString);
     }
   });
@@ -42,24 +60,18 @@ export const startHeartbeat = (clients: Set<WebSocketClient>) => {
       ws.isAlive = false;
       ws.ping();
     });
-  }, 30000); // Check every 30 seconds
+  }, 30000);
 };
 
-// Utility to generate random metrics for demo purposes
-export const generateDemoMetrics = () => {
-  return {
-    activeUsers: Math.floor(Math.random() * 100) + 50,
-    revenue: Math.floor(Math.random() * 10000) + 5000,
-    ordersToday: Math.floor(Math.random() * 50) + 20,
-    stockAlerts: Math.floor(Math.random() * 5),
-  };
-};
+export const generateDemoMetrics = () => ({
+  activeUsers: Math.floor(Math.random() * 100) + 50,
+  revenue: Math.floor(Math.random() * 10000) + 5000,
+  ordersToday: Math.floor(Math.random() * 50) + 20,
+  stockAlerts: Math.floor(Math.random() * 5),
+});
 
-// Utility to generate random chart data
-export const generateDemoChartData = () => {
-  return {
-    timestamp: new Date().toISOString(),
-    sales: Math.floor(Math.random() * 1000) + 500,
-    visitors: Math.floor(Math.random() * 200) + 100,
-  };
-};
+export const generateDemoChartData = () => ({
+  timestamp: new Date().toISOString(),
+  sales: Math.floor(Math.random() * 1000) + 500,
+  visitors: Math.floor(Math.random() * 200) + 100,
+});

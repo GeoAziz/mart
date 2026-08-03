@@ -2,12 +2,15 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
+import { formatApiError } from '@/lib/api-errors';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
-import type { Order, OrderItem } from '@/lib/types'; // Import Order and OrderItem types
-import type { RefundRequest } from '@/app/api/refunds/route'; // Import RefundRequest type
+import type { Order, OrderItem } from '@/lib/types';
+import type { RefundRequest } from '@/app/api/refunds/route';
 import { toDate } from '@/lib/date';
 import { z } from 'zod';
 import { Timestamp } from 'firebase-admin/firestore';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
+import { writeAuditLog } from '@/lib/audit-log';
 
 const requestRefundSchema = z.object({
   orderId: z.string().min(1, "Order ID is required."),
@@ -23,6 +26,9 @@ const ELIGIBLE_ORDER_STATUSES_FOR_REFUND: Order['status'][] = ['delivered', 'shi
 
 async function submitRefundRequestHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
+
+  const limited = await applyRateLimit(req, rateLimitPresets.refund, authenticatedUser.uid);
+  if (limited) return limited;
 
   try {
     const body = await req.json();
@@ -94,11 +100,21 @@ async function submitRefundRequestHandler(req: AuthenticatedRequest) {
     };
 
     const refundDocRef = await firestoreAdmin.collection('refunds').add(newRefundRequestData);
-    
+
+    await writeAuditLog({
+      actor: authenticatedUser.uid,
+      role: authenticatedUser.role,
+      action: 'refund_requested',
+      resourceType: 'refund',
+      resourceId: refundDocRef.id,
+      before: null,
+      after: { orderId, productId, amount: newRefundRequestData.requestedAmount, status: 'Pending' },
+    });
+
     const createdRefundResponse: RefundRequest = {
       id: refundDocRef.id,
       ...newRefundRequestData,
-      requestedAt: toDate(newRefundRequestData.requestedAt) ?? new Date(), // Convert to Date for client
+      requestedAt: toDate(newRefundRequestData.requestedAt) ?? new Date(),
     };
 
     return NextResponse.json(createdRefundResponse, { status: 201 });

@@ -3,8 +3,11 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import type { UserProfile } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
+import { encryptIfConfigured, decryptIfEncrypted } from '@/lib/encryption';
 
 export interface VendorSettings {
   storeName?: string;
@@ -42,6 +45,7 @@ async function getVendorSettingsHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     if (!firestoreAdmin) {
       return NextResponse.json({ message: 'Firestore admin is not initialized.' }, { status: 500 });
     }
@@ -54,9 +58,13 @@ async function getVendorSettingsHandler(req: AuthenticatedRequest) {
     }
 
     const settingsData = settingsDocSnap.data() as VendorSettings;
+    // Decrypt M-Pesa number before sending to client
+    if (settingsData.payoutMpesaNumber) {
+      settingsData.payoutMpesaNumber = decryptIfEncrypted(settingsData.payoutMpesaNumber);
+    }
     const responseData = {
-        ...DEFAULT_VENDOR_SETTINGS, // Start with defaults to ensure all fields are present
-        ...settingsData, // Override with actual saved data
+        ...DEFAULT_VENDOR_SETTINGS,
+        ...settingsData,
         uid: vendorId,
         updatedAt: settingsData.updatedAt instanceof Timestamp ? settingsData.updatedAt.toDate() : new Date(settingsData.updatedAt || Date.now()),
     };
@@ -76,6 +84,7 @@ async function updateVendorSettingsHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const body = await req.json() as Partial<VendorSettings>;
 
     // Basic validation (can be expanded with Zod)
@@ -87,9 +96,14 @@ async function updateVendorSettingsHandler(req: AuthenticatedRequest) {
     }
     // Add more validations as needed
 
+    // Encrypt M-Pesa number at rest (KDPA 2019 PII protection)
+    const settingsToWrite = { ...body };
+    if (settingsToWrite.payoutMpesaNumber) {
+      settingsToWrite.payoutMpesaNumber = encryptIfConfigured(settingsToWrite.payoutMpesaNumber);
+    }
     const settingsDataToUpdate: Partial<VendorSettings> & { updatedAt: Date } = {
-      ...body,
-      updatedAt: new Date(), // Firestore will convert to Timestamp
+      ...settingsToWrite,
+      updatedAt: new Date(),
     };
 
     if (!firestoreAdmin) {
@@ -101,7 +115,10 @@ async function updateVendorSettingsHandler(req: AuthenticatedRequest) {
 
     const updatedSettingsSnap = await settingsDocRef.get();
     const updatedSettings = updatedSettingsSnap.data() as VendorSettings;
-     const responseData = {
+    if (updatedSettings.payoutMpesaNumber) {
+      updatedSettings.payoutMpesaNumber = decryptIfEncrypted(updatedSettings.payoutMpesaNumber);
+    }
+    const responseData = {
         ...DEFAULT_VENDOR_SETTINGS,
         ...updatedSettings,
         uid: vendorId,

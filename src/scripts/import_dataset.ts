@@ -90,19 +90,42 @@ async function run(datasetPathArg?: string) {
     });
 
     // 4) Products
+    // Rich fields (imageUrl, description, brand, sku, status, dataAiHint,
+    // additionalImageUrls, vendorId) are mapped when present in the CSV, and
+    // omitted for the sparse legacy datasets (kept backward-compatible).
+    const now = Timestamp.now();
     await writeInBatches(products, (batch, p) => {
       const id = String(p.product_id ?? p.productId ?? p.id);
       const ref = firestoreAdmin.collection('products').doc(id);
-      batch.set(ref, {
+
+      const doc: Record<string, any> = {
         name: p.name || null,
         category: p.category || null,
         price: p.price ? Number(p.price) : 0,
         stock: p.stock_quantity ? Number(p.stock_quantity) : 0,
         rating: p.rating ? Number(p.rating) : null,
-        vendorId: defaultVendorId,
+        // Prefer a per-product vendorId from the CSV; fall back to catch-all vendor
+        vendorId: p.vendorId || defaultVendorId,
         imported: true,
-        createdAt: Timestamp.now(),
-      }, { merge: true });
+        createdAt: now,
+      };
+
+      if (p.description) doc.description = p.description;
+      if (p.imageUrl) doc.imageUrl = p.imageUrl;
+      if (p.additionalImageUrls) {
+        doc.additionalImageUrls = String(p.additionalImageUrls)
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      if (p.brand) doc.brand = p.brand;
+      if (p.sku) doc.sku = p.sku;
+      if (p.status) doc.status = p.status;
+      if (p.dataAiHint) doc.dataAiHint = p.dataAiHint;
+      if (p.imageUrl || p.description) doc.updatedAt = now;
+      if (p.imageUrl || p.description) doc.dateAdded = now;
+
+      batch.set(ref, doc, { merge: true });
     });
 
     // build a product price map for order item enrichment

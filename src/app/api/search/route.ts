@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { searchProducts, getSearchSuggestions, isAlgoliaEnabled } from '@/lib/algolia-search-service';
-import { firestoreAdmin } from '@/lib/firebase-admin';
+import { searchProducts, isAlgoliaEnabled } from '@/lib/algolia-search-service';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
 
 /**
- * GET /api/search - Full-text search for products
- * Uses Algolia if configured, falls back to Firestore
+ * GET /api/search - Full-text search for products via Algolia.
+ *
+ * Returns 503 when Algolia is not configured rather than silently falling back
+ * to Firestore. Firestore does not support full-text search natively; the two
+ * sources produce inconsistent results, which is a worse UX than an honest error.
  */
 export async function GET(request: NextRequest) {
+  const limited = await applyRateLimit(request, rateLimitPresets.public);
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
@@ -32,97 +38,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try Algolia first if enabled
-    if (isAlgoliaEnabled()) {
-      const results = await searchProducts(query, {
-        category: category || undefined,
-        brand: brand || undefined,
-        minPrice,
-        maxPrice,
-        limit,
-        offset,
-        sortBy: sortBy || 'relevance',
-      });
-
-      if (results) {
-        return NextResponse.json(
-          {
-            results: results || [],
-            total: results?.length || 0,
-            source: 'algolia',
-          },
-          {
-            headers: {
-              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-            },
-          }
-        );
-      }
+    if (!isAlgoliaEnabled()) {
+      return NextResponse.json(
+        {
+          results: [],
+          total: 0,
+          message:
+            'Full-text search is unavailable. Configure ALGOLIA_APP_ID, ALGOLIA_API_KEY, and ALGOLIA_INDEX_NAME to enable it.',
+        },
+        { status: 503 }
+      );
     }
 
-    // Fallback to Firestore full-text search
-    console.log('[Search] Falling back to Firestore search');
-
-    let firestoreQuery: FirebaseFirestore.Query = firestoreAdmin.collection('products').where(
-      'status',
-      '==',
-      'active'
-    );
-
-    if (category) {
-      firestoreQuery = firestoreQuery.where('category', '==', category);
-    }
-    if (brand) {
-      firestoreQuery = firestoreQuery.where('brand', '==', brand);
-    }
-
-    const snapshot = await firestoreQuery.limit(limit * 3).get();
-    let results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    // Client-side search filtering
-    const lowerQuery = query.toLowerCase();
-    results = results.filter(
-      (product: any) =>
-        product.name?.toLowerCase().includes(lowerQuery) ||
-        product.description?.toLowerCase().includes(lowerQuery) ||
-        product.category?.toLowerCase().includes(lowerQuery)
-    );
-
-    // Apply price filters
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      results = results.filter((product: any) => {
-        const price = product.price || 0;
-        return (minPrice === undefined || price >= minPrice) && (maxPrice === undefined || price <= maxPrice);
-      });
-    }
-
-    // Apply sorting
-    results.sort((a: any, b: any) => {
-      switch (sortBy) {
-        case 'price-asc':
-          return (a.price || 0) - (b.price || 0);
-        case 'price-desc':
-          return (b.price || 0) - (a.price || 0);
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0);
-        case 'newest':
-          return (b.dateAdded?.getTime?.() || 0) - (a.dateAdded?.getTime?.() || 0);
-        default:
-          return 0;
-      }
+    const results = await searchProducts(query, {
+      category: category || undefined,
+      brand: brand || undefined,
+      minPrice,
+      maxPrice,
+      limit,
+      offset,
+      sortBy: sortBy || 'relevance',
     });
-
-    // Apply pagination
-    const paginatedResults = results.slice(offset, offset + limit);
 
     return NextResponse.json(
       {
-        results: paginatedResults || [],
-        total: results.length,
-        source: 'firestore',
+        results: results || [],
+        total: results?.length || 0,
+        source: 'algolia',
       },
       {
         headers: {

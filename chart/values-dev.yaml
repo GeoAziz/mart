@@ -1,0 +1,88 @@
+# Development environment values
+# k3s single-node local cluster
+
+replicaCount: 1
+
+image:
+  repository: mart-app
+  tag: latest
+  pullPolicy: Always  # Always rebuild in dev
+
+env:
+  NODE_ENV: development
+  DEBUG: "true"
+
+# Firebase emulator for local dev
+firebase:
+  enabled: true
+  emulator:
+    enabled: true
+    firestorePort: 9099
+    authPort: 9199
+
+# LocalStack for AWS services
+localstack:
+  enabled: true
+  endpoint: http://localstack:4566
+  services:
+    - s3
+    - dynamodb
+    - sqs
+    - sns
+
+# Redis
+redis:
+  enabled: true
+  host: redis
+  port: 6379
+  persistence:
+    enabled: false
+
+# Prometheus monitoring
+prometheus:
+  enabled: true
+  scrapeInterval: 10s
+  retention: 24h
+
+# Grafana dashboards
+grafana:
+  enabled: true
+  adminPassword: admin
+  persistence:
+    enabled: false
+
+# WebSocket server
+websocket:
+  enabled: true
+  replicaCount: 1
+  env:
+    NODE_ENV: development
+
+# Queue workers (disabled by default, enable for testing)
+queueWorkers:
+  enabled: false
+
+# Ingress for local access
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: zilamart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resources for single machine
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Service for local access
+service:
+  type: NodePort
+  nodePort: 30000

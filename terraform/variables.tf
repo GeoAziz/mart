@@ -48,3 +48,15 @@ variable "localstack_endpoint" {
   type        = string
   default     = "http://localhost:4566"
 }
+
+variable "enable_eks" {
+  description = "Enable EKS cluster (production)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_k3s_staging" {
+  description = "Enable k3s staging cluster"
+  type        = bool
+  default     = false
+}

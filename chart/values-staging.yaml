@@ -1,0 +1,130 @@
+# Staging environment values
+# k3s multi-node cluster on AWS
+
+replicaCount: 2
+
+image:
+  repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/mart-app
+  tag: staging
+  pullPolicy: IfNotPresent
+
+env:
+  NODE_ENV: staging
+  LOG_LEVEL: info
+
+# Firebase (real Cloud Firestore, not emulator)
+firebase:
+  enabled: true
+  emulator:
+    enabled: false
+
+# Real AWS services
+localstack:
+  enabled: false
+
+aws:
+  enabled: true
+  region: us-east-1
+  s3:
+    bucket: mart-staging-uploads
+  dynamodb:
+    region: us-east-1
+  sqs:
+    region: us-east-1
+
+# Redis (managed or in-cluster)
+redis:
+  enabled: true
+  host: redis
+  port: 6379
+  persistence:
+    enabled: true
+    size: 5Gi
+
+# Prometheus for monitoring
+prometheus:
+  enabled: true
+  scrapeInterval: 15s
+  retention: 7d
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+
+# Grafana dashboards
+grafana:
+  enabled: true
+  adminPassword: ${GRAFANA_PASSWORD}
+  persistence:
+    enabled: true
+    size: 2Gi
+
+# WebSocket server
+websocket:
+  enabled: true
+  replicaCount: 2
+  env:
+    NODE_ENV: staging
+
+# Queue workers enabled in staging
+queueWorkers:
+  enabled: true
+  orders:
+    replicas: 1
+  products:
+    replicas: 1
+  payments:
+    replicas: 1
+  notifications:
+    replicas: 1
+
+# Ingress for staging
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  hosts:
+    - host: staging.zilamart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: staging-tls
+      hosts:
+        - staging.zilamart.local
+
+# Production-like resources
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# Service
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx

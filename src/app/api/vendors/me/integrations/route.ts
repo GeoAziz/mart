@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import { ExportService } from '@/lib/services/export-service';
 const exportService = new ExportService();
 import { integrationService } from '@/lib/services/integration-service';
@@ -11,6 +13,7 @@ async function exportDataHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const { dataType, format } = await req.json();
     const exportData = await exportService.exportToCSV(vendorId, dataType);
     
@@ -33,6 +36,7 @@ async function importDataHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const dataType = formData.get('dataType') as string;
@@ -54,6 +58,7 @@ async function importDataHandler(req: AuthenticatedRequest) {
 // Handler for third-party integration connection
 async function connectIntegrationHandler(req: AuthenticatedRequest) {
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const { serviceType, credentials } = await req.json();
     const result = await integrationService.connectThirdPartyAnalytics(serviceType, credentials);
     return NextResponse.json(result);
@@ -66,6 +71,7 @@ async function connectIntegrationHandler(req: AuthenticatedRequest) {
 // Handler for integration disconnection
 async function disconnectIntegrationHandler(req: AuthenticatedRequest) {
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const { serviceType } = await req.json();
     const result = await integrationService.disconnectService(serviceType);
     return NextResponse.json(result);
@@ -81,6 +87,7 @@ async function generateReportHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const { templateId, dateRange } = await req.json();
     const filter = {
       vendors: [vendorId],

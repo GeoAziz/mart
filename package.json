@@ -19,7 +19,14 @@
     "seed:vendor-data": "tsx src/scripts/seed-vendor-data.ts",
     "ws:start": "tsx src/server/websocket.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run ws:start\"",
-    "import:csv": "tsx src/scripts/import_dataset.ts synthetic-ecommerce-dataset/small_dataset"
+    "import:csv": "tsx src/scripts/import_dataset.ts synthetic-ecommerce-dataset/small_dataset",
+    "catalog:fetch": "tsx src/scripts/fetch-real-catalog.ts",
+    "import:real-catalog": "tsx src/scripts/import_dataset.ts synthetic-ecommerce-dataset/real_catalog",
+    "queue:workers": "tsx src/scripts/queue-workers.ts",
+    "queue:orders": "tsx -e \"import { startOrderWorker } from '@/lib/queue-service'; startOrderWorker()\"",
+    "queue:products": "tsx -e \"import { startProductWorker } from '@/lib/queue-service'; startProductWorker()\"",
+    "queue:payments": "tsx -e \"import { startPaymentWorker } from '@/lib/queue-service'; startPaymentWorker()\"",
+    "queue:notifications": "tsx -e \"import { startNotificationWorker } from '@/lib/queue-service'; startNotificationWorker()\""
   },
 
   "dependencies": {
@@ -86,6 +93,9 @@
     "regression": "^2.0.1",
     "simple-statistics": "^7.8.8",
     "stripe": "^18.3.0",
+    "@aws-sdk/client-sqs": "^3.540.0",
+    "@aws-sdk/client-s3": "^3.540.0",
+    "@aws-sdk/client-dynamodb": "^3.540.0",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^9.0.1",
@@ -121,6 +131,7 @@
     "tsx": "^4.16.2",
     "typescript": "^5",
     "util": "^0.12.5",
+    "vite": "^5.4.21",
     "vitest": "^0.34.4",
     "webpack": "^5.99.9"
   },

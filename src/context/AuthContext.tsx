@@ -2,11 +2,12 @@
 
 import type { User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, type ReactNode, useCallback, useRef } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
+  onIdTokenChanged,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
@@ -142,6 +143,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Wrap fetch to silently retry with a force-refreshed token on 401
+  const authFetch = useCallback(async (url: string, init: RequestInit = {}, user: User): Promise<Response> => {
+    const token = await user.getIdToken();
+    const res = await fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+    if (res.status === 401) {
+      const freshToken = await user.getIdToken(true);
+      return fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${freshToken}` } });
+    }
+    return res;
+  }, []);
+
   // Fetch cart only for customers
   const fetchCart = useCallback(async (user: User, profile: UserProfile | null) => {
     if (profile && profile.role !== 'customer') {
@@ -151,8 +163,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsCartLoading(true);
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/cart', { headers: { 'Authorization': `Bearer ${token}` } });
+      const response = await authFetch('/api/cart', {}, user);
       if (!response.ok) throw new Error('Failed to fetch cart');
       const cartData = await response.json();
       setCart(cartData.items || []);
@@ -162,7 +173,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsCartLoading(false);
     }
-  }, []);
+  }, [authFetch]);
   
   // Fetch wishlist only for customers
   const fetchWishlist = useCallback(async (user: User, profile: UserProfile | null) => {
@@ -173,8 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsWishlistLoading(true);
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/users/me/wishlist', { headers: { 'Authorization': `Bearer ${token}` } });
+      const response = await authFetch('/api/users/me/wishlist', {}, user);
       if (!response.ok) throw new Error('Failed to fetch wishlist');
       const wishlistData: WishlistItemApiType[] = await response.json();
       setWishlistItems(wishlistData.map(item => ({...item, addedAt: new Date(item.addedAt)})));
@@ -184,6 +194,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsWishlistLoading(false);
     }
+  }, [authFetch]);
+
+  // Keep the token warm: Firebase refreshes it automatically but onIdTokenChanged
+  // fires after each silent refresh so we always have a current token in hand
+  // before the next API call — preventing 401s from stale tokens.
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsubscribeToken = onIdTokenChanged(authClient, async (user) => {
+      if (user) {
+        // Pre-fetch a fresh token so it's ready for the next request
+        await user.getIdToken(false);
+      }
+    });
+    return () => unsubscribeToken();
   }, []);
 
   useEffect(() => {

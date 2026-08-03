@@ -27,10 +27,13 @@ function getServiceAccountFromEnv(): ServiceAccount {
 // Only initialize on server side
 if (typeof window === 'undefined' && !admin.apps.length) {
   try {
-    // Try to load service account from file (for local dev), else use env vars (for Vercel)
+    // Emulator mode: FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST
+    // are set (docker compose local stack), so no service account is required.
+    const emulatorMode = !!(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
     const keyPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
-    let serviceAccount: ServiceAccount;
+    let serviceAccount: ServiceAccount | null = null;
 
+    // Try to load service account from file (for local dev), else use env vars (for Vercel)
     if (fs.existsSync(keyPath)) {
       const rawKey = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
       // Handle both camelCase and snake_case keys from Firebase JSON
@@ -54,16 +57,23 @@ if (typeof window === 'undefined' && !admin.apps.length) {
         clientEmail,
         privateKey,
       };
-    } else {
+    } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
       serviceAccount = getServiceAccountFromEnv();
     }
 
+    if (!serviceAccount && !emulatorMode) {
+      throw new Error(
+        '[Firebase Admin] Missing Firebase credentials. Provide serviceAccountKey.json or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY, or run against emulators (FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST).',
+      );
+    }
+
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount as ServiceAccount),
+      projectId: process.env.FIREBASE_PROJECT_ID || 'zilacart-local',
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      ...(serviceAccount ? { credential: admin.credential.cert(serviceAccount as ServiceAccount) } : {}),
     });
 
-    console.log('✅ Firebase Admin initialized');
+    console.log(`✅ Firebase Admin initialized${emulatorMode ? ' (emulator mode)' : ''}`);
   } catch (error) {
     console.error('❌ Firebase Admin initialization error:', error);
     throw error;

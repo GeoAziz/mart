@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import type { LedgerEntry, Payout } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -31,6 +33,7 @@ async function getVendorEarningsSummaryHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const ledgerSnapshot = await firestoreAdmin.collection('users').doc(vendorId).collection('ledgerEntries').get();
     const ledgerEntries = ledgerSnapshot.docs.map(doc => doc.data() as LedgerEntry);
 

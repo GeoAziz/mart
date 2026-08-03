@@ -1,5 +1,5 @@
 import { logger } from './logging-service';
-import { cacheService } from './caching-service';
+import { syncCache as cacheService } from '@/lib/cache-service';
 import { errorHandler } from './error-handling-service';
 import * as tf from '@tensorflow/tfjs-node';
 

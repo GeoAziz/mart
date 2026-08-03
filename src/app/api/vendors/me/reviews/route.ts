@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import type { Timestamp } from 'firebase-admin/firestore';
 import { toDate } from '@/lib/date';
 
@@ -39,6 +41,7 @@ async function getVendorReviewsHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const reviewsSnapshot = await firestoreAdmin
       .collection('reviews')
       .where('vendorId', '==', vendorId)

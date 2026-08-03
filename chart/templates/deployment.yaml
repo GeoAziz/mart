@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zilamart.fullname" . }}
+  labels:
+    {{- include "zilamart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zilamart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "zilamart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "zilamart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        {{- if .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        {{- end }}
+        {{- if .Values.readinessProbe }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        env:
+        - name: NODE_ENV
+          value: {{ .Values.env.NODE_ENV | quote }}
+        {{- if .Values.env.DEBUG }}
+        - name: DEBUG
+          value: {{ .Values.env.DEBUG | quote }}
+        {{- end }}
+        {{- if .Values.env.LOG_LEVEL }}
+        - name: LOG_LEVEL
+          value: {{ .Values.env.LOG_LEVEL | quote }}
+        {{- end }}
+        {{- if .Values.firebase.emulator.enabled }}
+        - name: FIRESTORE_EMULATOR_HOST
+          value: "{{ .Values.firebase.emulator.host | default "localhost" }}:{{ .Values.firebase.emulator.firestorePort }}"
+        - name: FIREBASE_AUTH_EMULATOR_HOST
+          value: "{{ .Values.firebase.emulator.host | default "localhost" }}:{{ .Values.firebase.emulator.authPort }}"
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - name: REDIS_URL
+          value: "redis://{{ .Values.redis.host }}:{{ .Values.redis.port }}/0"
+        {{- end }}
+        {{- if .Values.localstack.enabled }}
+        - name: AWS_ENDPOINT_URL
+          value: {{ .Values.localstack.endpoint }}
+        - name: AWS_ACCESS_KEY_ID
+          value: "test"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "test"
+        {{- end }}
+        {{- if .Values.aws.enabled }}
+        - name: AWS_REGION
+          value: {{ .Values.aws.region }}
+        - name: AWS_S3_BUCKET
+          value: {{ .Values.aws.s3.bucket }}
+        {{- end }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: app-data
+          mountPath: /app/data
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: app-data
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

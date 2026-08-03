@@ -2,10 +2,19 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
+import { createApiError, ErrorCodes } from '@/lib/api-errors';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Order } from '@/lib/types';
 import admin from 'firebase-admin';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
+import { writeAuditLog } from '@/lib/audit-log';
+import { fetchWithRetry } from '@/lib/fetch-with-retry';
+
+const PAYPAL_BASE =
+  process.env.PAYPAL_ENV === 'production'
+    ? 'https://api.paypal.com'
+    : 'https://api.sandbox.paypal.com';
 
 export interface RefundRequest {
   id?: string; // Firestore document ID
@@ -62,7 +71,7 @@ async function getPayPalAccessToken(): Promise<string> {
   }
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const response = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
+  const response = await fetchWithRetry(`${PAYPAL_BASE}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${auth}`,
@@ -83,8 +92,8 @@ async function refundPayPalPayment(
 ): Promise<{ refundId: string; status: string }> {
   const accessToken = await getPayPalAccessToken();
 
-  const response = await fetch(
-    `https://api.sandbox.paypal.com/v2/payments/captures/${captureId}/refund`,
+  const response = await fetchWithRetry(
+    `${PAYPAL_BASE}/v2/payments/captures/${captureId}/refund`,
     {
       method: 'POST',
       headers: {
@@ -128,7 +137,7 @@ async function refundStripePayment(
     params.append('amount', (amount * 100).toString()); // Stripe uses cents
   }
 
-  const response = await fetch('https://api.stripe.com/v1/refunds', {
+  const response = await fetchWithRetry('https://api.stripe.com/v1/refunds', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${stripeKey}`,
@@ -156,6 +165,9 @@ async function processRefundHandler(req: AuthenticatedRequest) {
   if (!authenticatedUser) {
     return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
   }
+
+  const limited = await applyRateLimit(req, rateLimitPresets.refund, authenticatedUser.uid);
+  if (limited) return limited;
 
   try {
     const body = await req.json() as { orderId: string; itemId?: string; reason: string };
@@ -255,6 +267,8 @@ async function processRefundHandler(req: AuthenticatedRequest) {
       );
     }
 
+    const newOrderStatus = refundResult.status === 'completed' ? 'refunded' : 'refund_pending';
+
     // Update order with refund details
     await ordersRef.doc(orderId).update({
       refundDetails: {
@@ -265,7 +279,17 @@ async function processRefundHandler(req: AuthenticatedRequest) {
         initiatedAt: new Date(),
         initiatedBy: authenticatedUser.uid,
       },
-      status: refundResult.status === 'completed' ? 'refunded' : 'refund_pending',
+      status: newOrderStatus,
+    });
+
+    await writeAuditLog({
+      actor: authenticatedUser.uid,
+      role: authenticatedUser.role,
+      action: 'refund_processed',
+      resourceType: 'order',
+      resourceId: orderId,
+      before: { status: order.status },
+      after: { status: newOrderStatus, refundId: refundResult.refundId, amount: refundAmount },
     });
 
     return NextResponse.json(refundResult, { status: 200 });

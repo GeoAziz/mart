@@ -51,6 +51,45 @@ npm start
 
 Deploy to Vercel: Connect your repo and set environment variables in the Vercel dashboard.
 
+### Docker
+The Docker stack uses **Compose profiles** to separate concerns. `docker-compose.yml` defines the core app; emulators and monitoring are opt-in profiles.
+
+| Profile | Includes |
+|---------|----------|
+| *(none)* | `app`, `websocket`, `redis` |
+| `dev` | + `firebase-emulator`, `localstack` |
+| `monitoring` | + `prometheus`, `prometheus-pushgateway`, `grafana` |
+
+```bash
+# Core stack only (app + websocket + redis)
+docker compose up --build
+
+# Full local dev stack (adds Firebase emulators + LocalStack)
+docker compose --profile dev up --build
+
+# Add monitoring on top
+docker compose --profile dev --profile monitoring up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Next.js app | http://localhost:3000 |
+| WebSocket | ws://localhost:3001 |
+| Firebase emulator UI | http://localhost:4000 (dev profile) |
+| LocalStack | http://localhost:4566 (dev profile) |
+| Prometheus | http://localhost:9090 (monitoring profile) |
+| Pushgateway | http://localhost:9091 (monitoring profile) |
+| Grafana | http://localhost:3002, admin/admin (monitoring profile) |
+| Redis | localhost:6379 |
+
+The stack targets the Firebase emulators by default, so it works with zero external configuration. To use real Firebase instead of the emulators, set `NEXT_PUBLIC_FIREBASE_EMULATOR=false` and unset `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` in the compose environment, then provide real `NEXT_PUBLIC_FIREBASE_*` and `FIREBASE_*` values in your `.env`.
+
+Load-testing overlay (adds k6 + Jaeger, requires monitoring profile):
+```bash
+docker compose -f docker-compose.yml -f docker-compose.load-test.yml \
+  --profile monitoring --profile load-test up
+```
+
 ---
 
 ## 📁 Project Structure
@@ -278,7 +317,7 @@ All AI features will now be active!
 - Check `docs/03-deployment/` for environment setup
 
 ### Issue: Docker build fails
-- Review `infrastructure/docker/README.md`
+- Review the root `Dockerfile` / `docker-compose.yml`
 - Check Docker versions: `docker --version`
 
 For more help, see the [documentation](docs/README.md).

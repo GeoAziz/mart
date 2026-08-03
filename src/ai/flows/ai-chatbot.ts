@@ -18,6 +18,7 @@ import type { Order, Product } from '@/lib/types';
 
 const AIChatbotInputSchema = z.object({
   question: z.string().describe('The question from the user.'),
+  userId: z.string().describe('The authenticated UID of the user sending the question. Used to scope order lookups.'),
 });
 export type AIChatbotInput = z.infer<typeof AIChatbotInputSchema>;
 
@@ -32,16 +33,18 @@ export async function aiChatbot(input: AIChatbotInput): Promise<AIChatbotOutput>
 }
 
 
-// Tool to get order status
+// Tool to get order status — scoped to the authenticated user's orders only
 const getOrderStatus = ai.defineTool({
   name: 'getOrderStatus',
-  description: 'Gets the current status of a customer\'s order using the Order ID.',
+  description: 'Gets the current status of a customer\'s order using the Order ID. Only returns status for orders that belong to the requesting user.',
   inputSchema: z.object({
     orderId: z.string().describe('The unique identifier for the order, like ORD123456.'),
+    userId: z.string().describe('The UID of the authenticated user — used to verify order ownership.'),
   }),
   outputSchema: z.object({
     status: z.string(),
     found: z.boolean(),
+    unauthorized: z.boolean().optional(),
   }),
 }, async (input) => {
   try {
@@ -50,6 +53,12 @@ const getOrderStatus = ai.defineTool({
       return { found: false, status: 'Not Found' };
     }
     const orderData = orderDoc.data() as Order;
+
+    // Enforce ownership — never reveal another user's order details
+    if (orderData.userId !== input.userId) {
+      return { found: false, status: 'Not Found', unauthorized: true };
+    }
+
     return {
       found: true,
       status: orderData.status,
@@ -78,7 +87,7 @@ const getProductRecommendations = ai.defineTool({
       .where('status', '==', 'active')
       .limit(3)
       .get();
-    
+
     if (productsSnapshot.empty) {
       return { products: [] };
     }
@@ -107,8 +116,9 @@ const aiChatbotPrompt = ai.definePrompt({
 You have access to several tools to answer specific questions. Analyze the user's query and decide if a tool is appropriate.
 
 User's Question: {{{question}}}
+Authenticated User ID: {{{userId}}}
 
-1.  **Order Status:** If the user asks about the status of their order and provides an Order ID (or something that looks like one), use the \`getOrderStatus\` tool.
+1.  **Order Status:** If the user asks about the status of their order and provides an Order ID (or something that looks like one), use the \`getOrderStatus\` tool with both the orderId and the userId above.
     - If the tool finds the order, tell the user the status clearly (e.g., "Your order is currently 'Shipped'.").
     - If the tool returns \`found: false\`, inform the user that you couldn't find an order with that ID and ask them to double-check it.
 

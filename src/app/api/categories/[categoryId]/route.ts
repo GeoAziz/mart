@@ -54,16 +54,32 @@ async function deleteCategoryHandler(req: AuthenticatedRequest, context: { param
   if (!categoryId) {
     return NextResponse.json({ message: 'Category ID is missing.' }, { status: 400 });
   }
-  // TODO: Before deleting, check if any products are using this category.
-  // If so, either block the deletion or reassign products to a default category.
-  // For now, we will proceed with a simple delete.
 
   try {
     const docRef = firestoreAdmin.collection('categories').doc(categoryId);
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
-        return NextResponse.json({ message: 'Category not found.' }, { status: 404 });
+      return NextResponse.json({ message: 'Category not found.' }, { status: 404 });
     }
+
+    const categoryName = (docSnap.data() as { name?: string }).name || categoryId;
+
+    // Block deletion if active products reference this category
+    const productsSnap = await firestoreAdmin
+      .collection('products')
+      .where('category', '==', categoryName)
+      .limit(1)
+      .get();
+
+    if (!productsSnap.empty) {
+      return NextResponse.json(
+        {
+          message: `Cannot delete category "${categoryName}" — it is still referenced by one or more products. Reassign or remove those products first.`,
+        },
+        { status: 409 }
+      );
+    }
+
     await docRef.delete();
     return NextResponse.json({ message: 'Category deleted successfully.' }, { status: 200 });
   } catch (error: any) {

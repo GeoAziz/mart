@@ -1,6 +1,6 @@
 import WebSocket, { WebSocketServer as WSWebSocketServer } from 'ws';
 import { logger } from './logging-service';
-import { cacheService } from './caching-service';
+import { syncCache as cacheService } from '@/lib/cache-service';
 import { errorHandler } from './error-handling-service';
 
 export class RealTimeAnalyticsService {

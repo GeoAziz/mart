@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 
 async function getDashboardHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
@@ -10,6 +12,7 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
   }
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     // Get vendor data
     const vendorId = authenticatedUser.uid;
     const vendorDoc = await firestoreAdmin.collection('vendors').doc(vendorId).get();

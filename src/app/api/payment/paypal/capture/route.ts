@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
+import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
 // PayPal API base URLs
 const PAYPAL_API_BASE = {
@@ -14,7 +15,7 @@ async function getPayPalAccessToken(): Promise<string> {
   
   const auth = Buffer.from(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`).toString('base64');
   
-  const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
+  const response = await fetchWithRetry(`${baseUrl}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
 
     let captureResponse;
     try {
-      captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+      captureResponse = await fetchWithRetry(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

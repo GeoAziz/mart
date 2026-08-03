@@ -2,12 +2,14 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireAuthentication, requireCustomerOwnership } from '@/lib/authorization';
 import admin from 'firebase-admin';
 import type { Order, OrderItem, ShippingAddress, Promotion, Product } from '@/lib/types';
 import { sendOrderConfirmation } from '@/lib/email';
 import { getIdempotencyResult, storeIdempotencyResult } from '@/lib/idempotency';
 import { createOrderSchema } from '@/lib/validation-schemas';
 import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
   const data = doc.data() as Omit<Order, 'id'>;
@@ -55,6 +57,9 @@ function safeParseDate(value: any): Date | undefined {
 
 async function createOrderHandler(req: AuthenticatedRequest) {
   const authenticatedUser = req.userProfile;
+
+  const limited = await applyRateLimit(req, rateLimitPresets.orders, authenticatedUser.uid);
+  if (limited) return limited;
 
   try {
     const idempotencyKey = req.headers.get('x-idempotency-key');

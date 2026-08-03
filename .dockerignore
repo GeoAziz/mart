@@ -1,93 +1,30 @@
 # Version control
 .git
-.gitignore
 .github
 
 # Dependencies
 node_modules
 .npm
 npm-debug.log
-yarn.lock
-package-lock.json
-mlops_venv
-__pycache__
-*.pyc
-.pytest_cache
 
-# IDE and editor files
-.vscode
-.idea
-*.swp
-*.swo
-*~
-.DS_Store
-*.sublime-project
-*.sublime-workspace
-
-# Testing
-tests
-test_screenshots
-pytest.ini
-.coverage
-htmlcov
-
-# Documentation
-docs
-README.md
-*.md
-
-# Development files
-.env
-.env.local
-.env.*.local
+# Build artifacts
 .next
-.nuxt
+.cache
+.turbo
 dist
 build
 out
 
-# Docker and CI/CD
-docker-compose*.yml
-.dockerignore
-Dockerfile*
-.github
-.gitlab-ci.yml
-Makefile*
+# Environment
+.env*
+!env.example
+serviceAccountKey.json
 
-# Python virtual environments
-venv
-env
-.venv
-mlops_venv
-
-# Terraform and IaC
-terraform/.terraform
-terraform/*.tfstate
-terraform/*.tfvars
-terraform/override.tf*
-
-# Kubernetes and Helm
-k8s/*.yaml
-chart/
-
-# Temporary files
-*.tmp
-*.log
-mlops.log
-workspace
-
-# Development and local setup
-scripts
-bin
-fix_layout.ps1
-LOCAL_SETUP.md
-local-setup.sh
-
-# Database and artifacts
-mlflow_artifacts
-mlflow_backend
-.localstack
-
-# Build artifacts
-.turbo
-.cache
+# Tooling/Docs/Testing
+docs
+tests
+mlops
+pytest.ini
+pytest_cache
+*.pyc
+__pycache__

@@ -1,4 +1,4 @@
-import { cacheService } from '@/lib/services/caching-service';
+import { syncCache as cacheService } from '@/lib/cache-service';
 import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import type { Product } from '@/lib/types';
 

@@ -11,7 +11,7 @@ type CacheValue = string | object | null | undefined;
 let redisClient: RedisClientType | null = null;
 let isRedisConnected = false;
 
-const nodeCache = new NodeCache({
+export const nodeCache = new NodeCache({
   stdTTL: 300, // 5 minute default TTL
   checkperiod: 60,
   useClones: false,
@@ -145,6 +145,68 @@ export async function closeRedis(): Promise<void> {
     isRedisConnected = false;
   }
 }
+
+/**
+ * Atomic sliding-window counter for rate limiting.
+ * Returns the new count after incrementing. Uses Redis INCR+EXPIRE when Redis
+ * is available, otherwise falls back to nodeCache (in-process only).
+ *
+ * @param key   Unique rate-limit bucket key (e.g. "rl:uid:xyz")
+ * @param ttlMs Window size in milliseconds
+ */
+export async function rateLimitIncr(key: string, ttlMs: number): Promise<number> {
+  const ttlSec = Math.ceil(ttlMs / 1000);
+  try {
+    if (isRedisConnected && redisClient) {
+      const count = await redisClient.incr(key);
+      if (count === 1) {
+        // First request in this window — set TTL atomically
+        await redisClient.expire(key, ttlSec);
+      }
+      return count;
+    }
+  } catch (err) {
+    console.warn('[Cache] Redis rateLimitIncr error, falling back to nodeCache:', err);
+  }
+
+  // nodeCache fallback (per-process only)
+  const entry = nodeCache.get<number>(key);
+  if (entry === undefined) {
+    nodeCache.set(key, 1, ttlSec);
+    return 1;
+  }
+  const next = entry + 1;
+  nodeCache.set(key, next, ttlSec);
+  return next;
+}
+
+/**
+ * Synchronous helpers that always hit the in-process NodeCache.
+ * Use these when you need sync access and Redis latency is unacceptable
+ * (e.g. inside ML inference hot-paths).
+ */
+export const syncCache = {
+  get: <T>(key: string): T | undefined => nodeCache.get<T>(key),
+  set: <T>(key: string, value: T, ttlSeconds = 300): void => { nodeCache.set(key, value, ttlSeconds); },
+  del: (key: string): void => { nodeCache.del(key); },
+  /** Alias for del — matches the CachingService.invalidate() API */
+  invalidate: (key: string): void => { nodeCache.del(key); },
+  keys: (): string[] => nodeCache.keys(),
+  delPattern: (pattern: string): void => {
+    nodeCache.keys().filter(k => k.includes(pattern)).forEach(k => nodeCache.del(k));
+  },
+  /** Alias for delPattern — matches the CachingService.invalidatePattern() API */
+  invalidatePattern: (pattern: string): void => {
+    nodeCache.keys().filter(k => k.includes(pattern)).forEach(k => nodeCache.del(k));
+  },
+  getOrSet: async <T>(key: string, fetchFn: () => Promise<T>, ttlSeconds = 300): Promise<T> => {
+    const cached = nodeCache.get<T>(key);
+    if (cached !== undefined) return cached;
+    const value = await fetchFn();
+    nodeCache.set(key, value, ttlSeconds);
+    return value;
+  },
+};
 
 /**
  * Cache-aside pattern helper

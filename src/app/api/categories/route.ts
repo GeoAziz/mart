@@ -9,6 +9,7 @@ import { toDate } from '@/lib/date';
 import type { Category } from '@/lib/types';
 import { cacheAside } from '@/lib/cache-service';
 import { getProductCategories, invalidateCategoryCache } from '@/lib/products-catalog-service';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
 
 export const revalidate = 300; // ISR: revalidate every 5 minutes
 
@@ -29,6 +30,9 @@ function mapCategoryDocument(doc: FirebaseFirestore.DocumentSnapshot): Category 
 
 // GET all categories with caching
 export async function GET(req: NextRequest) {
+  const limited = await applyRateLimit(req, rateLimitPresets.public);
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(req.url);
     const includeCount = searchParams.get('includeCount') === 'true';

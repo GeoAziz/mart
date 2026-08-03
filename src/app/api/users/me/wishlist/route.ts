@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireAuthentication, requireCustomerOwnership } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 // Remove type import for Timestamp to avoid duplicate/conflict
 import type { Product } from '@/lib/types';
 

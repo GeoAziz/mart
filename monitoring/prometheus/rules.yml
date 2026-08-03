@@ -1,0 +1,109 @@
+groups:
+  - name: application
+    interval: 30s
+    rules:
+      # High error rate alert
+      - alert: HighErrorRate
+        expr: rate(http_request_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # High latency alert
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, http_request_duration_ms) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "p95 latency is {{ $value }}ms (threshold: 1000ms)"
+
+      # High database query time
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, db_query_duration_ms) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "p95 query time is {{ $value }}ms (threshold: 500ms)"
+
+      # Cache miss rate too high
+      - alert: HighCacheMissRate
+        expr: rate(cache_misses_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) > 0.3
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "High cache miss rate"
+          description: "Cache miss rate is {{ $value | humanizePercentage }} (threshold: 30%)"
+
+      # Queue depth too high
+      - alert: HighQueueDepth
+        expr: queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High message queue depth"
+          description: "Queue depth is {{ $value }} messages"
+
+      # Instance down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute"
+
+  - name: payment
+    interval: 30s
+    rules:
+      # Payment failure rate alert
+      - alert: HighPaymentFailureRate
+        expr: rate(payments_processed_total{status="failed"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+
+      # No orders processed alert
+      - alert: NoOrdersProcessed
+        expr: increase(orders_created_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No orders processed in the last hour"
+          description: "Order creation rate has dropped to zero"
+
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # Low memory alert
+      - alert: LowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low memory available"
+          description: "Available memory is {{ $value | humanizePercentage }}% (threshold: 10%)"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"

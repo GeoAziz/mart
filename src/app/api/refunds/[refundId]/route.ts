@@ -5,6 +5,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { z } from 'zod';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { RefundRequest, Order, LedgerEntry } from '@/lib/types';
+import { writeAuditLog } from '@/lib/audit-log';
 
 const refundUpdateSchema = z.object({
   status: z.enum(['Approved', 'Denied', 'Processing']),
@@ -114,6 +115,16 @@ async function updateRefundHandler(
 
     const updatedDocSnap = await refundDocRef.get();
     const updatedRefundResponse = mapRefundDocument(updatedDocSnap);
+
+    await writeAuditLog({
+      actor: req.userProfile.uid,
+      role: req.userProfile.role,
+      action: 'refund_status_updated',
+      resourceType: 'refund',
+      resourceId: refundId,
+      before: null,
+      after: { status, adminNotes: adminNotes ?? null, transactionId: transactionId ?? null },
+    });
 
     return NextResponse.json(updatedRefundResponse, { status: 200 });
 

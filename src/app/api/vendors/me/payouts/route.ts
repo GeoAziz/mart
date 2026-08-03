@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import type { Payout, LedgerEntry } from '@/lib/types';
+import { writeAuditLog } from '@/lib/audit-log';
 export type { Payout };
 
 function safeParseDate(value: any): Date | undefined {
@@ -28,6 +31,7 @@ function mapPayoutDocument(doc: FirebaseFirestore.DocumentSnapshot): Payout {
 async function getVendorPayoutsHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
   try {
+    requireVendor(req.userProfile);
     if (!firestoreAdmin) {
       return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
     }
@@ -53,6 +57,7 @@ const requestPayoutSchema = z.object({
 async function requestPayoutHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
   try {
+    requireVendor(req.userProfile);
     if (!firestoreAdmin) {
       return NextResponse.json({ message: 'Firestore is not initialized.' }, { status: 500 });
     }
@@ -107,6 +112,16 @@ async function requestPayoutHandler(req: AuthenticatedRequest) {
       date: newPayoutData.date.toDate(),
       requestedAt: newPayoutData.requestedAt.toDate(),
     };
+
+    await writeAuditLog({
+      actor: vendorId,
+      role: req.userProfile.role,
+      action: 'payout_requested',
+      resourceType: 'payout',
+      resourceId: newPayoutDocRef.id,
+      before: null,
+      after: { amount: requestedAmount, method, status: 'Pending' },
+    });
 
     return NextResponse.json({
         message: 'Payout request submitted successfully. It will be processed by an admin.',

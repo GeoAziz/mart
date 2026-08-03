@@ -2,7 +2,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
+import { createApiError, ErrorCodes } from '@/lib/api-errors';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { createApiError, ErrorCodes } from '@/lib/api-errors';
 import type { Payout } from '@/app/api/vendors/me/payouts/route';
 import { Timestamp } from 'firebase-admin/firestore';
 

@@ -1,0 +1,110 @@
+{
+  "dashboard": {
+    "title": "ZilaCart App Performance",
+    "description": "Real-time monitoring of application performance and business metrics",
+    "tags": ["app", "performance", "realtime"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_request_errors_total[5m])"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Request Duration (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, http_request_duration_ms)"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Orders Created (1h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(orders_created_total[1h])"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Products Uploaded (1h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(products_uploaded_total[1h])"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Queue Depth",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "queue_depth"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Database Query Duration (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, db_query_duration_ms)"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Payment Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(payments_processed_total{status=\"success\"}[1h]) / rate(payments_processed_total[1h])"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "External API Calls",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(external_api_calls_total[5m])"
+          }
+        ]
+      }
+    ]
+  }
+}

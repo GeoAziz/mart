@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
-import type { NextRequest } from 'next/server'; // Ensure NextRequest is imported
+import type { NextRequest } from 'next/server';
+import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
 export type Product = import('@/lib/types').Product;
 import type { Timestamp } from 'firebase-admin/firestore';
 
@@ -40,6 +41,9 @@ function mapProductDocument(doc: FirebaseFirestore.DocumentSnapshot): Product {
 
 // GET handler with server-side filtering, sorting, and pagination
 export async function GET(request: NextRequest) {
+  const limited = await applyRateLimit(request, rateLimitPresets.public);
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');

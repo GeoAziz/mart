@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { requireVendor, requireAdmin } from '@/lib/authorization';
+import { formatApiError } from '@/lib/api-errors';
 import { reportingService } from '@/lib/services/reporting-service';
 
 // Handler for creating report templates
@@ -8,6 +10,7 @@ async function createTemplateHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const templateData = await req.json();
     const template = await reportingService.createReportTemplate(vendorId, templateData);
     return NextResponse.json(template);
@@ -23,6 +26,7 @@ async function getTemplatesHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const templates = await reportingService.getReportTemplates(vendorId);
     return NextResponse.json(templates);
   } catch (error) {
@@ -37,6 +41,7 @@ async function savePresetHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const { name, filters } = await req.json();
     const preset = await reportingService.saveFilterPreset(vendorId, name, filters);
     return NextResponse.json(preset);
@@ -52,6 +57,7 @@ async function getPresetsHandler(req: AuthenticatedRequest) {
   const vendorId = authenticatedUser.uid;
 
   try {
+    requireVendor(authenticatedUser || req.userProfile);
     const presets = await reportingService.getFilterPresets(vendorId);
     return NextResponse.json(presets);
   } catch (error) {

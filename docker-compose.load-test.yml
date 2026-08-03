@@ -1,0 +1,46 @@
+# Load-testing overlay for the mart stack.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.load-test.yml \
+#     --profile monitoring --profile load-test up
+#
+# Requires the base docker-compose.yml (mart-network + monitoring services).
+
+services:
+  # k6 Load Testing Service
+  k6:
+    image: grafana/k6:latest
+    container_name: mart-k6
+    volumes:
+      - ./load-tests:/scripts:ro
+    environment:
+      - BASE_URL=http://app:3000
+      - K6_VUS=100
+      - K6_DURATION=5m
+    command: run /scripts/k6-load-test.js
+    depends_on:
+      app:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    networks:
+      - mart-network
+    profiles:
+      - load-test
+
+  # Additional monitoring for load tests
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: mart-jaeger
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    networks:
+      - mart-network
+    profiles:
+      - load-test
+
+networks:
+  mart-network:
+    external: true
