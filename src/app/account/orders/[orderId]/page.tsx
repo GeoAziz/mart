@@ -17,6 +17,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Order as OrderType, OrderItem } from '@/lib/types';
+import { toDate } from '@/lib/date';
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -218,7 +219,7 @@ export default function OrderDetailPage() {
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <div>
               <CardTitle className="text-2xl font-headline text-glow-primary">Order #{order.id}</CardTitle>
-              <CardDescription className="text-muted-foreground">Order placed on: {new Date(order.createdAt).toLocaleDateString()}</CardDescription>
+              <CardDescription className="text-muted-foreground">Order placed on: {toDate(order.createdAt)?.toLocaleDateString() ?? 'N/A'}</CardDescription>
             </div>
             <Badge variant="outline" className={`text-lg px-4 py-1.5 ${getStatusBadgeVariant(order.status)}`}>
               {order.status.charAt(0).toUpperCase() + order.status.slice(1)}

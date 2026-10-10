@@ -23,8 +23,8 @@ function mapCategoryDocument(doc: FirebaseFirestore.DocumentSnapshot): Category 
   return {
     id: doc.id,
     ...data,
-    createdAt: toDate(data.createdAt) ?? new Date(data.createdAt || Date.now()),
-    updatedAt: toDate(data.updatedAt) ?? new Date(data.updatedAt || Date.now()),
+    createdAt: toDate(data.createdAt) ?? new Date(),
+    updatedAt: toDate(data.updatedAt) ?? new Date(),
   };
 }
 
@@ -101,8 +101,8 @@ async function createCategoryHandler(req: AuthenticatedRequest) {
     // Ensure dates are Date objects for client response
     const clientResponse = {
         ...createdCategory,
-        createdAt: new Date(createdCategory.createdAt),
-        updatedAt: new Date(createdCategory.updatedAt),
+        createdAt: toDate(createdCategory.createdAt) ?? new Date(),
+        updatedAt: toDate(createdCategory.updatedAt) ?? new Date(),
     };
 
     return NextResponse.json(clientResponse, { status: 201 });

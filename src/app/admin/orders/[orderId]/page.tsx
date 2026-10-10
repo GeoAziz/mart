@@ -303,7 +303,7 @@ export default function AdminOrderDetailPage() {
                 {order.shippingAddress ? (
                   <>
                     <p className="font-medium text-foreground">{order.shippingAddress.fullName}</p>
-                    <p>{order.shippingAddress.address || order.shippingAddress.street}</p>
+                    <p>{order.shippingAddress.address}</p>
                     <p>{order.shippingAddress.city}{order.shippingAddress.postalCode ? `, ${order.shippingAddress.postalCode}` : ''}</p>
                     <p>Phone: {order.shippingAddress.phone || 'N/A'}</p>
                   </>

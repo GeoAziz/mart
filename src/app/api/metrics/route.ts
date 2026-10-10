@@ -5,7 +5,7 @@ const register = client.register;
 // Collect default metrics once. The guard is shared with src/lib/metrics.ts so
 // default metrics are never registered twice in one process.
 if (!globalThis.__prometheusMetricsInitialized) {
-  client.collectDefaultMetrics({ timeout: 5000 });
+  client.collectDefaultMetrics();
   globalThis.__prometheusMetricsInitialized = true;
 }
 

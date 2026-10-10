@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { VendorOrder, VendorOrderStatus, LedgerEntry } from '@/lib/types';
+import type { DocumentReference } from 'firebase-admin/firestore';
 
 const PLATFORM_COMMISSION_RATE = 0.10;
 
@@ -46,7 +47,7 @@ interface PendingEntry {
   vendorId: string;
   orderId: string;
   entry: Omit<LedgerEntry, 'id' | 'createdAt'>;
-  vendorOrderRef: firestoreAdmin.FirestoreDocumentSnapshot['ref'];
+  vendorOrderRef: DocumentReference;
 }
 
 async function reconcile() {

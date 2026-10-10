@@ -5,6 +5,7 @@ import {
   encodeCursor,
   decodeCursor,
 } from '@/lib/pagination';
+import type { WhereFilterOp } from 'firebase-admin/firestore';
 import {
   isValidStatusTransition,
   validateStatusTransition,
@@ -171,7 +172,7 @@ describe('pagination', () => {
   });
 
   describe('paginateQuery', () => {
-    const activeConstraint = [{ field: 'status', operator: '==', value: 'active' }];
+    const activeConstraint: Array<{ field: string; operator: WhereFilterOp; value: unknown }> = [{ field: 'status', operator: '==', value: 'active' }];
 
     beforeEach(() => {
       paginationMock.seedCollection('products', [

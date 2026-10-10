@@ -1,4 +1,4 @@
-import { SQS } from '@aws-sdk/client-sqs';
+import { SQS, ReceiveMessageCommand, ReceiveMessageCommandOutput, QueueAttributeName } from '@aws-sdk/client-sqs';
 import { updateQueueDepth, trackExternalApiCall } from '@/lib/metrics';
 import { sendEmail } from '@/lib/email';
 import { firestoreAdmin } from '@/lib/firebase-admin';
@@ -150,10 +150,10 @@ async function consume(
     MaxNumberOfMessages: Math.min(maxMessages, 10), // SQS limit is 10
     WaitTimeSeconds: 20, // Long polling
     VisibilityTimeout: VISIBILITY_TIMEOUT,
-    AttributeNames: ['ApproximateReceiveCount'],
+    AttributeNames: ['ApproximateReceiveCount'] as unknown as QueueAttributeName[],
   };
 
-  const result = await sqs.receiveMessage(params);
+  const result: ReceiveMessageCommandOutput = await sqs.receiveMessage(params);
 
   if (!result.Messages || result.Messages.length === 0) {
     await updateQueueDepthMetric(queueUrl, queueName);
@@ -251,7 +251,7 @@ async function updateQueueDepthMetric(queueUrl: string, queueName: string): Prom
   try {
     const attributes = await sqs.getQueueAttributes({
       QueueUrl: queueUrl,
-      AttributeNames: ['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesDelayed'],
+      AttributeNames: ['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesDelayed'] as QueueAttributeName[],
     });
     const depth =
       Number(attributes?.Attributes?.['ApproximateNumberOfMessages'] || 0) +
@@ -468,7 +468,7 @@ export async function getQueueAttributes(
 ): Promise<Record<string, string> | undefined> {
   const result = await sqs.getQueueAttributes({
     QueueUrl: queueUrl,
-    AttributeNames: ['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesDelayed'],
+    AttributeNames: ['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesDelayed'] as QueueAttributeName[],
   });
   return result.Attributes;
 }

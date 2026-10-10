@@ -1,5 +1,5 @@
-import type { QueryConstraint } from 'firebase-admin/firestore';
 import { firestoreAdmin as db } from '@/lib/firebase-admin';
+import type { Query, CollectionReference, DocumentData } from 'firebase-admin/firestore';
 
 /**
  * Cursor-based Pagination for Firestore
@@ -49,7 +49,7 @@ export function decodeCursor(cursor: string): { docId: string; sortValue: string
  */
 export async function paginateQuery<T extends { id?: string }>(
   collectionPath: string,
-  constraints: any[], // Firestore query constraints
+  constraints: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }>,
   sortField: string,
   sortDirection: 'asc' | 'desc' = 'desc',
   options: PaginationParams
@@ -63,7 +63,7 @@ export async function paginateQuery<T extends { id?: string }>(
 
   try {
     let collection = db.collection(collectionPath);
-    let query = collection;
+    let query: Query<DocumentData, DocumentData> = collection;
 
     // Apply constraints
     for (const constraint of constraints) {
@@ -137,10 +137,10 @@ export async function paginateQuery<T extends { id?: string }>(
  */
 export async function countDocuments(
   collectionPath: string,
-  constraints: any[]
+  constraints: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }>
 ): Promise<number> {
   try {
-    let query = db.collection(collectionPath);
+    let query: Query<DocumentData, DocumentData> = db.collection(collectionPath);
 
     for (const constraint of constraints) {
       query = query.where(constraint.field, constraint.operator, constraint.value);

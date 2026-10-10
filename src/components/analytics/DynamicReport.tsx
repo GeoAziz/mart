@@ -94,7 +94,15 @@ const DynamicReport = ({ currentVendorId }: DynamicReportProps) => {
       });
 
       // Create download link
-      const blob = new Blob([buffer]);
+      let uint8Array: Uint8Array<ArrayBuffer>;
+      if (buffer instanceof Buffer) {
+        uint8Array = new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
+      } else if (buffer instanceof Uint8Array) {
+        uint8Array = buffer as Uint8Array<ArrayBuffer>;
+      } else {
+        uint8Array = new Uint8Array(buffer as ArrayBuffer);
+      }
+      const blob = new Blob([uint8Array]);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

@@ -86,7 +86,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.PaymentIntentSucceeded
   }).catch((err) => console.error('Failed to enqueue payment:', err));
 }
 
-async function handlePaymentIntentFailed(event: Stripe.PaymentIntentFailedEvent): Promise<void> {
+async function handlePaymentIntentFailed(event: Stripe.PaymentIntentPaymentFailedEvent): Promise<void> {
   const paymentIntent = event.data.object;
 
   const ordersRef = db.collection('orders');
@@ -167,13 +167,13 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent): Promise<
     paymentDetails: {
       ...order.paymentDetails,
       status: 'REFUNDED',
-      refundedAmount: charge.refunded / 100, // Convert cents to dollars
+      refundedAmount: (typeof charge.refunded === 'number' ? charge.refunded : 0) / 100, // Convert cents to dollars
       refundedAt: admin.firestore.FieldValue.serverTimestamp(),
     },
     statusHistory: admin.firestore.FieldValue.arrayUnion({
       status: 'refunded',
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      note: `Refund processed: ${charge.refunded / 100}`,
+      note: `Refund processed: ${(typeof charge.refunded === 'number' ? charge.refunded : 0) / 100}`,
     }),
   });
 
@@ -183,7 +183,7 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent): Promise<
     type: 'payment.refunded',
     paymentId: charge.id,
     orderId: orderDoc.id,
-    amount: charge.refunded / 100,
+    amount: (typeof charge.refunded === 'number' ? charge.refunded : 0) / 100,
     method: 'stripe',
     status: 'REFUNDED',
     timestamp: new Date().toISOString(),
@@ -231,7 +231,7 @@ async function stripeWebhookHandler(req: Request) {
             break;
 
           case 'payment_intent.payment_failed':
-            await handlePaymentIntentFailed(event as Stripe.PaymentIntentFailedEvent);
+            await handlePaymentIntentFailed(event as Stripe.PaymentIntentPaymentFailedEvent);
             break;
 
           case 'charge.refunded':

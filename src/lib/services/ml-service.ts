@@ -143,7 +143,7 @@ export class MLService {
 
       const tensor = tf.tensor2d([features]);
       const prediction = await model.predict(tensor) as any;
-      const result = await prediction.data();
+      const result = await prediction.data() as Float32Array;
       
       return Array.from(result).indexOf(Math.max(...Array.from(result)));
     } catch (error) {

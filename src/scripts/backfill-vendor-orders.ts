@@ -50,11 +50,11 @@ async function main() {
       customerName: order.userFullName ?? 'Unknown Customer',
       customerEmail: order.userEmail ?? 'unknown@example.com',
       shippingAddress: order.shippingAddress ?? {
-        street: 'Unknown',
+        fullName: 'Unknown',
+        address: 'Unknown',
         city: 'Unknown',
-        state: 'Unknown',
-        zipCode: '00000',
-        country: 'Unknown'
+        postalCode: '00000',
+        phone: 'Unknown'
       },
       subtotal: order.subtotal ?? order.totalAmount ?? 0,
       discountAmount: order.discountAmount ?? 0,

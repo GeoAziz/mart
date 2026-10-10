@@ -597,7 +597,7 @@ const CheckoutWizard = () => {
               {selectedPaymentMethod === 'mpesa' && (
                 <Button 
                   className="w-full h-12 text-base glow-edge-primary"
-                  onClick={handleSubmit(handlePlaceOrder)}
+                  onClick={() => handlePlaceOrder()}
                   disabled={isPlacingOrder}
                 >
                   {isPlacingOrder ? (

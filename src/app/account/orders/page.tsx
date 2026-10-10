@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { Order as OrderType } from '@/lib/types';
+import { toDate } from '@/lib/date';
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -55,7 +56,7 @@ export default function OrdersPage() {
         throw new Error(errorData.message || 'Failed to fetch orders');
       }
       const data: OrderType[] = await response.json();
-      setOrders(data.map(o => ({...o, createdAt: new Date(o.createdAt)})));
+      setOrders(data.map(o => ({...o, createdAt: toDate(o.createdAt) ?? new Date()})));
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Could not load order history.");
@@ -113,7 +114,7 @@ export default function OrdersPage() {
                       #{order.id?.substring(0, 7)}...
                     </Link>
                   </TableCell>
-                  <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{toDate(order.createdAt)?.toLocaleDateString() ?? 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={getStatusBadgeVariant(order.status)}>
                       {order.status}

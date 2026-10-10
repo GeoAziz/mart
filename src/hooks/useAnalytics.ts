@@ -9,7 +9,7 @@ const generateSessionId = () => {
 };
 
 export const useAnalytics = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [sessionId, setSessionId] = useState<string>('');
 
   useEffect(() => {
@@ -36,14 +36,14 @@ export const useAnalytics = () => {
             eventType,
             eventData,
             sessionId,
-            userId: user?.uid || null,
+            userId: currentUser?.uid || null,
           }),
         });
       } catch (error) {
         console.error('Failed to track event:', error);
       }
     },
-    [user, sessionId]
+    [currentUser, sessionId]
   );
 
   return { trackEvent };

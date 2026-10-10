@@ -250,7 +250,7 @@ export async function searchProducts(
       ...(sortBy && { sortBy }),
     });
 
-    return (result.hits as Array<Partial<Product> & { id: string }>) || [];
+    return (result.hits as unknown as Array<Partial<Product> & { id: string }>) || [];
   } catch (error) {
     console.error('[Search] Error searching products:', error);
     return null;

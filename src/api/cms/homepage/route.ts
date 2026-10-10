@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import { toDate } from '@/lib/date';
+import type { Timestamp } from 'firebase-admin/firestore';
 
 // Re-defining interfaces here to match potential Firestore structure (e.g. Timestamps)
 // Ideally, these would be shared types if more complex or used across many places.
