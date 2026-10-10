@@ -43,9 +43,9 @@ export default function ForgotPasswordPage() {
         <CardContent className="space-y-6">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email Address</Label>
-             <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
                 required
                 className="pl-10 bg-input border-primary focus:ring-accent"
                 disabled={isLoading || authLoading}
-                />
+              />
             </div>
           </div>
         </CardContent>

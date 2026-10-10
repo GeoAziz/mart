@@ -179,7 +179,7 @@ export default function RefundManagementPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Image src={request.productImageUrl || 'https://placehold.co/32x32/cccccc/E0E0E0?text=P'} alt={request.productName} width={32} height={32} className="rounded-sm object-cover border border-border" data-ai-hint={request.dataAiHint || "product"}/>
+                        <Image src={request.productImageUrl || 'https://placehold.co/32x32/cccccc/E0E0E0?text=P'} alt={request.productName || "Product Image"} width={32} height={32} className="rounded-sm object-cover border border-border" data-ai-hint={request.dataAiHint || "product"}/>
                         <Link href={`/products/${request.productId}`} target="_blank" className="text-xs hover:text-primary hover:underline" title={`View Product ${request.productName}`}>
                             {request.productName.length > 25 ? request.productName.substring(0,22) + "..." : request.productName}
                         </Link>

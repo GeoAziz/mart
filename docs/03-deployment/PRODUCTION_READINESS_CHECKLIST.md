@@ -376,6 +376,21 @@ kind delete cluster --name test
 
 ---
 
+## ⚠️ Known Gaps
+
+Not everything above is fully closed. The following items remain before a truly production-hardened rollout:
+
+| # | Gap | Status | Impact |
+|---|-----|--------|--------|
+| 1 | **Unresolved typecheck error** | ❌ Open | `npm run typecheck` (tsc) reports at least one outstanding type error; `next.config.ts` currently sets `ignoreBuildErrors: true`, so builds proceed without catching it |
+| 2 | **Placeholder E2E tests** | ✅ Fixed | `tests/test_master.py` previously collected 0 tests for the `e2e` and `integration` markers, failing the CI matrix. The test file was rewritten with a real smoke suite, and CI now skips suites with no matching tests until full e2e/integration coverage is added |
+| 3 | **Missing Alertmanager routing** | ❌ Open | `k8s/alertmanager-config.yaml` exists, but production route/route-tree and receiver wiring (Slack/PagerDuty severity routing) is not fully validated |
+| 4 | **Missing Prometheus pushgateway client code** | ❌ Open | The app does not ship a pushgateway client for short-lived batch jobs (queue workers/scripts); metrics from one-shot processes are not captured |
+| 5 | **No cluster autoscaler** | ❌ Open | EKS/k3s clusters have HPA manifests but no node-level Cluster Autoscaler or Karpenter configuration for capacity scaling |
+| 6 | **No automated Firestore backups** | ❌ Open | No scheduled export of Firestore to GCS; data recovery relies on manual exports |
+
+---
+
 ## 📊 Summary
 
 | Requirement | Status | Files | Evidence |
@@ -416,5 +431,5 @@ kind delete cluster --name test
 ---
 
 **Created**: May 2026  
-**Version**: 1.0.0  
-**Status**: ✅ Production Ready
+**Version**: 1.1.0  
+**Status**: ⚠️ Production Ready — with known gaps

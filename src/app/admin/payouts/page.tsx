@@ -298,7 +298,7 @@ export default function AdminPayoutsPage() {
                             </>
                            )}
                            {(payout.status === 'Completed' || payout.status === 'Failed') && (
-                                <DropdownMenuItem onClick={() => openProcessDialog(payout, payout.status)} className="hover:bg-primary/10 hover:text-primary cursor-pointer">
+                                <DropdownMenuItem onClick={() => openProcessDialog(payout, payout.status as 'Completed' | 'Failed')} className="hover:bg-primary/10 hover:text-primary cursor-pointer">
                                     <Edit3 className="mr-2 h-4 w-4" /> View/Edit Notes
                                 </DropdownMenuItem>
                            )}

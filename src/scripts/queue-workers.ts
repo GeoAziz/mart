@@ -11,9 +11,16 @@ import {
   startPaymentWorker,
   startNotificationWorker,
 } from '@/lib/queue-service';
+import { runReservationExpiryWorker } from '@/scripts/workers/reservation-expiry';
+import { initializeRedis } from '@/lib/cache-service';
+import { initWsPublisher } from '@/lib/ws-events';
 
 async function main() {
   console.log('🚀 Starting message queue workers...\n');
+
+  // Shared infrastructure: distributed cache/rate-limit backend + realtime bus.
+  await initializeRedis();
+  await initWsPublisher();
 
   // Start all workers in parallel
   const workers = [
@@ -32,6 +39,10 @@ async function main() {
     {
       name: 'Notification Worker',
       start: startNotificationWorker,
+    },
+    {
+      name: 'Reservation Expiry Worker',
+      start: async () => setInterval(() => runReservationExpiryWorker().catch(console.error), 5 * 60 * 1000),
     },
   ];
 

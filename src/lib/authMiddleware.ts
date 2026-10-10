@@ -2,6 +2,7 @@ import type { NextRequest, NextResponse } from 'next/server';
 import firebaseAdminAuth, { firestoreAdmin } from './firebase-admin';
 import type { UserRecord } from 'firebase-admin/auth';
 import type { UserProfile, Role } from './types'; // Import from centralized types file
+import { trackRequestMetrics } from '@/lib/metrics';
 
 export interface AuthenticatedRequest extends NextRequest {
   user: UserRecord; // Firebase Admin SDK's UserRecord
@@ -13,40 +14,62 @@ export type { UserProfile };
 type ApiHandler = (req: AuthenticatedRequest, context: { params: any }) => Promise<NextResponse> | NextResponse;
 
 
+/**
+ * Record HTTP metrics for an API request. The route label comes from the
+ * middleware-stamped `x-request-route` header (already normalised to avoid
+ * cardinality explosion); duration is measured from the moment the route
+ * handler starts to the moment a response is produced.
+ */
+function recordRequest(req: NextRequest, status: number, start: number): void {
+  const route = req.headers.get('x-request-route') || req.nextUrl.pathname;
+  trackRequestMetrics(req.method, route, status, performance.now() - start);
+}
+
 export function withAuth(
   handler: ApiHandler,
   requiredRole?: Role | Role[]
 ) {
   return async (req: NextRequest, context: { params: any }): Promise<NextResponse> => {
     const { NextResponse } = await import('next/server');
+    const start = performance.now();
     const authorization = req.headers.get('Authorization');
 
     if (!authorization || !authorization.startsWith('Bearer ')) {
-      return NextResponse.json({ message: 'Unauthorized: No token provided or malformed.' }, { status: 401 });
+      const res = NextResponse.json({ message: 'Unauthorized: No token provided or malformed.' }, { status: 401 });
+      recordRequest(req, 401, start);
+      return res;
     }
 
     const idToken = authorization.split('Bearer ')[1];
     if (!idToken) {
-      return NextResponse.json({ message: 'Unauthorized: Token not found after Bearer.' }, { status: 401 });
+      const res = NextResponse.json({ message: 'Unauthorized: Token not found after Bearer.' }, { status: 401 });
+      recordRequest(req, 401, start);
+      return res;
     }
 
     try {
       // Use firebaseAdminAuth directly
       const { firebaseAdminAuth, firestoreAdmin } = await import('./firebase-admin');
       if (!firebaseAdminAuth) {
-        return NextResponse.json({ message: 'Internal Server Error: Firebase Admin Auth not initialized.' }, { status: 500 });
+        const res = NextResponse.json({ message: 'Internal Server Error: Firebase Admin Auth not initialized.' }, { status: 500 });
+        recordRequest(req, 500, start);
+        return res;
       }
       const decodedToken = await firebaseAdminAuth.verifyIdToken(idToken);
 
       if (!firestoreAdmin) {
-        return NextResponse.json({ message: 'Internal Server Error: Firestore Admin not initialized.' }, { status: 500 });
+        const res = NextResponse.json({ message: 'Internal Server Error: Firestore Admin not initialized.' }, { status: 500 });
+        recordRequest(req, 500, start);
+        return res;
       }
       const userDocRef = firestoreAdmin.collection('users').doc(decodedToken.uid);
       const userDocSnap = await userDocRef.get();
 
       if (!userDocSnap.exists) {
         console.error(`User profile not found in Firestore for UID: ${decodedToken.uid}`);
-        return NextResponse.json({ message: 'Forbidden: User account not fully set up.' }, { status: 403 });
+        const res = NextResponse.json({ message: 'Forbidden: User account not fully set up.' }, { status: 403 });
+        recordRequest(req, 403, start);
+        return res;
       }
 
       const firestoreData = userDocSnap.data();
@@ -63,7 +86,9 @@ export function withAuth(
       if (requiredRole) {
         const rolesToCheck = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
         if (!rolesToCheck.includes(userProfile.role)) {
-          return NextResponse.json({ message: 'Forbidden: Insufficient permissions for this resource.' }, { status: 403 });
+          const res = NextResponse.json({ message: 'Forbidden: Insufficient permissions for this resource.' }, { status: 403 });
+          recordRequest(req, 403, start);
+          return res;
         }
       }
 
@@ -74,7 +99,9 @@ export function withAuth(
       authenticatedReq.user = userRecord;
       authenticatedReq.userProfile = userProfile;
 
-      return handler(authenticatedReq, context);
+      const response = await handler(authenticatedReq, context);
+      recordRequest(req, response.status, start);
+      return response;
     } catch (error: any) {
       console.error('Authentication error:', error);
       let message = 'Internal Server Error during authentication.';
@@ -88,7 +115,9 @@ export function withAuth(
         status = 401;
       }
 
-      return NextResponse.json({ message }, { status });
+      const res = NextResponse.json({ message }, { status });
+      recordRequest(req, status, start);
+      return res;
     }
   };
 }

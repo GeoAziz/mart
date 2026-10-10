@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Payout } from '@/app/api/vendors/me/payouts/route'; // Import Payout type
 
 interface EarningsChartDataPoint {
@@ -66,6 +67,7 @@ export default function VendorEarningsPage() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const [isLoadingPayouts, setIsLoadingPayouts] = useState(true);
   const [isRequestingPayout, setIsRequestingPayout] = useState(false);
+  const [payoutMethod, setPayoutMethod] = useState<string>('M-Pesa');
   const [errorSummary, setErrorSummary] = useState<string | null>(null);
   const [errorPayouts, setErrorPayouts] = useState<string | null>(null);
   const { currentUser } = useAuth();
@@ -131,10 +133,9 @@ export default function VendorEarningsPage() {
     setIsRequestingPayout(true);
     try {
         const token = await currentUser.getIdToken();
-        // For now, assume M-Pesa is the default method. In a real app, vendor would select.
         const payload = { 
             amount: earningsSummary.currentBalance,
-            method: "M-Pesa" // Default method for now
+            method: payoutMethod
         };
         const response = await fetch('/api/vendors/me/payouts', {
             method: 'POST',
@@ -182,8 +183,18 @@ export default function VendorEarningsPage() {
           isLoading={isLoadingSummary}
         />
         <Card className="bg-card border-border shadow-lg hover:shadow-primary/20 transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-col space-y-2 pb-2">
             <CardTitle className="text-sm font-medium">Request Payout</CardTitle>
+            <Select value={payoutMethod} onValueChange={setPayoutMethod}>
+              <SelectTrigger className="h-8">
+                <SelectValue placeholder="Select Method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="M-Pesa">M-Pesa</SelectItem>
+                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                <SelectItem value="PayPal">PayPal</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               onClick={handleRequestPayout}
               disabled={isRequestingPayout || !earningsSummary?.currentBalance || earningsSummary.currentBalance <= 0}
@@ -254,7 +265,8 @@ export default function VendorEarningsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : payouts.length > 0 ? (
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
@@ -278,6 +290,7 @@ export default function VendorEarningsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
               No payout history available

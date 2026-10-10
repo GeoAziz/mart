@@ -4,6 +4,9 @@ import { firestoreAdmin, storageAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
 import type { NextRequest } from 'next/server';
 import type { Product } from '@/lib/types';
+import { enqueueProduct } from '@/lib/queue-service';
+import { withRequestMetrics } from '@/lib/api-metrics';
+import { trackProductUploaded } from '@/lib/metrics';
 
 
 // Helper function to delete an image from Firebase Storage
@@ -38,7 +41,7 @@ async function deleteImageFromStorage(imageUrl: string | undefined | null) {
 }
 
 
-export async function GET(
+async function getProductHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -80,6 +83,8 @@ export async function GET(
     return NextResponse.json({ message: 'Error fetching product' }, { status: 500 });
   }
 }
+
+export const GET = withRequestMetrics(getProductHandler);
 
 async function updateProductHandler(
   req: AuthenticatedRequest,
@@ -171,6 +176,16 @@ async function updateProductHandler(
       sku: finalData.sku,
       rating: finalData.rating,
     };
+
+    trackProductUploaded(finalData.vendorId || 'unknown', finalData.status);
+    enqueueProduct({
+      type: 'product.updated',
+      productId: updatedDoc.id,
+      vendorId: finalData.vendorId || 'unknown',
+      status: finalData.status,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to enqueue product update:', err));
+
     return NextResponse.json(productResponse);
 
   } catch (error) {
@@ -208,6 +223,15 @@ async function deleteProductHandler(
     }
 
     await productDocRef.delete();
+
+    enqueueProduct({
+      type: 'product.deleted',
+      productId,
+      vendorId: productData.vendorId || 'unknown',
+      status: 'deleted',
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to enqueue product delete:', err));
+
     return NextResponse.json({ message: 'Product deleted successfully' }, { status: 200 });
   } catch (error) {
     console.error(`Error deleting product ${productId}:`, error);

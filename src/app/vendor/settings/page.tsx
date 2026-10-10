@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Save, UploadCloud, Image as ImageIconLucide, Phone, Mail, Link as LinkIcon, DollarSign, Loader2, X } from 'lucide-react';
+import { Settings, Save as SaveIcon, UploadCloud, Image as ImageIconLucide, Phone, Mail, Link as LinkIcon, DollarSign, Loader2, X, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image'; // Next.js Image component
 import { useAuth } from '@/context/AuthContext';
 import type { VendorSettings } from '@/app/api/vendors/me/settings/route';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 
 const DEFAULT_VENDOR_SETTINGS_FRONTEND: VendorSettings = {
   storeName: '',
@@ -24,6 +25,7 @@ const DEFAULT_VENDOR_SETTINGS_FRONTEND: VendorSettings = {
   socialTwitter: '',
   socialInstagram: '',
   payoutMpesaNumber: '',
+  payoutMpesaVerified: false,
   reviewNotifications: false,
   useAutoReply: false,
 };
@@ -39,6 +41,11 @@ export default function StoreSettingsPage() {
   // Local previews for immediate feedback before actual upload completes and URL is set
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  // OTP Verification state
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const { toast } = useToast();
   const { currentUser } = useAuth();
@@ -186,6 +193,37 @@ export default function StoreSettingsPage() {
         setIsSaving(false);
     }
   };
+
+  const handleVerifyOTP = async () => {
+    if (!currentUser) return;
+    if (otp.length !== 6) {
+      toast({ title: "Invalid OTP", description: "Please enter a 6-digit OTP.", variant: "destructive" });
+      return;
+    }
+    setIsVerifying(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/vendors/me/settings/verify-payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ otp }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+      
+      setSettings(prev => ({ ...prev, payoutMpesaVerified: true }));
+      toast({ title: 'Verified!', description: 'Your M-Pesa payout details have been verified successfully.' });
+      setIsVerifyModalOpen(false);
+      setOtp('');
+    } catch (error) {
+      toast({ title: 'Verification Failed', description: error instanceof Error ? error.message : 'Could not verify OTP.', variant: 'destructive' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -197,6 +235,40 @@ export default function StoreSettingsPage() {
   }
 
   return (
+    <>
+      <Dialog open={isVerifyModalOpen} onOpenChange={setIsVerifyModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-primary shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-glow-accent">Verify M-Pesa Number</DialogTitle>
+            <DialogDescription>
+              We've sent a 6-digit OTP to {settings.payoutMpesaNumber}. (Use 123456 for testing)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="otp" className="sr-only">OTP</Label>
+              <Input
+                id="otp"
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                maxLength={6}
+                className="bg-input border-primary focus:ring-accent text-center tracking-widest text-lg"
+              />
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost" disabled={isVerifying}>Cancel</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleVerifyOTP} disabled={isVerifying || otp.length !== 6} className="bg-primary hover:bg-primary/90">
+              {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+              Verify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     <form onSubmit={handleSubmit} className="space-y-8">
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
@@ -292,8 +364,25 @@ export default function StoreSettingsPage() {
       <Card className="bg-card border-border shadow-md">
         <CardHeader><CardTitle className="text-xl font-semibold text-glow-accent">Payout Information</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-            <div className="space-y-1.5"> <Label htmlFor="payoutMpesaNumber" className="text-base">M-Pesa Payout Number</Label> <div className="relative"> <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> <Input id="payoutMpesaNumber" name="payoutMpesaNumber" type="tel" value={settings.payoutMpesaNumber || ''} onChange={handleInputChange} className="pl-10 bg-input border-primary focus:ring-accent" placeholder="07XX XXX XXX" title="M-Pesa payout number" disabled={isSaving}/> </div> <p className="text-xs text-muted-foreground">Ensure this number is registered for M-Pesa.</p> </div>
-            <Button type="button" variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground" disabled={isSaving}> Verify Payout Details (Coming Soon) </Button>
+            <div className="space-y-1.5"> 
+              <div className="flex items-center justify-between">
+                <Label htmlFor="payoutMpesaNumber" className="text-base">M-Pesa Payout Number</Label>
+                {settings.payoutMpesaVerified && settings.payoutMpesaNumber && (
+                  <span className="flex items-center text-green-500 text-sm font-medium"><CheckCircle className="w-4 h-4 mr-1" /> Verified</span>
+                )}
+              </div>
+              <div className="relative"> 
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> 
+                <Input id="payoutMpesaNumber" name="payoutMpesaNumber" type="tel" value={settings.payoutMpesaNumber || ''} onChange={handleInputChange} className="pl-10 bg-input border-primary focus:ring-accent" placeholder="07XX XXX XXX" title="M-Pesa payout number" disabled={isSaving}/> 
+              </div> 
+              <p className="text-xs text-muted-foreground">Ensure this number is registered for M-Pesa. Changing it will require re-verification.</p> 
+            </div>
+            
+            {!settings.payoutMpesaVerified && settings.payoutMpesaNumber && (
+              <Button type="button" onClick={() => setIsVerifyModalOpen(true)} variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground" disabled={isSaving || !settings.payoutMpesaNumber}>
+                Verify Payout Details
+              </Button>
+            )}
         </CardContent>
       </Card>
 
@@ -335,11 +424,12 @@ export default function StoreSettingsPage() {
 
       <CardFooter className="border-t border-border/50 pt-6 flex justify-end">
         <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary" disabled={isSaving || isLoading || isUploadingLogo || isUploadingBanner}>
-          {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+          {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <SaveIcon className="mr-2 h-5 w-5" />}
           {isSaving ? 'Saving...' : 'Save All Settings'}
         </Button>
       </CardFooter>
     </form>
+    </>
   );
 }
 

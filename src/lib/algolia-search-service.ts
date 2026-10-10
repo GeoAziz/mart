@@ -111,7 +111,82 @@ export async function deleteProductFromIndex(productId: string): Promise<void> {
 }
 
 /**
- * Search products
+ * Search the product catalog with facets (category/brand/price/rating), sorting
+ * and pagination — used by GET /api/products so the storefront catalog is served
+ * by Algolia instead of full Firestore scans.
+ */
+export interface CatalogSearchOptions {
+  category?: string;
+  brand?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  rating?: number;
+  sortBy?: 'price-asc' | 'price-desc' | 'rating' | 'newest' | 'name';
+  page?: number;
+  pageSize?: number;
+}
+
+export async function searchCatalog(
+  options: CatalogSearchOptions,
+): Promise<{ results: Product[]; total: number }> {
+  const client = getSearchClient();
+  if (!client) {
+    throw new Error('Algolia is not configured');
+  }
+
+  const index = client.initIndex(process.env.ALGOLIA_PRODUCTS_INDEX || 'products');
+
+  // Build Algolia filter expression (AND of facets).
+  const filters: string[] = ["status:'active'"];
+  if (options.category) filters.push(`category:'${options.category.replace(/'/g, "\\'")}'`);
+  if (options.brand) filters.push(`brand:'${options.brand.replace(/'/g, "\\'")}'`);
+  if (options.minPrice !== undefined) filters.push(`price >= ${options.minPrice}`);
+  if (options.maxPrice !== undefined) filters.push(`price <= ${options.maxPrice}`);
+  if (options.rating !== undefined) filters.push(`rating >= ${options.rating}`);
+
+  // Sort replicas: the index must be configured with 'price_asc', 'price_desc',
+  // 'rating_desc', 'newest' replicas for these to work; otherwise fall back to
+  // default (relevance). Firestore fallback keeps full functionality.
+  const baseIndex = process.env.ALGOLIA_PRODUCTS_INDEX || 'products';
+  let indexToUse = index;
+  if (options.sortBy === 'price-asc') indexToUse = client.initIndex(`${baseIndex}_price_asc`);
+  else if (options.sortBy === 'price-desc') indexToUse = client.initIndex(`${baseIndex}_price_desc`);
+  else if (options.sortBy === 'rating') indexToUse = client.initIndex(`${baseIndex}_rating_desc`);
+  else if (options.sortBy === 'newest') indexToUse = client.initIndex(`${baseIndex}_newest`);
+
+  const page = Math.max((options.page || 1) - 1, 0);
+  const hitsPerPage = Math.min(options.pageSize || 20, 100);
+
+  const response = await indexToUse.search('', {
+    filters: filters.length > 0 ? filters.join(' AND ') : undefined,
+    page,
+    hitsPerPage,
+  });
+
+  const results: Product[] = (response.hits || []).map((hit: any) => ({
+    id: hit.objectID,
+    name: hit.name || '',
+    description: hit.description || '',
+    price: hit.price || 0,
+    category: hit.category || '',
+    brand: hit.brand || '',
+    rating: hit.rating || 0,
+    stock: hit.stock || 0,
+    imageUrl: hit.imageUrl || '',
+    vendorId: hit.vendorId || '',
+    status: hit.status || 'active',
+    dataAiHint: hit.dataAiHint || '',
+    sku: hit.sku || '',
+    dateAdded: hit.dateAdded ? new Date(hit.dateAdded) : new Date(0),
+    updatedAt: hit.updatedAt ? new Date(hit.updatedAt) : new Date(0),
+    additionalImageUrls: hit.additionalImageUrls || [],
+  }));
+
+  return { results, total: response.nbHits || 0 };
+}
+
+/**
+ * Search the product catalog with the search endpoint (keyword + facets).
  */
 export async function searchProducts(
   query: string,

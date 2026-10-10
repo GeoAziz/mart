@@ -1,11 +1,38 @@
 import winston from 'winston';
 import { format } from 'winston';
+import LokiTransport from 'winston-loki';
 
 class LoggingService {
   private static instance: LoggingService;
   private logger: winston.Logger;
 
   private constructor() {
+    const lokiUrl = process.env.LOKI_URL;
+    const transports: winston.transport[] = [
+      new winston.transports.File({ 
+        filename: 'error.log', 
+        level: 'error',
+        dirname: 'logs' 
+      }),
+      new winston.transports.File({ 
+        filename: 'combined.log',
+        dirname: 'logs'
+      }),
+    ];
+
+    // Forward structured logs to Loki when configured (monitoring profile).
+    if (lokiUrl) {
+      transports.push(
+        new LokiTransport({
+          host: lokiUrl,
+          labels: { service: 'mart-app' },
+          json: true,
+          batching: true,
+          interval: 5,
+        })
+      );
+    }
+
     this.logger = winston.createLogger({
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       format: format.combine(
@@ -14,33 +41,8 @@ class LoggingService {
         format.json()
       ),
       defaultMeta: { service: 'mart-analytics' },
-      transports: [
-        new winston.transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.simple()
-          )
-        }),
-        new winston.transports.File({ 
-          filename: 'error.log', 
-          level: 'error',
-          dirname: 'logs' 
-        }),
-        new winston.transports.File({ 
-          filename: 'combined.log',
-          dirname: 'logs'
-        })
-      ]
+      transports,
     });
-
-    if (process.env.NODE_ENV !== 'production') {
-      this.logger.add(new winston.transports.Console({
-        format: format.combine(
-          format.colorize(),
-          format.simple()
-        )
-      }));
-    }
   }
 
   static getInstance(): LoggingService {

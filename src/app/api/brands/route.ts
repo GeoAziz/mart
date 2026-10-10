@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getProductBrands } from '@/lib/products-catalog-service';
+import { withRequestMetrics } from '@/lib/api-metrics';
 
 export const revalidate = 300; // ISR: revalidate every 5 minutes
 
@@ -7,7 +8,7 @@ export const revalidate = 300; // ISR: revalidate every 5 minutes
  * GET /api/brands - Get all product brands with counts
  * Cached response to improve performance
  */
-export async function GET() {
+async function getBrandsHandler() {
   try {
     const brands = await getProductBrands();
 
@@ -31,3 +32,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withRequestMetrics(getBrandsHandler);

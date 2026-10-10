@@ -137,6 +137,7 @@ export default function VendorInventoryPage() {
                 </Button>
               </div>
               
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -162,7 +163,7 @@ export default function VendorInventoryPage() {
                           <div className="h-12 w-12 rounded-md overflow-hidden border border-border">
                             <Image
                               src={product.imageUrl || 'https://placehold.co/200x200/2563eb/ffffff?text=Product'}
-                              alt={product.name}
+                              alt={product.name || "Product Image"}
                               width={48}
                               height={48}
                               className="object-cover"
@@ -198,6 +199,7 @@ export default function VendorInventoryPage() {
                   })}
                 </TableBody>
               </Table>
+            </div>
             </div>
           ) : (
             <div className="text-center py-12">

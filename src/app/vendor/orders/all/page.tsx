@@ -68,7 +68,7 @@ export default function AllOrdersPage() {
     setIsLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('/api/orders', {
+      const response = await fetch('/api/vendors/me/orders', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -94,7 +94,7 @@ export default function AllOrdersPage() {
     setActionLoading(prev => ({...prev, [orderId]: true}));
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/vendors/me/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -124,8 +124,6 @@ export default function AllOrdersPage() {
       </div>
     );
   }
-
-
   return (
     <div className="space-y-6">
       <Card className="bg-card border-border shadow-lg">
@@ -144,7 +142,8 @@ export default function AllOrdersPage() {
         </CardHeader>
         <CardContent>
           {orders.length > 0 ? (
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px]">Order ID</TableHead>
@@ -167,7 +166,7 @@ export default function AllOrdersPage() {
                     <TableCell>{order.userFullName || order.userEmail || 'N/A'}</TableCell>
                     <TableCell>{toDate((order as any).createdAt)?.toLocaleDateString() ?? ''}</TableCell>
                     <TableCell className="text-center">{order.items.length}</TableCell>
-                    <TableCell className="text-right">{order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline" className={`flex items-center justify-center gap-1.5 ${getStatusBadgeVariant(order.status)}`}>
                         {getStatusIcon(order.status)}
@@ -212,6 +211,7 @@ export default function AllOrdersPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : (
             <div className="text-center py-12">
               <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -224,3 +224,4 @@ export default function AllOrdersPage() {
     </div>
   );
 }
+ 

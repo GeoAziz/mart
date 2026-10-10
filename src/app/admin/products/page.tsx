@@ -19,7 +19,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import type { Product, ProductStatus } from '@/lib/types';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import Breadcrumb from '@/components/ui/breadcrumb';
 
 // Utility to convert Firestore Timestamp or Date to JS Date
@@ -70,8 +69,7 @@ export default function ProductModerationPage() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { currentUser } = useAuth();
-  const listRef = useRef<any>(null);
-
+  
   useEffect(() => {
     const fetchProducts = async () => {
       if (!currentUser) {
@@ -137,79 +135,6 @@ export default function ProductModerationPage() {
     );
   }
 
-  // Virtualized row renderer
-  const Row = ({ index, style }: ListChildComponentProps) => {
-    const product = products[index];
-    return (
-      <div style={style}>
-        <TableRow key={product.id} className="hover:bg-muted/50">
-          <TableCell className="hidden sm:table-cell">
-            <Image 
-              src={product.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} 
-              alt={product.name} 
-              width={48} height={48} 
-              className="rounded-md object-cover border border-border" 
-              data-ai-hint={product.dataAiHint || product.category?.toLowerCase().split(' ')[0] || "product"}
-            />
-          </TableCell>
-          <TableCell className="font-medium">
-            {product.name}
-          </TableCell>
-          <TableCell>
-            {product.vendorId ? (
-              <Link href={`/admin/users?userId=${product.vendorId}`} className="hover:text-primary hover:underline text-xs">
-                {product.vendorId.substring(0, 8)}...
-              </Link>
-            ) : (
-              <span className="text-xs text-muted-foreground italic">Marketplace</span>
-            )}
-          </TableCell>
-          <TableCell>{product.dateAdded ? convertToDate(product.dateAdded).toLocaleDateString() : 'N/A'}</TableCell>
-          <TableCell className="text-center">
-            <Badge variant="outline" className={`flex items-center justify-center gap-1.5 ${getStatusBadgeVariant(product.status)}`}>
-              {getStatusIcon(product.status)}
-              {product.status.replace('_', ' ')}
-            </Badge>
-          </TableCell>
-          <TableCell className="text-right">
-            {actionLoading[product.id] ? <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /> : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">Product Actions</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-card border-primary shadow-lg">
-                <DropdownMenuItem asChild className="hover:bg-primary/10 hover:text-primary cursor-pointer">
-                  <Link href={`/products/${product.id}`} target="_blank">
-                    <Eye className="mr-2 h-4 w-4" /> View Product Page
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="hover:bg-primary/10 hover:text-primary cursor-pointer">
-                   <Link href={`/vendor/products/edit/${product.id}`} target="_blank"> {/* Assume admin can edit via vendor flow or dedicated admin edit */}
-                    <CheckCircle className="mr-2 h-4 w-4" /> Edit Product
-                  </Link>
-                </DropdownMenuItem>
-                {(product.status === 'pending_approval' || product.status === 'rejected' || product.status === 'draft') && (
-                  <DropdownMenuItem onClick={() => handleProductStatusUpdate(product.id, 'active')} className="text-green-400 hover:bg-green-500/10 hover:!text-green-300 focus:bg-green-500/20 focus:!text-green-300 cursor-pointer">
-                    <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                  </DropdownMenuItem>
-                )}
-                {(product.status === 'pending_approval' || product.status === 'active' || product.status === 'draft') && (
-                  <DropdownMenuItem onClick={() => handleProductStatusUpdate(product.id, 'rejected')} className="text-destructive hover:bg-destructive/10 hover:!text-destructive focus:bg-destructive/20 focus:!text-destructive cursor-pointer">
-                    <XCircle className="mr-2 h-4 w-4" /> Reject
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            )}
-          </TableCell>
-        </TableRow>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Admin', href: '/admin' }, { label: 'Products', href: '/admin/products' }]} />
@@ -226,27 +151,88 @@ export default function ProductModerationPage() {
         <CardContent>
           {products.length > 0 ? (
             <div style={{ width: '100%', height: 600 }}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px] hidden sm:table-cell"></TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Seller/Vendor ID</TableHead>
-                    <TableHead>Date Submitted</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-              </Table>
-              <List
-                ref={listRef}
-                height={520}
-                itemCount={products.length}
-                itemSize={72}
-                width={"100%"}
-              >
-                {Row}
-              </List>
+              <div className="overflow-x-auto rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px] hidden sm:table-cell"></TableHead>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>Seller/Vendor ID</TableHead>
+                      <TableHead>Date Submitted</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => (
+                      <TableRow key={product.id} className="hover:bg-muted/50">
+                                <TableCell className="hidden sm:table-cell">
+                                  <Image 
+                                    src={product.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} 
+                                    alt={product.name || "Product Image"} 
+                                    width={48} height={48} 
+                                    className="rounded-md object-cover border border-border" 
+                                    data-ai-hint={product.dataAiHint || product.category?.toLowerCase().split(' ')[0] || "product"}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {product.name}
+                                </TableCell>
+                                <TableCell>
+                                  {product.vendorId ? (
+                                    <Link href={`/admin/users?userId=${product.vendorId}`} className="hover:text-primary hover:underline text-xs">
+                                      {product.vendorId.substring(0, 8)}...
+                                    </Link>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">Marketplace</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>{product.dateAdded ? convertToDate(product.dateAdded).toLocaleDateString() : 'N/A'}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant="outline" className={`flex items-center justify-center gap-1.5 ${getStatusBadgeVariant(product.status)}`}>
+                                    {getStatusIcon(product.status)}
+                                    {product.status.replace('_', ' ')}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {actionLoading[product.id] ? <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /> : (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Product Actions</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="bg-card border-primary shadow-lg">
+                                      <DropdownMenuItem asChild className="hover:bg-primary/10 hover:text-primary cursor-pointer">
+                                        <Link href={`/products/${product.id}`} target="_blank">
+                                          <Eye className="mr-2 h-4 w-4" /> View Product Page
+                                        </Link>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem asChild className="hover:bg-primary/10 hover:text-primary cursor-pointer">
+                                         <Link href={`/vendor/products/edit/${product.id}`} target="_blank"> {/* Assume admin can edit via vendor flow or dedicated admin edit */}
+                                          <CheckCircle className="mr-2 h-4 w-4" /> Edit Product
+                                        </Link>
+                                      </DropdownMenuItem>
+                                      {(product.status === 'pending_approval' || product.status === 'rejected' || product.status === 'draft') && (
+                                        <DropdownMenuItem onClick={() => handleProductStatusUpdate(product.id, 'active')} className="text-green-400 hover:bg-green-500/10 hover:!text-green-300 focus:bg-green-500/20 focus:!text-green-300 cursor-pointer">
+                                          <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                        </DropdownMenuItem>
+                                      )}
+                                      {(product.status === 'pending_approval' || product.status === 'active' || product.status === 'draft') && (
+                                        <DropdownMenuItem onClick={() => handleProductStatusUpdate(product.id, 'rejected')} className="text-destructive hover:bg-destructive/10 hover:!text-destructive focus:bg-destructive/20 focus:!text-destructive cursor-pointer">
+                                          <XCircle className="mr-2 h-4 w-4" /> Reject
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12">

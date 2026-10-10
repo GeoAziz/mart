@@ -23,18 +23,25 @@ export interface PaginatedResult<T> {
 /**
  * Encode document snapshot as cursor
  */
-function encodeCursor(docId: string, sortValue: string | number | Date): string {
-  const cursor = `${docId}:${String(sortValue)}`;
+export function encodeCursor(docId: string, sortValue: string | number | Date): string {
+  const normalized = sortValue instanceof Date ? sortValue.toISOString() : String(sortValue);
+  const cursor = `${docId}\u0000${normalized}`;
   return Buffer.from(cursor).toString('base64');
 }
 
 /**
  * Decode cursor to get document ID and sort value
  */
-function decodeCursor(cursor: string): { docId: string; sortValue: string } {
+export function decodeCursor(cursor: string): { docId: string; sortValue: string } {
   const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
-  const [docId, sortValue] = decoded.split(':');
-  return { docId, sortValue };
+  const separatorIndex = decoded.indexOf('\u0000');
+  if (separatorIndex === -1) {
+    throw new Error('Invalid cursor format');
+  }
+  return {
+    docId: decoded.slice(0, separatorIndex),
+    sortValue: decoded.slice(separatorIndex + 1),
+  };
 }
 
 /**
@@ -101,10 +108,9 @@ export async function paginateQuery<T extends { id?: string }>(
 
     if (items.length > 0 && hasMore) {
       const lastItem = items[items.length - 1];
-      const lastDocSnap = docs[pageSize];
       nextCursor = encodeCursor(
-        lastDocSnap.id,
-        lastDocSnap.get(sortField)
+        lastItem.id ?? '',
+        (lastItem as Record<string, unknown>)[sortField] as string | number | Date
       );
     }
 

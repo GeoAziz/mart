@@ -2,7 +2,7 @@ import client from 'prom-client';
 
 // Initialize if not already done
 if (!globalThis.__prometheusMetricsInitialized) {
-  client.collectDefaultMetrics({ timeout: 5000 });
+  client.collectDefaultMetrics({});
   globalThis.__prometheusMetricsInitialized = true;
 }
 
@@ -86,11 +86,12 @@ export function trackRequestMetrics(
   status: number,
   duration: number
 ) {
-  httpRequestDuration.labels(method, route, status).observe(duration);
-  httpRequestTotal.labels(method, route, status).inc();
+  const statusStr = String(status);
+  httpRequestDuration.labels(method, route, statusStr).observe(duration);
+  httpRequestTotal.labels(method, route, statusStr).inc();
 
   if (status >= 400) {
-    httpRequestErrors.labels(method, route, status).inc();
+    httpRequestErrors.labels(method, route, statusStr).inc();
   }
 }
 

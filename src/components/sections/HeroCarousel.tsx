@@ -105,16 +105,20 @@ const HeroCarousel = () => {
             key={promo.title + index}
             className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           >
-            {promo.imageUrl && (
+            {promo.imageUrl ? (
               <Image
                 src={promo.imageUrl}
-                alt={promo.title}
+                alt={promo.title || 'Hero banner'}
                 fill
                 style={{objectFit: 'cover'}}
                 className={`transition-transform duration-5000 ease-linear ${index === currentIndex ? 'scale-105' : 'scale-100'}`}
                 data-ai-hint={promo.dataAiHint || 'hero image'}
                 priority={index === 0} // Only priority load the first image
               />
+            ) : (
+              <div className="absolute inset-0 bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                No hero image
+              </div>
             )}
           </div>
         ))}

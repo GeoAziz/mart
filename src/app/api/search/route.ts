@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { searchProducts, isAlgoliaEnabled } from '@/lib/algolia-search-service';
 import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
+import { withRequestMetrics } from '@/lib/api-metrics';
 
 /**
  * GET /api/search - Full-text search for products via Algolia.
@@ -10,7 +11,7 @@ import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
  * to Firestore. Firestore does not support full-text search natively; the two
  * sources produce inconsistent results, which is a worse UX than an honest error.
  */
-export async function GET(request: NextRequest) {
+async function searchHandler(request: NextRequest) {
   const limited = await applyRateLimit(request, rateLimitPresets.public);
   if (limited) return limited;
 
@@ -80,3 +81,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestMetrics(searchHandler);

@@ -33,25 +33,50 @@ awslocal dynamodb create-table \
 # SQS Queues (FIFO for guaranteed ordering)
 echo "Creating SQS queues..."
 
-# Order queue
+# Dead-letter queues (FIFO source queues must redrive to FIFO DLQs)
+echo "Creating dead-letter queues..."
+awslocal sqs create-queue \
+  --queue-name order-queue-dlq.fifo \
+  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,MessageRetentionPeriod=1209600' || true
+
+awslocal sqs create-queue \
+  --queue-name product-queue-dlq.fifo \
+  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,MessageRetentionPeriod=1209600' || true
+
+awslocal sqs create-queue \
+  --queue-name payment-queue-dlq.fifo \
+  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,MessageRetentionPeriod=1209600' || true
+
+awslocal sqs create-queue \
+  --queue-name notification-queue-dlq.fifo \
+  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,MessageRetentionPeriod=1209600' || true
+
+get_dlq_arn() {
+  awslocal sqs get-queue-attributes \
+    --queue-url "http://localhost:4566/000000000000/$1" \
+    --attribute-names QueueArn \
+    --query 'Attributes.QueueArn' --output text
+}
+
+# Main queues with RedrivePolicy pointing at their DLQs
 awslocal sqs create-queue \
   --queue-name order-queue.fifo \
-  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600' || true
+  --attributes "FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600,RedrivePolicy={\"deadLetterTargetArn\":\"$(get_dlq_arn order-queue-dlq.fifo)\",\"maxReceiveCount\":5}" || true
 
 # Product queue
 awslocal sqs create-queue \
   --queue-name product-queue.fifo \
-  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600' || true
+  --attributes "FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600,RedrivePolicy={\"deadLetterTargetArn\":\"$(get_dlq_arn product-queue-dlq.fifo)\",\"maxReceiveCount\":5}" || true
 
 # Payment queue
 awslocal sqs create-queue \
   --queue-name payment-queue.fifo \
-  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600' || true
+  --attributes "FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600,RedrivePolicy={\"deadLetterTargetArn\":\"$(get_dlq_arn payment-queue-dlq.fifo)\",\"maxReceiveCount\":5}" || true
 
 # Notification queue
 awslocal sqs create-queue \
   --queue-name notification-queue.fifo \
-  --attributes 'FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600' || true
+  --attributes "FifoQueue=true,ContentBasedDeduplication=true,VisibilityTimeout=300,MessageRetentionPeriod=1209600,RedrivePolicy={\"deadLetterTargetArn\":\"$(get_dlq_arn notification-queue-dlq.fifo)\",\"maxReceiveCount\":5}" || true
 
 # SNS Topics
 echo "Creating SNS topics..."
@@ -66,5 +91,5 @@ echo ""
 echo "Resources created:"
 echo "- S3 Buckets: mart-uploads, mart-assets, mart-backups"
 echo "- DynamoDB: sessions, cache"
-echo "- SQS Queues: order-queue.fifo, product-queue.fifo, payment-queue.fifo, notification-queue.fifo"
+echo "- SQS Queues: order-queue.fifo, product-queue.fifo, payment-queue.fifo, notification-queue.fifo (+ DLQs with RedrivePolicy)"
 echo "- SNS Topics: orders, products, payments, notifications"

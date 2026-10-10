@@ -50,15 +50,21 @@ const PromoBanners = ({ area = "homepage_top" }: { area?: PromoBanner["displayAr
           aria-label={banner.name}
           className="block group relative rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all"
         >
-          <Image
-            src={banner.imageUrl}
-            alt={banner.name}
-            width={1200}
-            height={200}
-            className="w-full h-32 md:h-40 object-cover group-hover:scale-105 transition-transform"
-            data-ai-hint={banner.dataAiHint || "promo banner"}
-            loading="lazy"
-          />
+          {banner.imageUrl ? (
+            <Image
+              src={banner.imageUrl}
+              alt={banner.name || 'Promo banner'}
+              width={1200}
+              height={200}
+              className="w-full h-32 md:h-40 object-cover group-hover:scale-105 transition-transform"
+              data-ai-hint={banner.dataAiHint || 'promo banner'}
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-32 md:h-40 flex items-center justify-center bg-muted text-muted-foreground text-sm">
+              No banner image
+            </div>
+          )}
           <span className="sr-only">{banner.name}</span>
         </a>
       ))}

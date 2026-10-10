@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Star, ShoppingCart, ShieldCheck, Truck, MessageCircle, ChevronLeft, ChevronRight, Minus, Plus, X, Maximize, Loader2, Send, AlertCircle, Share2, Copy, Facebook, Twitter, Mail, ZoomIn, Heart, Trash2 } from 'lucide-react';
-import RelatedProductsAI from '@/components/ai/RelatedProductsAI';
+import RelatedProducts from '@/components/sections/RelatedProducts';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth, type CartItemClient } from '@/context/AuthContext';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { useToast } from '@/hooks/use-toast';
 import type { Product as ProductData, Review as ReviewType } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,7 @@ export default function ProductDetailPage() {
   const productId = params.id as string;
   const { currentUser, addItemToCart, isCartSaving, cart, removeCartItem } = useAuth();
   const { toast } = useToast();
+  const { trackEvent } = useAnalytics();
 
   const [product, setProduct] = useState<ProductData | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
@@ -34,6 +36,18 @@ export default function ProductDetailPage() {
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [errorProduct, setErrorProduct] = useState<string | null>(null);
   const [errorReviews, setErrorReviews] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (product && !isLoadingProduct) {
+      trackEvent('view_item', {
+        productId: product.id,
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        vendorId: product.vendorId
+      });
+    }
+  }, [product, isLoadingProduct, trackEvent]);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -216,6 +230,12 @@ export default function ProductDetailPage() {
       if (isInCart) {
         // Remove from cart
         await removeCartItem(product.id);
+        trackEvent('remove_from_cart', {
+          productId: product.id,
+          name: product.name,
+          category: product.category,
+          price: product.price
+        });
         toast({ title: 'Removed', description: `${product.name} removed from cart.` });
       } else {
         // Add to cart
@@ -226,6 +246,13 @@ export default function ProductDetailPage() {
           imageUrl: product.imageUrl,
           dataAiHint: product.dataAiHint,
         }, quantity);
+        trackEvent('add_to_cart', {
+          productId: product.id,
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          quantity: quantity
+        });
         toast({ title: 'Added', description: `${product.name} added to cart.` });
       }
     } catch (err) {
@@ -1009,7 +1036,7 @@ export default function ProductDetailPage() {
         </TabsContent>
       </Tabs>
 
-      <RelatedProductsAI product={product} />
+      <RelatedProducts product={product} />
 
       {/* Mobile Sticky Bottom Bar */}
       <div className="fixed md:hidden bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-2xl">

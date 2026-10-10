@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,10 @@ import {
   CartesianGrid,
   XAxis,
   YAxis,
-  Tooltip
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 
 // Add status badge variant helper
@@ -131,12 +134,37 @@ const VendorDashboardPage = () => {
 
   const { data, isLoading, error } = dashboardState;
 
-  // Mock activity feed data (replace with real data from API)
-  const mockActivities = data ? [
-    { id: '1', type: 'order' as const, title: 'New Order Received', description: 'Order #12345 - KSh 2,500', timestamp: new Date(), status: 'pending' as const },
-    { id: '2', type: 'product' as const, title: 'Product Updated', description: 'Updated inventory for "Product Name"', timestamp: new Date(Date.now() - 3600000), status: 'success' as const },
-    { id: '3', type: 'payment' as const, title: 'Payment Processed', description: 'Payout of KSh 15,000 completed', timestamp: new Date(Date.now() - 7200000), status: 'success' as const },
-  ] : [];
+  // Map orders and reviews into an activity feed
+  const activities = useMemo(() => {
+    if (!data) return [];
+    const arr: any[] = [];
+    if (data.recentOrders) {
+      data.recentOrders.forEach((o: any) => {
+        arr.push({ 
+          id: o.id, 
+          type: 'order', 
+          title: 'New Order Received', 
+          description: `Order #${o.id.slice(0,8)} - KSh ${(o.totalAmount || 0).toLocaleString()}`, 
+          timestamp: new Date(o.createdAt), 
+          status: o.status === 'delivered' ? 'success' : 'pending' 
+        });
+      });
+    }
+    if (data.recentReviews) {
+      data.recentReviews.forEach((r: any) => {
+        arr.push({ 
+          id: `rev-${r.id}`, 
+          type: 'product', 
+          title: 'New Review', 
+          description: `Rated ${r.rating} stars`, 
+          timestamp: new Date(r.createdAt), 
+          status: 'success' 
+        });
+      });
+    }
+    arr.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return arr.slice(0, 5);
+  }, [data]);
 
   return (
     <div className="space-y-6">
@@ -256,11 +284,27 @@ const VendorDashboardPage = () => {
                 <CardDescription>Your best-selling products</CardDescription>
               </CardHeader>
               <CardContent>
-                <EmptyState
-                  icon={Package}
-                  title="Coming Soon"
-                  description="Top products analytics will be available here"
-                />
+                {data?.bestSellingProducts && data.bestSellingProducts.length > 0 ? (
+                  <div className="space-y-4">
+                    {data.bestSellingProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                        <div className="space-y-1">
+                          <p className="font-medium leading-none">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">{product.sales} units sold</p>
+                        </div>
+                        <div className="font-bold">
+                          KSh {product.revenue.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Package}
+                    title="No product data"
+                    description="You haven't sold any products yet."
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -272,11 +316,60 @@ const VendorDashboardPage = () => {
                 <CardDescription>Learn about your customers</CardDescription>
               </CardHeader>
               <CardContent>
-                <EmptyState
-                  icon={Package}
-                  title="Coming Soon"
-                  description="Customer insights will be available here"
-                />
+                {data?.customerInsights && data.customerInsights.totalCustomers > 0 ? (
+                  <div className="flex flex-col md:flex-row items-center gap-8">
+                    <div className="w-full md:w-1/2 h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'New', value: data.customerInsights.newCustomers },
+                              { name: 'Returning', value: data.customerInsights.returningCustomers }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            <Cell fill="hsl(var(--primary))" />
+                            <Cell fill="hsl(var(--muted-foreground))" />
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="w-full md:w-1/2 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-muted/50 rounded-lg border">
+                          <p className="text-sm text-muted-foreground mb-1">Total Customers</p>
+                          <p className="text-2xl font-bold">{data.customerInsights.totalCustomers}</p>
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg border">
+                          <p className="text-sm text-muted-foreground mb-1">Returning Rate</p>
+                          <p className="text-2xl font-bold">
+                            {Math.round((data.customerInsights.returningCustomers / data.customerInsights.totalCustomers) * 100)}%
+                          </p>
+                        </div>
+                        <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                          <p className="text-sm text-primary mb-1">New</p>
+                          <p className="text-2xl font-bold text-primary">{data.customerInsights.newCustomers}</p>
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg border">
+                          <p className="text-sm text-muted-foreground mb-1">Returning</p>
+                          <p className="text-2xl font-bold">{data.customerInsights.returningCustomers}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Package}
+                    title="No customer data"
+                    description="You haven't had any customers yet."
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -287,7 +380,7 @@ const VendorDashboardPage = () => {
       {!isLoading && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Activity Feed */}
-          <RecentActivityFeed activities={mockActivities} />
+          <RecentActivityFeed activities={activities} />
 
           {/* Recent Reviews */}
           <Card>
@@ -307,16 +400,16 @@ const VendorDashboardPage = () => {
                     <div key={review.id} className="flex items-start space-x-4">
                       <Avatar>
                         {review.customerAvatar ? (
-                          <AvatarImage src={review.customerAvatar} alt={review.customerName} />
+                          <AvatarImage src={review.customerAvatar} alt={review.customerName || 'Customer'} />
                         ) : (
                           <AvatarFallback>
-                            {review.customerName.slice(0, 2).toUpperCase()}
+                            {(review.customerName || 'AN').slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         )}
                       </Avatar>
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">{review.customerName}</p>
+                          <p className="text-sm font-medium">{review.customerName || 'Anonymous Customer'}</p>
                           <time className="text-xs text-muted-foreground">
                             {new Date(review.createdAt).toLocaleDateString()}
                           </time>

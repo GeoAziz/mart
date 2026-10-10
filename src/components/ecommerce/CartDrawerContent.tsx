@@ -52,7 +52,7 @@ const CartDrawerContent: React.FC<CartDrawerContentProps> = ({ onClose }) => {
               <div key={item.productId} className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border border-border/50">
                 <Image 
                   src={item.imageUrl || 'https://placehold.co/80x80/cccccc/E0E0E0?text=No+Image'} 
-                  alt={item.name} 
+                  alt={item.name || "Product Image"} 
                   width={64} 
                   height={64} 
                   className="rounded object-cover" 

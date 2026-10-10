@@ -90,7 +90,7 @@ export default function ShippingPage() {
 
       try {
         const token = await currentUser.getIdToken();
-        const response = await fetch('/api/vendor/shipping-settings', {
+        const response = await fetch('/api/vendors/me/shipping', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -115,7 +115,7 @@ export default function ShippingPage() {
     };
 
     fetchSettings();
-  }, [currentUser, toast]);
+  }, [currentUser]);
 
   const handleSave = async () => {
     if (!currentUser) return;
@@ -123,7 +123,7 @@ export default function ShippingPage() {
     setIsSaving(true);
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('/api/vendor/shipping-settings', {
+      const response = await fetch('/api/vendors/me/shipping', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -340,6 +340,7 @@ export default function ShippingPage() {
             </div>
 
             {settings.zones.length > 0 ? (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -368,6 +369,7 @@ export default function ShippingPage() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No shipping zones defined yet.

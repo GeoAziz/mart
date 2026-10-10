@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent, useEffect, useCallback } from 'react';
+import { useState, type ChangeEvent, type FormEvent, type DragEvent, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -51,6 +51,7 @@ export default function EditProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [productFound, setProductFound] = useState(true);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchProductDetails = async (id: string) => {
@@ -290,10 +291,51 @@ export default function EditProductPage() {
     return ( <div className="flex justify-center items-center h-64"> <Loader2 className="h-16 w-16 animate-spin text-primary" /> <p className="ml-4 text-xl text-muted-foreground">Loading product details...</p> </div> );
   }
   if (!productFound) {
-     return ( <Card className="bg-card border-destructive shadow-lg"> <CardHeader> <CardTitle className="text-2xl font-headline text-destructive flex items-center"> <AlertCircle className="mr-3 h-6 w-6" /> Product Not Found </CardTitle> </CardHeader> <CardContent> <p className="text-muted-foreground">The product could not be found or you don't have permission to edit it.</p> </CardContent> <CardFooter> <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"> <Link href="/vendor/products/manage">Back to Manage Products</Link> </Button> </CardFooter> </Card> );
+     return ( 
+       <Card className="bg-card border-destructive shadow-lg">
+         <CardHeader>
+           <CardTitle className="text-2xl font-headline text-destructive flex items-center">
+             <AlertCircle className="mr-3 h-6 w-6" /> Product Not Found
+           </CardTitle>
+         </CardHeader>
+         <CardContent>
+           <p className="text-muted-foreground">The product could not be found or you don't have permission to edit it.</p>
+         </CardContent>
+         <CardFooter>
+           <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+             <Link href="/vendor/products/manage">Back to Manage Products</Link>
+           </Button>
+         </CardFooter>
+       </Card>
+     );
   }
   
   const currentTotalImages = images.length;
+
+  const handleDragStart = (index: number) => (e: DragEvent<HTMLDivElement>) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (index: number) => (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    const newImages = [...images];
+    const draggedImage = newImages[draggedIndex];
+    newImages.splice(draggedIndex, 1);
+    newImages.splice(index, 0, draggedImage);
+    setImages(newImages);
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -331,15 +373,23 @@ export default function EditProductPage() {
               {images.length > 0 && (
                 <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {images.map((img, index) => (
-                    <div key={img.id} className={`relative group aspect-square ${index === 0 ? 'border-2 border-primary p-0.5' : 'border border-border'}`}>
-                      <NextImage src={img.url} alt={`Product image ${index + 1}`} layout="fill" objectFit="cover" className="rounded-md shadow-sm" data-ai-hint={formData.dataAiHint || "product"} />
-                      {index === 0 && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-br-md z-10">Primary</div>}
+                    <div 
+                      key={img.id} 
+                      draggable={!isSubmitting}
+                      onDragStart={handleDragStart(index)}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop(index)}
+                      onDragEnd={handleDragEnd}
+                      className={`relative group aspect-square cursor-grab active:cursor-grabbing ${draggedIndex === index ? 'opacity-50' : ''} ${index === 0 ? 'border-2 border-primary p-0.5' : 'border border-border'}`}
+                    >
+                      <NextImage src={img.url} alt={`Product image ${index + 1}`} layout="fill" objectFit="cover" className="rounded-md shadow-sm pointer-events-none" data-ai-hint={formData.dataAiHint || "product"} />
+                      {index === 0 && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-br-md z-10 pointer-events-none">Primary</div>}
                       {!isSubmitting && (
                         <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/70 hover:bg-destructive z-20" onClick={() => removeImage(img.id)}>
                           <X size={14} /> <span className="sr-only">Remove image</span>
                         </Button>
                       )}
-                       <div className="absolute bottom-1 left-1 bg-black/40 p-1 rounded-full text-white z-10 cursor-grab" title="Drag to reorder (feature coming soon)">
+                       <div className="absolute bottom-1 left-1 bg-black/40 p-1 rounded-full text-white z-10 pointer-events-none" title="Drag to reorder">
                          <GripVertical size={12}/>
                        </div>
                     </div>
@@ -363,7 +413,9 @@ export default function EditProductPage() {
             </div>
           </CardContent>
           <CardFooter className="border-t border-border/50 pt-6 flex justify-end gap-3">
-             <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground" disabled={isSubmitting}> <Link href="/vendor/products/manage">Cancel</Link> </Button>
+            <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground" disabled={isSubmitting}>
+              <Link href="/vendor/products/manage">Cancel</Link>
+            </Button>
             <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Save className="mr-2 h-5 w-5" />}
               {isSubmitting ? 'Saving...' : 'Save Changes'}

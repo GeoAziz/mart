@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import { ApiError, ErrorCodes } from '@/lib/api-errors';
 import type { Order, OrderItem, LedgerEntry, Promotion } from '@/lib/types';
+import { computeVendorOrderSplits, groupItemsByVendor, type VendorSplitContext } from '@/lib/vendor-order-split';
 
 interface OrderTransactionData {
   order: Omit<Order, 'id'>;
@@ -38,6 +39,35 @@ export async function createOrderTransaction(
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+
+      // 1b. Split the order into per-vendor VendorOrders
+      const vendorItems = groupItemsByVendor(transactionData.items);
+      const splitContext: VendorSplitContext = {
+        orderId,
+        customerId: transactionData.order.userId,
+        customerName: transactionData.order.userFullName,
+        customerEmail: transactionData.order.userEmail,
+        shippingAddress: transactionData.order.shippingAddress,
+        subtotal: transactionData.order.subtotal,
+        discountAmount: transactionData.order.discountAmount ?? 0,
+        taxRate: transactionData.order.totalAmount > 0
+          ? (transactionData.order.taxAmount / (transactionData.order.subtotal - (transactionData.order.discountAmount ?? 0)))
+          : 0.16,
+        shippingCost: transactionData.order.shippingCost,
+        estimatedDeliveryDate: transactionData.order.estimatedDeliveryDate,
+      };
+      const vendorOrderDrafts = computeVendorOrderSplits(
+        Array.from(vendorItems.entries()).map(([vendorId, items]) => ({ vendorId, items })),
+        splitContext
+      );
+      for (const draft of vendorOrderDrafts) {
+        const vendorOrderRef = db.collection('vendorOrders').doc();
+        batch.set(vendorOrderRef, {
+          ...draft,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       // 2. Reserve inventory for each product
       for (const reservation of inventoryReservations) {

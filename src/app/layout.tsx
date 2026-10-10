@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import AIChatbotButton from '@/components/ai/AIChatbotButton';
+import SupportButton from '@/components/layout/SupportButton';
 import { AuthProvider } from '@/context/AuthContext';
 import { isFirebaseConfigured } from '@/lib/firebase-client';
 import SetupInstructions from '@/components/layout/SetupInstructions';
@@ -46,7 +46,7 @@ export default function RootLayout({
             <ConditionalShell>{children}</ConditionalShell>
           </div>
           <Toaster />
-          <AIChatbotButton />
+          <SupportButton />
         </AuthProvider>
       </body>
     </html>

@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { PlusCircle, Loader2, PackageOpen, PackageSearch, MoreVertical, Edit, Eye, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { BulkActionsToolbar } from '@/components/vendor/BulkActionsToolbar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +54,32 @@ export default function ManageProductsPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds(new Set(products.map(p => p.id)));
+    } else {
+      setSelectedProductIds(new Set());
+    }
+  };
+
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    const newSelected = new Set(selectedProductIds);
+    if (checked) {
+      newSelected.add(productId);
+    } else {
+      newSelected.delete(productId);
+    }
+    setSelectedProductIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (confirm(`Are you sure you want to delete ${selectedProductIds.size} products? This action cannot be undone.`)) {
+      // Logic for bulk delete would go here (e.g. iterating or sending array to a new endpoint)
+      toast({ title: 'Not Implemented', description: 'Bulk delete API endpoint needed.' });
+    }
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -139,25 +167,46 @@ export default function ManageProductsPage() {
         </CardHeader>
         <CardContent>
           {products.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[80px] hidden sm:table-cell"></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="text-center">Stock</TableHead>
-                  <TableHead className="text-right">Price (KSh)</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="hidden sm:table-cell">
+            <div className="space-y-4">
+              <BulkActionsToolbar
+                selectedCount={selectedProductIds.size}
+                onClearSelection={() => setSelectedProductIds(new Set())}
+                onBulkDelete={handleBulkDelete}
+              />
+              <div className="overflow-x-auto">
+                <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]">
+                      <Checkbox 
+                        checked={selectedProductIds.size === products.length && products.length > 0} 
+                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)} 
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[80px] hidden sm:table-cell"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
+                    <TableHead className="text-right">Price (KSh)</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedProductIds.has(product.id)} 
+                          onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
+                          aria-label={`Select ${product.name}`}
+                        />
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
                       <Image 
                         src={product.imageUrl || 'https://placehold.co/80x80/cccccc/E0E0E0?text=No+Image'} 
-                        alt={product.name}
+                        alt={product.name || "Product Image"}
                         width={40}
                         height={40}
                         className="rounded object-cover"
@@ -203,6 +252,8 @@ export default function ManageProductsPage() {
                 ))}
               </TableBody>
             </Table>
+              </div>
+            </div>
           ) : (
             <EmptyState
               icon={PlusCircle}
@@ -210,8 +261,7 @@ export default function ManageProductsPage() {
               description="Start by adding your first product to your store"
               action={{
                 label: "Add Product",
-                onClick: () => router.push('/vendor/products/add'),
-                variant: 'default',
+                onClick: () => router.push('/vendor/products/add')
               }}
             />
           )}

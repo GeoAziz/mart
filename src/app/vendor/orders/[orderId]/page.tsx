@@ -85,7 +85,7 @@ export default function VendorOrderDetailPage() {
     setIsLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/vendors/me/orders/${orderId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -129,7 +129,7 @@ export default function VendorOrderDetailPage() {
     setActionLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/vendors/me/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -273,7 +273,7 @@ export default function VendorOrderDetailPage() {
                 {vendorItems.map((item: OrderItemType) => (
                   <TableRow key={item.productId}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} alt={item.name} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint || "product"}/>
+                      <Image src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} alt={item.name || "Product Image"} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint || "product"}/>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium">{item.name}</p>

@@ -20,6 +20,7 @@ export interface VendorSettings {
   socialTwitter?: string;
   socialInstagram?: string;
   payoutMpesaNumber?: string;
+  payoutMpesaVerified?: boolean;
   reviewNotifications?: boolean;
   useAutoReply?: boolean;
   autoReplyMessage?: string;
@@ -37,6 +38,7 @@ const DEFAULT_VENDOR_SETTINGS: VendorSettings = {
   socialTwitter: '',
   socialInstagram: '',
   payoutMpesaNumber: '',
+  payoutMpesaVerified: false,
 };
 
 // GET handler to fetch vendor settings
@@ -96,20 +98,34 @@ async function updateVendorSettingsHandler(req: AuthenticatedRequest) {
     }
     // Add more validations as needed
 
+    if (!firestoreAdmin) {
+      return NextResponse.json({ message: 'Firestore admin is not initialized.' }, { status: 500 });
+    }
+    const settingsDocRef = firestoreAdmin.collection('vendorSettings').doc(vendorId);
+    
+    // Fetch current settings to check if M-Pesa number changed
+    const currentSettingsSnap = await settingsDocRef.get();
+    const currentSettings = currentSettingsSnap.exists ? (currentSettingsSnap.data() as VendorSettings) : undefined;
+    
     // Encrypt M-Pesa number at rest (KDPA 2019 PII protection)
     const settingsToWrite = { ...body };
+    
     if (settingsToWrite.payoutMpesaNumber) {
+      const isNewNumber = !currentSettings || 
+        (currentSettings.payoutMpesaNumber ? decryptIfEncrypted(currentSettings.payoutMpesaNumber) !== settingsToWrite.payoutMpesaNumber : true);
+      
+      if (isNewNumber) {
+        settingsToWrite.payoutMpesaVerified = false;
+      }
+      
       settingsToWrite.payoutMpesaNumber = encryptIfConfigured(settingsToWrite.payoutMpesaNumber);
     }
+    
     const settingsDataToUpdate: Partial<VendorSettings> & { updatedAt: Date } = {
       ...settingsToWrite,
       updatedAt: new Date(),
     };
 
-    if (!firestoreAdmin) {
-      return NextResponse.json({ message: 'Firestore admin is not initialized.' }, { status: 500 });
-    }
-    const settingsDocRef = firestoreAdmin.collection('vendorSettings').doc(vendorId);
     // Use set with merge: true to create if not exists or update if exists
     await settingsDocRef.set(settingsDataToUpdate, { merge: true });
 

@@ -30,7 +30,7 @@ function mapReviewDocument(doc: FirebaseFirestore.DocumentSnapshot): Review {
   return {
     id: doc.id,
     ...data,
-    createdAt: toDate(data.createdAt) ?? new Date(data.createdAt || Date.now()),
+    createdAt: toDate(data.createdAt) ?? new Date(Date.now()),
     repliedAt: data.repliedAt ? (toDate(data.repliedAt) ?? undefined) : undefined,
   };
 }
@@ -45,10 +45,14 @@ async function getVendorReviewsHandler(req: AuthenticatedRequest) {
     const reviewsSnapshot = await firestoreAdmin
       .collection('reviews')
       .where('vendorId', '==', vendorId)
-      .orderBy('createdAt', 'desc')
       .get();
 
     const reviews = reviewsSnapshot.docs.map(mapReviewDocument);
+    reviews.sort((a, b) => {
+      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt as any).toMillis();
+      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt as any).toMillis();
+      return bTime - aTime;
+    });
     return NextResponse.json(reviews, { status: 200 });
 
   } catch (error: any) {

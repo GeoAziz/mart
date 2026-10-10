@@ -1,0 +1,37 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: {}
+      http: {}
+  filelog:
+    include:
+      - /var/log/*.log
+    include_file_path: true
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  logging:
+    loglevel: info
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  otlphttp/tempo:
+    endpoint: "http://tempo:4318"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, otlphttp/tempo]
+    logs:
+      receivers: [filelog]
+      processors: [batch]
+      exporters: [logging]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, logging]

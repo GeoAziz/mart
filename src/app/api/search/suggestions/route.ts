@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSearchSuggestions, isAlgoliaEnabled } from '@/lib/algolia-search-service';
 import { firestoreAdmin } from '@/lib/firebase-admin';
+import { withRequestMetrics } from '@/lib/api-metrics';
 
 /**
  * GET /api/search/suggestions - Get autocomplete suggestions
  */
-export async function GET(request: NextRequest) {
+async function getSuggestionsHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
@@ -85,3 +86,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestMetrics(getSuggestionsHandler);

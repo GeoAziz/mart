@@ -39,6 +39,10 @@ import { verifyPayPalWebhookSignature, throwIfWebhookVerificationFails } from '@
 import { processWebhookOnce } from '@/lib/webhook-idempotency';
 import { validateStatusTransition } from '@/lib/order-state-machine';
 import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
+import { withRequestMetrics } from '@/lib/api-metrics';
+import { trackPaymentProcessed } from '@/lib/metrics';
+import { enqueuePayment } from '@/lib/queue-service';
+import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
 
 interface PayPalWebhookEvent {
   // WHAT PAYPAL SENDS US:
@@ -141,6 +145,17 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent): Promise<void> 
   });
 
   console.log(`PayPal: Order ${orderDoc.id} payment confirmed`);
+  trackPaymentProcessed('paypal', 'success');
+  await releaseReservations(orderDoc.id);
+  enqueuePayment({
+    type: 'payment.completed',
+    paymentId: event.id,
+    orderId: orderDoc.id,
+    amount: order.totalAmount || 0,
+    method: 'paypal',
+    status: 'COMPLETED',
+    timestamp: new Date().toISOString(),
+  }).catch((err) => console.error('Failed to enqueue payment:', err));
 }
 
 async function handleRefund(event: PayPalWebhookEvent): Promise<void> {
@@ -183,6 +198,7 @@ async function handleRefund(event: PayPalWebhookEvent): Promise<void> {
   });
 
   console.log(`PayPal: Order ${orderDoc.id} refunded`);
+  trackPaymentProcessed('paypal', 'refunded');
 }
 
 async function handleCapturedDenied(event: PayPalWebhookEvent): Promise<void> {
@@ -224,9 +240,20 @@ async function handleCapturedDenied(event: PayPalWebhookEvent): Promise<void> {
   });
 
   console.log(`PayPal: Order ${orderDoc.id} cancelled`);
+  trackPaymentProcessed('paypal', 'failed');
+  await restoreStockForOrder(orderDoc.id);
+  enqueuePayment({
+    type: 'payment.failed',
+    paymentId: event.id,
+    orderId: orderDoc.id,
+    amount: order.totalAmount || 0,
+    method: 'paypal',
+    status: 'FAILED',
+    timestamp: new Date().toISOString(),
+  }).catch((err) => console.error('Failed to enqueue payment:', err));
 }
 
-export async function POST(req: NextRequest) {
+async function paypalWebhookHandler(req: NextRequest) {
   try {
     const body = await req.json() as PayPalWebhookEvent;
 
@@ -285,3 +312,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withRequestMetrics(paypalWebhookHandler);

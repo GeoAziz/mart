@@ -5,130 +5,51 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import RouteGuard from '@/components/auth/RouteGuard';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Menu, ChevronLeft, ChevronRight, Home, BarChart3, ShoppingBag, Inbox, DollarSign, Star, Settings, Package, MessageCircle, Users, MoreHorizontal } from 'lucide-react';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Menu, ChevronLeft, ChevronRight, Home, BarChart3, ShoppingBag, Inbox, DollarSign, StarHalf, Settings, Package, Users, MoreHorizontal, Plus, List, Archive, Truck, FileText, LifeBuoy, CreditCard, LayoutDashboard, MessageSquare, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/vendor/NotificationCenter';
+import { VendorUserNav } from '@/components/vendor/VendorUserNav';
+import VendorDesktopNav, { NavItem } from '@/components/vendor/VendorDesktopNav';
+import VendorMobileNav from '@/components/vendor/VendorMobileNav';
 // ParticleBackground is rendered globally in root layout
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
-}
-
-// Simplified 2-level navigation structure (no nested subItems)
 const vendorNavItems: NavItem[] = [
   { href: "/vendor", label: "Dashboard", icon: Home },
-  { href: "/vendor/products", label: "Products", icon: Package },
-  { href: "/vendor/orders", label: "Orders", icon: ShoppingBag },
-  { href: "/vendor/earnings", label: "Finance", icon: DollarSign },
-  { href: "/messaging", label: "Customers", icon: Users },
+  
+  { href: "#", label: "Store", icon: Settings, sectionTitle: "Store Management" },
+  { href: "/vendor/products/manage", label: "Products", icon: Package, subItems: [
+    { href: "/vendor/products/manage", label: "All Products", icon: List },
+    { href: "/vendor/products/add", label: "Add Product", icon: Plus },
+    { href: "/vendor/inventory", label: "Inventory", icon: Archive }
+  ]},
+  { href: "/vendor/promotions", label: "Promotions", icon: Tag },
+  { href: "/vendor/orders/all", label: "Orders", icon: ShoppingBag, subItems: [
+    { href: "/vendor/orders/all", label: "All Orders", icon: List },
+    { href: "/vendor/orders/incoming", label: "Incoming Orders", icon: Inbox }
+  ]},
+  { href: "/vendor/customers", label: "Customers", icon: Users },
+  { href: "/vendor/messaging", label: "Messaging", icon: MessageSquare },
+  { href: "/vendor/reviews", label: "Reviews", icon: StarHalf },
+  
+  { href: "#", label: "Finance & Shipping", icon: Settings, sectionTitle: "Operations" },
+  { href: "/vendor/earnings", label: "Finance", icon: DollarSign, subItems: [
+    { href: "/vendor/earnings", label: "Earnings", icon: BarChart3 },
+    { href: "/vendor/transactions", label: "Transactions", icon: List },
+    { href: "/vendor/payment-settings", label: "Payment Settings", icon: CreditCard }
+  ]},
+  { href: "/vendor/shipping", label: "Shipping", icon: Truck, subItems: [
+    { href: "/vendor/shipping", label: "Overview", icon: List },
+    { href: "/vendor/shipping-settings", label: "Settings", icon: Settings }
+  ]},
+  
+  { href: "#", label: "Insights", icon: Settings, sectionTitle: "Insights & Support" },
   { href: "/vendor/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/vendor/reports", label: "Reports", icon: FileText },
+  { href: "/vendor/store-profile", label: "Store Profile", icon: LayoutDashboard },
   { href: "/vendor/settings", label: "Settings", icon: Settings },
+  { href: "/vendor/support", label: "Support", icon: LifeBuoy }
 ];
-
-interface VendorDesktopNavProps {
-  items: NavItem[];
-  collapsed: boolean;
-}
-
-function VendorDesktopNav({ items, collapsed }: VendorDesktopNavProps) {
-  const pathname = usePathname();
-
-  return (
-    <TooltipProvider>
-      <div className="space-y-1">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          
-          const navButton = (
-            <Button
-              variant={isActive ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 h-11",
-                collapsed && "justify-center px-2"
-              )}
-              asChild
-            >
-              <Link href={item.href}>
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span className="font-medium">{item.label}</span>}
-                {!collapsed && item.badge && item.badge > 0 && (
-                  <span className="ml-auto bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-semibold">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            </Button>
-          );
-
-          if (collapsed) {
-            return (
-              <div key={item.href}>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    {navButton}
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-popover border-border">
-                    <p className="font-medium">{item.label}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            );
-          }
-
-          return (
-            <div key={item.href}>
-              {navButton}
-            </div>
-          );
-        })}
-      </div>
-    </TooltipProvider>
-  );
-}
-
-interface VendorMobileNavProps {
-  items: NavItem[];
-  onItemClick: () => void;
-}
-
-function VendorMobileNav({ items, onItemClick }: VendorMobileNavProps) {
-  const pathname = usePathname();
-
-  return (
-    <div className="space-y-1">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-        
-        return (
-          <Button
-            key={item.href}
-            variant={isActive ? "secondary" : "ghost"}
-            className="w-full justify-start gap-3 h-11"
-            asChild
-            onClick={onItemClick}
-          >
-            <Link href={item.href}>
-              <Icon className="h-5 w-5" />
-              <span className="font-medium flex-1 text-left">{item.label}</span>
-              {item.badge && item.badge > 0 && (
-                <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-semibold">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          </Button>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function VendorLayout({
   children,
@@ -146,14 +67,14 @@ export default function VendorLayout({
         <div className="hidden lg:flex">
           {/* Desktop Sidebar - Fixed Position */}
           <aside className={cn(
-            "fixed inset-y-0 left-0 z-30 bg-card border-r border-border transition-all duration-300 ease-in-out",
-            sidebarCollapsed ? "w-16" : "w-64"
+            "fixed inset-y-0 left-0 z-40 bg-card border-r border-border transition-all duration-300 ease-in-out",
+            sidebarCollapsed ? "-translate-x-full w-64" : "translate-x-0 w-64"
           )}>
             <div className="flex h-full flex-col">
               {/* Header with collapse button */}
               <div className="flex items-center justify-between p-4 border-b border-border min-h-[4rem]">
                 {!sidebarCollapsed && (
-                  <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
+                  <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
                 )}
                 <Button
                   variant="ghost"
@@ -170,54 +91,72 @@ export default function VendorLayout({
               <nav className="flex-1 p-2 overflow-y-auto">
                 <VendorDesktopNav items={vendorNavItems} collapsed={sidebarCollapsed} />
               </nav>
+              {/* Sidebar Bottom Actions */}
+              <div className={cn(
+                "p-4 border-t border-border flex items-center gap-2", 
+                sidebarCollapsed ? "flex-col justify-center" : "justify-between"
+              )}>
+                <NotificationCenter />
+                <VendorUserNav />
+              </div>
             </div>
           </aside>
           {/* Main Content - Dynamic margin based on sidebar state */}
           <main className={cn(
-            "flex-1 transition-all duration-300 ease-in-out",
-            sidebarCollapsed ? "ml-16" : "ml-64"
+            "flex-1 transition-all duration-300 ease-in-out relative",
+            sidebarCollapsed ? "ml-0" : "ml-64"
           )}>
-            {/* Desktop Header with NotificationCenter */}
-            <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
-              <div className="flex items-center justify-end gap-4 p-4 h-16">
-                <NotificationCenter />
+            {sidebarCollapsed && (
+              <div className="fixed top-4 left-4 z-30">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarCollapsed(false)}
+                  className="bg-background/50 backdrop-blur border border-border hover:bg-accent hover:text-foreground text-muted-foreground shadow-sm h-10 w-10 rounded-lg transition-all"
+                  aria-label="Open sidebar"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
               </div>
-            </header>
-            <div className="p-6">
+            )}
+            <div className={cn("p-6", sidebarCollapsed && "pt-16")}>
               {children}
             </div>
           </main>
         </div>
         {/* MOBILE LAYOUT - Overlay Sheet */}
         <div className="lg:hidden">
-          {/* Mobile Header */}
-          <header className="sticky top-0 z-40 bg-background border-b border-border">
-            <div className="flex items-center justify-between gap-4 p-4 h-16">
-              <div className="flex items-center gap-4">
-                <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Menu" className="shrink-0 tap-feedback">
-                      <Menu className="h-6 w-6" />
-                      <span className="sr-only">Menu</span>
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-64 p-0">
-                    <div className="p-4 border-b border-border">
-                      <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
-                    </div>
-                    <nav className="p-2">
-                      <VendorMobileNav items={vendorNavItems} onItemClick={() => setMobileOpen(false)} />
-                    </nav>
-                  </SheetContent>
-                </Sheet>
-                <h1 className="text-lg font-semibold text-glow-primary">Vendor Dashboard</h1>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            {/* Floating button to open mobile menu */}
+            {!mobileOpen && (
+              <div className="fixed top-4 left-4 z-40">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileOpen(true)}
+                  className="bg-background/80 backdrop-blur border border-border hover:bg-accent hover:text-foreground text-foreground shadow-sm h-10 w-10 rounded-lg transition-all"
+                  aria-label="Open sidebar"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
               </div>
-              <NotificationCenter />
-            </div>
-          </header>
+            )}
+            <SheetContent side="left" className="w-64 p-0 flex flex-col h-full">
+              <div className="p-4 border-b border-border">
+                <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
+              </div>
+              <nav className="flex-1 p-2 overflow-y-auto">
+                <VendorMobileNav items={vendorNavItems} onItemClick={() => setMobileOpen(false)} />
+              </nav>
+              <div className="p-4 border-t border-border flex items-center justify-between">
+                <NotificationCenter />
+                <VendorUserNav />
+              </div>
+            </SheetContent>
+          </Sheet>
           {/* Mobile Main Content */}
           <main>
-            <div className="p-4 pb-20">
+            <div className="p-4 pt-16 pb-20">
               {children}
             </div>
           </main>
@@ -227,11 +166,11 @@ export default function VendorLayout({
             <div className="grid grid-cols-5 gap-1 p-2">
               {/* Priority items: Dashboard, Orders, Products, Customers */}
               {[
-                vendorNavItems[0], // Dashboard
-                vendorNavItems[2], // Orders
-                vendorNavItems[1], // Products
-                vendorNavItems[4], // Customers
-              ].map((item) => {
+                vendorNavItems.find(i => i.href === "/vendor"),
+                vendorNavItems.find(i => i.href === "/vendor/orders/all"),
+                vendorNavItems.find(i => i.href === "/vendor/products/manage"),
+                vendorNavItems.find(i => i.href === "/vendor/messaging"),
+              ].filter((item): item is NavItem => item !== undefined).map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 

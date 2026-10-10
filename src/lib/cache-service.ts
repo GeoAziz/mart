@@ -5,11 +5,13 @@
 
 import NodeCache from 'node-cache';
 import { createClient, type RedisClientType } from 'redis';
+import { trackCacheHit, trackCacheMiss } from '@/lib/metrics';
 
 type CacheValue = string | object | null | undefined;
 
 let redisClient: RedisClientType | null = null;
 let isRedisConnected = false;
+let redisInitPromise: Promise<void> | null = null;
 
 export const nodeCache = new NodeCache({
   stdTTL: 300, // 5 minute default TTL
@@ -18,9 +20,18 @@ export const nodeCache = new NodeCache({
 });
 
 /**
- * Initialize Redis connection (optional, falls back to node-cache)
+ * Initialize Redis connection (optional, falls back to node-cache).
+ * Idempotent: safe to call from multiple entry points (Next.js instrumentation,
+ * WebSocket server, queue workers).
  */
-export async function initializeRedis(): Promise<void> {
+export function initializeRedis(): Promise<void> {
+  if (!redisInitPromise) {
+    redisInitPromise = doInitializeRedis();
+  }
+  return redisInitPromise;
+}
+
+async function doInitializeRedis(): Promise<void> {
   if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
     console.log('[Cache] Redis not configured, using node-cache');
     return;
@@ -42,6 +53,10 @@ export async function initializeRedis(): Promise<void> {
       isRedisConnected = true;
     });
 
+    redisClient.on('end', () => {
+      isRedisConnected = false;
+    });
+
     await redisClient.connect();
   } catch (error) {
     console.warn('[Cache] Failed to connect to Redis, falling back to node-cache:', error);
@@ -53,21 +68,26 @@ export async function initializeRedis(): Promise<void> {
  * Get value from cache
  */
 export async function cacheGet<T = CacheValue>(key: string): Promise<T | null> {
+  const keyPrefix = key.split(':')[0] || 'other';
   try {
     if (isRedisConnected && redisClient) {
       const value = await redisClient.get(key);
       if (value) {
+        trackCacheHit(keyPrefix);
         return JSON.parse(value) as T;
       }
     } else {
       const value = nodeCache.get<T>(key);
       if (value !== undefined) {
+        trackCacheHit(keyPrefix);
         return value;
       }
     }
+    trackCacheMiss(keyPrefix);
     return null;
   } catch (error) {
     console.warn(`[Cache] Error getting key "${key}":`, error);
+    trackCacheMiss(keyPrefix);
     return null;
   }
 }

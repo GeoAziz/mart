@@ -25,6 +25,22 @@ variable "k3s_instance_type" {
   default     = "t3.medium"
 }
 
+# Latest Ubuntu 22.04 LTS AMI
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # IAM role for k3s nodes
 resource "aws_iam_role" "k3s_node_role" {
   count = var.enable_k3s_staging ? 1 : 0

@@ -29,7 +29,8 @@ export default function MessagingCenter() {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await response.json()
-      setConversations(data.conversations)
+      // API returns an array directly, so we just set data
+      setConversations(Array.isArray(data) ? data : (data.conversations || []))
     }
 
     fetchConversations()
@@ -40,22 +41,27 @@ export default function MessagingCenter() {
 
     // Fetch messages for selected conversation
     const fetchMessages = async () => {
-      const token = await currentUser.getIdToken()
-      const response = await fetch(`/api/messaging/conversations/${selectedConversation.id}/messages`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await response.json()
-      setMessages(data.messages)
+      try {
+        const token = await currentUser.getIdToken()
+        const response = await fetch(`/api/messaging/conversations/${selectedConversation.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        if (data.messages) {
+          setMessages(data.messages)
+        }
+      } catch (err) {
+        console.error('Error fetching messages:', err)
+      }
     }
 
     fetchMessages()
 
-    // Set up real-time updates
-    const unsubscribe = listenToMessages(selectedConversation.id!, (newMessages) => {
-      setMessages(newMessages)
-    })
+    // Set up polling with token
+    const interval = setInterval(fetchMessages, 5000)
 
-    return () => unsubscribe()
+    return () => clearInterval(interval)
   }, [selectedConversation, currentUser])
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -64,13 +70,19 @@ export default function MessagingCenter() {
 
     try {
       const token = await currentUser.getIdToken()
-      const response = await fetch(`/api/messaging/conversations/${selectedConversation.id}/messages`, {
+      const otherParticipant = selectedConversation.participants.find(id => id !== currentUser.uid)
+      
+      const response = await fetch(`/api/messaging/conversations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ text: newMessage })
+        body: JSON.stringify({ 
+          recipientId: otherParticipant,
+          text: newMessage,
+          context: selectedConversation.relatedTo
+        })
       })
 
       if (!response.ok) throw new Error('Failed to send message')
@@ -214,16 +226,4 @@ export default function MessagingCenter() {
       </Card>
     </div>
   )
-}
-
-function listenToMessages(conversationId: string, callback: (messages: Message[]) => void) {
-  // Here you would implement real-time updates using Firebase or WebSocket
-  // For now, we'll just do polling every 5 seconds
-  const interval = setInterval(async () => {
-    const response = await fetch(`/api/messaging/conversations/${conversationId}/messages`)
-    const data = await response.json()
-    callback(data.messages)
-  }, 5000)
-
-  return () => clearInterval(interval)
 }

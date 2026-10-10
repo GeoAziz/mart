@@ -8,7 +8,7 @@ export interface WebSocketClient extends WebSocket {
 }
 
 export interface WebSocketMessage {
-  type: 'sale' | 'inventory_alert' | 'inventory_update' | 'notification' | 'metrics_update' | 'chart_data';
+  type: string;
   payload: any;
 }
 

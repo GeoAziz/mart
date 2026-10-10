@@ -33,7 +33,7 @@ async function getVendorEarningsSummaryHandler(req: AuthenticatedRequest) {
   const vendorId = req.userProfile.uid;
 
   try {
-    requireVendor(authenticatedUser || req.userProfile);
+    requireVendor(req.userProfile);
     const ledgerSnapshot = await firestoreAdmin.collection('users').doc(vendorId).collection('ledgerEntries').get();
     const ledgerEntries = ledgerSnapshot.docs.map(doc => doc.data() as LedgerEntry);
 
@@ -42,9 +42,9 @@ async function getVendorEarningsSummaryHandler(req: AuthenticatedRequest) {
     const monthlyEarnings: { [key: string]: number } = {};
 
     for (const entry of ledgerEntries) {
-        currentBalance += entry.netAmount;
+        currentBalance += (entry.netAmount || 0);
         if (entry.type === 'sale_credit') {
-            totalAllTimeEarnings += entry.netAmount; // Net earnings after commission
+            totalAllTimeEarnings += (entry.netAmount || 0); // Net earnings after commission
             
             const entryDate = safeParseDate(entry.createdAt);
             if (entryDate) {
@@ -52,7 +52,7 @@ async function getVendorEarningsSummaryHandler(req: AuthenticatedRequest) {
                 if (!monthlyEarnings[monthYear]) {
                     monthlyEarnings[monthYear] = 0;
                 }
-                monthlyEarnings[monthYear] += entry.netAmount;
+                monthlyEarnings[monthYear] += (entry.netAmount || 0);
             }
         }
     }

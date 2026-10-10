@@ -48,19 +48,25 @@ export default function FinancialReports() {
       try {
         const token = await currentUser.getIdToken()
         
-        // Fetch financial stats
-        const statsResponse = await fetch('/api/vendor/financial/stats', {
+        // Fetch financial data (summary and ledger)
+        const response = await fetch('/api/vendors/me/financial', {
           headers: { Authorization: `Bearer ${token}` }
         })
-        const statsData = await statsResponse.json()
-        setStats(statsData)
+        const data = await response.json()
+        
+        const summary = data.summary || { totalSales: 0, netEarnings: 0, totalCommissions: 0 }
+        
+        // Map the API summary to the expected stats format
+        setStats({
+          totalRevenue: summary.totalSales,
+          netEarnings: summary.netEarnings,
+          totalCommissions: summary.totalCommissions,
+          averageOrderValue: 0, // Not provided by API currently
+          revenueGrowth: 0,     // Not provided by API currently
+          monthlyData: []       // Not provided by API currently
+        })
 
-        // Fetch ledger entries
-        const ledgerResponse = await fetch('/api/vendor/financial/ledger', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const ledgerData = await ledgerResponse.json()
-        setLedgerEntries(ledgerData.entries)
+        setLedgerEntries(data.transactions || [])
       } catch (error) {
         console.error('Error fetching financial data:', error)
       } finally {

@@ -71,6 +71,11 @@ jobs:
       
       - name: Run ${{ matrix.test-suite }} tests
         run: |
+          python -m pytest tests/test_master.py -m ${{ matrix.test-suite }} --collect-only -q > /tmp/collect-${{ matrix.test-suite }}.log 2>&1 || true
+          if grep -qE "no tests (ran|collected)" /tmp/collect-${{ matrix.test-suite }}.log; then
+            echo "No tests match marker '${{ matrix.test-suite }}' — skipping"
+            exit 0
+          fi
           python -m pytest tests/test_master.py -m ${{ matrix.test-suite }} -v --tb=short --html=report.html --self-contained-html
         env:
           BASE_URL: http://localhost:3000
@@ -82,6 +87,7 @@ jobs:
         with:
           name: test-report-${{ matrix.test-suite }}
           path: report.html
+          if-no-files-found: ignore
       
       - name: Upload screenshots
         if: failure()

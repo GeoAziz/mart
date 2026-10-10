@@ -10,6 +10,10 @@ import { getIdempotencyResult, storeIdempotencyResult } from '@/lib/idempotency'
 import { createOrderSchema } from '@/lib/validation-schemas';
 import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
 import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
+import { computeVendorOrderSplits, groupItemsByVendor, type VendorSplitContext } from '@/lib/vendor-order-split';
+import { enqueueOrder } from '@/lib/queue-service';
+import { publishWSEvent } from '@/lib/ws-events';
+import { trackOrderCreated, trackDbQuery } from '@/lib/metrics';
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
   const data = doc.data() as Omit<Order, 'id'>;
@@ -191,7 +195,40 @@ async function createOrderHandler(req: AuthenticatedRequest) {
       // PHASE 3: WRITE ALL DATA
       // Create the order
       const newOrderRef = ordersCollectionRef.doc();
+
+      // Split the order into per-vendor VendorOrders for fulfillment,
+      // payouts, and per-vendor analytics.
+      const vendorItems = groupItemsByVendor(processedOrderItems);
+      const splitContext: VendorSplitContext = {
+        orderId: newOrderRef.id,
+        customerId: authenticatedUser.uid,
+        customerName: authenticatedUser.fullName,
+        customerEmail: authenticatedUser.email,
+        shippingAddress: validated.shippingAddress as ShippingAddress,
+        subtotal: calculatedSubtotal,
+        discountAmount,
+        taxRate,
+        shippingCost,
+        estimatedDeliveryDate: newOrderData.estimatedDeliveryDate,
+      };
+      const vendorOrderDrafts = computeVendorOrderSplits(
+        Array.from(vendorItems.entries()).map(([vendorId, items]) => ({
+          vendorId,
+          items,
+        })),
+        splitContext
+      );
+
       transaction.set(newOrderRef, cleanedOrderData);
+
+      for (const draft of vendorOrderDrafts) {
+        const vendorOrderRef = firestoreAdmin.collection('vendorOrders').doc();
+        transaction.set(vendorOrderRef, {
+          ...draft,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       // Update product stock levels
       for (const update of productStockUpdates) {
@@ -205,6 +242,9 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         
         transaction.update(update.ref, {
           stock: newStock,
+          // Reserve the quantity for this order. Released on payment confirmation
+          // (reserved--) or on cancellation/expiry (stock restored + reserved--).
+          reserved: admin.firestore.FieldValue.increment(update.quantityToDecrement),
           lastStockUpdate: admin.firestore.FieldValue.serverTimestamp()
         });
       }
@@ -219,10 +259,56 @@ async function createOrderHandler(req: AuthenticatedRequest) {
       createdOrder = { id: newOrderRef.id, ...newOrderData };
     });
 
-    // Send confirmation email (don't await to avoid blocking response)
-    sendOrderConfirmation(createdOrder).catch(err => {
-      console.error('Failed to send order confirmation email:', err);
-      // Log to error tracking service in production
+    // ── Post-commit side effects (non-blocking) ───────────────────────────────
+    // Metrics: one counter per vendor served by this order.
+    for (const vendorId of createdOrder.vendorIds) {
+      trackOrderCreated(vendorId, createdOrder.status);
+    }
+
+    // Realtime: push a live sale event to admins and the affected vendors.
+    publishWSEvent({
+      type: 'sale',
+      payload: {
+        orderId: createdOrder.id,
+        customerName: createdOrder.userFullName,
+        totalAmount: createdOrder.totalAmount,
+        itemCount: createdOrder.items.reduce((sum, i) => sum + i.quantity, 0),
+        timestamp: new Date().toISOString(),
+      },
+      roles: ['admin'],
+      vendorIds: createdOrder.vendorIds,
+    }).catch((err) => console.error('Failed to publish sale event:', err));
+
+    publishWSEvent({
+      type: 'notification',
+      payload: {
+        id: `order-${createdOrder.id}`,
+        type: 'order',
+        message: `New order #${createdOrder.id.slice(0, 8).toUpperCase()} — KSh ${createdOrder.totalAmount.toLocaleString()}`,
+        severity: 'success',
+        timestamp: new Date().toISOString(),
+        orderId: createdOrder.id,
+      },
+      vendorIds: createdOrder.vendorIds,
+    }).catch((err) => console.error('Failed to publish vendor notification:', err));
+
+    // Async pipeline: enqueue the order for the worker (confirmation email,
+    // vendor notifications, analytics). If the queue is unavailable, fall back
+    // to sending the confirmation email inline so the customer is never left
+    // without an order confirmation.
+    enqueueOrder({
+      type: 'order.created',
+      orderId: createdOrder.id,
+      vendorId: createdOrder.vendorIds[0] || 'unknown',
+      vendorIds: createdOrder.vendorIds,
+      customerId: createdOrder.userId,
+      totalAmount: createdOrder.totalAmount,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => {
+      console.error('Failed to enqueue order, sending email inline:', err);
+      sendOrderConfirmation(createdOrder).catch((emailErr) => {
+        console.error('Failed to send order confirmation email:', emailErr);
+      });
     });
 
     // Ensure dates are properly converted for client response

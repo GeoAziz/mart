@@ -18,6 +18,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
+import { withRequestMetrics } from '@/lib/api-metrics';
 
 interface PayPalOrder {
   id: string;
@@ -102,7 +103,7 @@ async function searchPayPalOrders(accessToken: string, startTime: string): Promi
 }
 
 // Main reconciliation logic
-export async function POST(req: NextRequest) {
+async function reconcileHandler(req: NextRequest) {
   try {
     // Verify this is an admin request (simple check - in production use proper auth)
     const authHeader = req.headers.get('authorization');
@@ -186,3 +187,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withRequestMetrics(reconcileHandler);

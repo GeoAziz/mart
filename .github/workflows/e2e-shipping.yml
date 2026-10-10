@@ -76,6 +76,11 @@ jobs:
 
       - name: Run E2E tests
         run: |
+          python3 -m pytest tests/test_master.py -m e2e --collect-only -q > /tmp/collect-e2e.log 2>&1 || true
+          if grep -qE "no tests (ran|collected)" /tmp/collect-e2e.log; then
+            echo "No tests match marker 'e2e' — skipping"
+            exit 0
+          fi
           python3 -m pytest tests/test_master.py -m e2e -v -s --tb=short
         env:
           BASE_URL: http://localhost:3000

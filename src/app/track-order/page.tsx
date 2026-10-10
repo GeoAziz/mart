@@ -136,7 +136,20 @@ export default function OrderTrackingPage() {
               <div className="space-y-3">
                 {searchedOrder.items.map((item, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border border-border/50">
-                    <img src={item.imageUrl} alt={item.name} width={60} height={60} className="rounded object-cover" data-ai-hint={item.dataAiHint} />
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name || 'Product image'}
+                        width={60}
+                        height={60}
+                        className="rounded object-cover"
+                        data-ai-hint={item.dataAiHint}
+                      />
+                    ) : (
+                      <div className="w-15 h-15 rounded object-cover bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                        No image
+                      </div>
+                    )}
                     <div className="flex-grow">
                       <p className="text-sm font-medium text-foreground">{item.name}</p>
                       <p className="text-xs text-muted-foreground">Quantity: {item.quantity}</p>

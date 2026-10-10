@@ -57,6 +57,7 @@ async function importDataHandler(req: AuthenticatedRequest) {
 
 // Handler for third-party integration connection
 async function connectIntegrationHandler(req: AuthenticatedRequest) {
+  const authenticatedUser = req.userProfile;
   try {
     requireVendor(authenticatedUser || req.userProfile);
     const { serviceType, credentials } = await req.json();
@@ -70,6 +71,7 @@ async function connectIntegrationHandler(req: AuthenticatedRequest) {
 
 // Handler for integration disconnection
 async function disconnectIntegrationHandler(req: AuthenticatedRequest) {
+  const authenticatedUser = req.userProfile;
   try {
     requireVendor(authenticatedUser || req.userProfile);
     const { serviceType } = await req.json();

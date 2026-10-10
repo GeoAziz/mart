@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, User, Mail, Lock, Loader2 } from 'lucide-react';
+import { UserPlus, User, Mail, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext'; // Updated import
 import { useRouter } from 'next/navigation';
+
+import { TogglePassword } from '@/components/auth/TogglePassword';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
@@ -85,37 +87,24 @@ export default function RegisterPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
-            <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                id="password"
-                type="password"
-                placeholder="Choose a strong password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="pl-10 bg-input border-primary focus:ring-accent"
-                disabled={isLoading || authLoading}
-                />
-            </div>
-             <p className="text-xs text-muted-foreground">Must be at least 8 characters.</p>
+            <TogglePassword
+              id="password"
+              value={password}
+              onChange={setPassword}
+              placeholder="Choose a strong password"
+              disabled={isLoading || authLoading}
+            />
+            <p className="text-xs text-muted-foreground">Must be at least 8 characters.</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
-             <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="pl-10 bg-input border-primary focus:ring-accent"
-                disabled={isLoading || authLoading}
-                />
-            </div>
+            <TogglePassword
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Re-enter your password"
+              disabled={isLoading || authLoading}
+            />
              {password && confirmPassword && password !== confirmPassword && (
               <p className="text-xs text-destructive">Passwords do not match.</p>
             )}

@@ -1,49 +1,22 @@
 'use server';
 
-/**
- * @fileOverview AI flow for generating product descriptions.
- * 
- * - generateProductDescriptionFlow - A function that generates a product description based on name and category.
- */
+import { ai } from '../genkit';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const GenerateProductDescriptionInputSchema = z.object({
-  productName: z.string().describe("The name of the product."),
-  category: z.string().describe("The category the product belongs to."),
-});
-
-export async function generateProductDescription(input: z.infer<typeof GenerateProductDescriptionInputSchema>): Promise<string> {
-  const result = await generateProductDescriptionFlow(input);
-  return result.description;
+export async function generateProductDescription({ productName, category }: { productName: string, category: string }): Promise<string> {
+  if (!process.env.GOOGLE_API_KEY) {
+    return `Experience the best of ${category} with our new ${productName}. Crafted with quality and designed for your needs. (AI generation disabled: GOOGLE_API_KEY missing)`;
+  }
+  
+  try {
+    const { text } = await ai.generate({
+      model: gemini15Flash,
+      prompt: `Write a short, engaging, and professional product description for a product named "${productName}" in the category "${category}". Keep it under 3 sentences.`,
+    });
+    return text;
+  } catch (error) {
+    console.error("AI Generation Error:", error);
+    return `Experience the best of ${category} with our new ${productName}. (Failed to generate description)`;
+  }
 }
 
-
-const generateProductDescriptionFlow = ai.defineFlow(
-  {
-    name: 'generateProductDescriptionFlow',
-    inputSchema: GenerateProductDescriptionInputSchema,
-    outputSchema: z.object({ description: z.string() }),
-  },
-  async (input) => {
-    const prompt = `You are a creative copywriter for ZilaCart, a futuristic digital marketplace.
-    Generate a compelling and engaging product description (around 3-4 sentences) for the following product.
-    Highlight its key features in a way that fits a futuristic theme.
-
-    Product Name: ${input.productName}
-    Category: ${input.category}
-    
-    Write only the product description, without any introductory text like "Here is the description:".`;
-
-    const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
-      prompt: prompt,
-      output: {
-        schema: z.object({ description: z.string() }),
-      },
-    });
-
-    return output || { description: "Could not generate a description at this time." };
-  }
-);

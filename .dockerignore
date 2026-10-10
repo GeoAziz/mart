@@ -5,7 +5,8 @@
 # Dependencies
 node_modules
 .npm
-npm-debug.log
+npm-debug.log*
+*.log
 
 # Build artifacts
 .next
@@ -17,14 +18,40 @@ out
 
 # Environment
 .env*
-!env.example
+!.env.example
 serviceAccountKey.json
+src/lib/*.json
 
-# Tooling/Docs/Testing
+# Tooling/Docs/Testing (not required inside app images)
 docs
 tests
-mlops
 pytest.ini
 pytest_cache
 *.pyc
 __pycache__
+
+# Infrastructure-as-Code / MLOps / charts — mounted or run separately, never baked
+terraform
+chart
+mlops
+monitoring
+load-tests
+backend
+
+# Scratch / analysis artifacts (relocated to .scratch, gitignored)
+.scratch
+mermaid-diagram.png
+sentinel-landing.html
+test_icons.html
+fix_layout.ps1
+"Screenshot at "*.png
+"ChatGPT Image"*.png
+
+# Empty / scratch directories at repo root
+data
+workspace
+grafana
+mlflow_artifacts
+.idx
+.mimocode
+synthetic-ecommerce-dataset

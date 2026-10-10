@@ -17,16 +17,42 @@ async function getInventoryHandler(req: AuthenticatedRequest) {
         { status: 500 }
       );
     }
-    const inventoryRef = firestoreAdmin
+    // 1. Fetch all products for this vendor
+    const productsSnapshot = await firestoreAdmin
+      .collection('products')
+      .where('vendorId', '==', authenticatedUser.uid)
+      .get();
+      
+    // 2. Fetch inventory settings for this vendor
+    const inventorySettingsRef = firestoreAdmin
       .collection('vendors')
       .doc(authenticatedUser.uid)
       .collection('inventory');
+    const settingsSnapshot = await inventorySettingsRef.get();
+    
+    const settingsMap = new Map();
+    settingsSnapshot.docs.forEach(doc => {
+      settingsMap.set(doc.id, doc.data());
+    });
 
-    const snapshot = await inventoryRef.get();
-    const inventory = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    // 3. Merge them together
+    const inventory = productsSnapshot.docs.map(doc => {
+      const productData = doc.data();
+      const settings = settingsMap.get(doc.id) || {};
+      
+      return {
+        id: doc.id,
+        productId: doc.id,
+        name: productData.name,
+        imageUrl: productData.imageUrl,
+        category: productData.category,
+        sku: productData.sku,
+        stock: productData.stock || 0,
+        lowStockThreshold: settings.lowStockThreshold || 10,
+        notificationsEnabled: settings.notificationsEnabled ?? true,
+        lastStockUpdate: settings.lastStockUpdate || productData.createdAt
+      };
+    });
 
     return NextResponse.json(inventory);
   } catch (error) {

@@ -82,6 +82,7 @@ async function run(datasetPathArg?: string) {
         email: u.email || null,
         phone: u.phone || null,
         address: u.address || null,
+        imageUrl: u.imageUrl || u.image_url || null,
         createdAt: toTimestamp(u.signup_date || u.signupDate),
         lastLogin: toTimestamp(u.last_login || u.lastLogin),
         membershipStatus: u.membership_status || u.membershipStatus || null,

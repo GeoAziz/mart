@@ -90,7 +90,7 @@ export default function AdminOrderDetailPage() {
         throw new Error(errorData.message || `Failed to fetch order ${orderId}`);
       }
       const data: Order = await response.json();
-      setOrder({...data, createdAt: new Date(data.createdAt), updatedAt: new Date(data.updatedAt)});
+      setOrder({...data, createdAt: new Date(typeof data.createdAt === "object" && "toDate" in (data.createdAt as any) ? (data.createdAt as any).toDate() : (data.createdAt as any)), updatedAt: new Date(typeof data.updatedAt === "object" && "toDate" in (data.updatedAt as any) ? (data.updatedAt as any).toDate() : (data.updatedAt as any))});
     } catch (err) {
       console.error("Error fetching order details:", err);
       setError(err instanceof Error ? err.message : "Could not load order details.");
@@ -122,7 +122,7 @@ export default function AdminOrderDetailPage() {
         throw new Error(errorData.message || 'Failed to update order status');
       }
       const updatedOrderData: Order = await response.json();
-      setOrder({...updatedOrderData, createdAt: new Date(updatedOrderData.createdAt), updatedAt: new Date(updatedOrderData.updatedAt)});
+      setOrder({...updatedOrderData, createdAt: new Date(typeof updatedOrderData.createdAt === "object" && "toDate" in (updatedOrderData.createdAt as any) ? (updatedOrderData.createdAt as any).toDate() : (updatedOrderData.createdAt as any)), updatedAt: new Date(typeof updatedOrderData.updatedAt === "object" && "toDate" in (updatedOrderData.updatedAt as any) ? (updatedOrderData.updatedAt as any).toDate() : (updatedOrderData.updatedAt as any))});
       toast({ title: 'Success', description: `Order status updated to ${newStatus}.` });
     } catch (error) {
       console.error(`Error updating order ${orderId}:`, error);
@@ -226,7 +226,7 @@ export default function AdminOrderDetailPage() {
             <div>
               <CardTitle className="text-2xl font-headline text-glow-primary">Order #{order.id?.substring(0,7)}...</CardTitle>
               <CardDescription className="text-muted-foreground">
-                Placed on: {new Date(order.createdAt).toLocaleDateString()}
+                Placed on: {new Date(typeof order.createdAt === "object" && "toDate" in (order.createdAt as any) ? (order.createdAt as any).toDate() : (order.createdAt as any)).toLocaleDateString()}
               </CardDescription>
             </div>
             <Badge variant="outline" className={`text-lg px-4 py-1.5 ${getStatusBadgeVariant(order.status)}`}>
@@ -268,7 +268,7 @@ export default function AdminOrderDetailPage() {
                 {order.items.map((item) => (
                   <TableRow key={item.productId}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} alt={item.name} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint || "product"}/>
+                      <Image src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} alt={item.name || "Product Image"} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint || "product"}/>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium">{item.name}</p>
@@ -284,8 +284,8 @@ export default function AdminOrderDetailPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
-                    <TableCell className="text-right">KSh {item.price.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">KSh {(item.price * item.quantity).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">KSh {(item.price || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">KSh {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -300,10 +300,16 @@ export default function AdminOrderDetailPage() {
                 <Home className="mr-2 h-5 w-5 text-accent" /> Shipping Address
               </h3>
               <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-md border border-border/50">
-                <p className="font-medium text-foreground">{order.shippingAddress.fullName}</p>
-                <p>{order.shippingAddress.address}</p>
-                <p>{order.shippingAddress.city}{order.shippingAddress.postalCode ? `, ${order.shippingAddress.postalCode}` : ''}</p>
-                <p>Phone: {order.shippingAddress.phone}</p>
+                {order.shippingAddress ? (
+                  <>
+                    <p className="font-medium text-foreground">{order.shippingAddress.fullName}</p>
+                    <p>{order.shippingAddress.address || order.shippingAddress.street}</p>
+                    <p>{order.shippingAddress.city}{order.shippingAddress.postalCode ? `, ${order.shippingAddress.postalCode}` : ''}</p>
+                    <p>Phone: {order.shippingAddress.phone || 'N/A'}</p>
+                  </>
+                ) : (
+                  <p className="italic">No shipping address provided.</p>
+                )}
               </div>
             </div>
             <div className="space-y-3">
@@ -313,7 +319,7 @@ export default function AdminOrderDetailPage() {
               <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-md border border-border/50">
                 <p><strong className="text-foreground">Method:</strong> {order.paymentMethod}</p>
                 <p><strong className="text-foreground">Status:</strong> <span className={['processing', 'shipped', 'delivered'].includes(order.status) ? 'text-green-400' : 'text-yellow-400'}>
-                  {order.status === 'pending' && order.paymentMethod.toLowerCase().includes('delivery') ? 'To be paid on delivery' : 
+                  {order.status === 'pending' && order.paymentMethod?.toLowerCase().includes('delivery') ? 'To be paid on delivery' : 
                    order.status === 'pending' ? 'Awaiting Payment Confirmation' :
                    ['processing', 'shipped', 'delivered'].includes(order.status) ? 'Paid' : 
                    order.status === 'cancelled' ? 'Payment Cancelled/Not Processed' :
@@ -327,10 +333,10 @@ export default function AdminOrderDetailPage() {
           
         </CardContent>
         <CardFooter className="p-6 bg-muted/30 border-t border-border/50 flex flex-col items-end gap-2">
-            <p className="text-muted-foreground text-sm">Subtotal: KSh {order.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-            <p className="text-muted-foreground text-sm">Shipping: KSh {order.shippingCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-            <p className="text-muted-foreground text-sm">Tax (16%): KSh {order.taxAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-            <p className="text-xl font-bold text-primary">Total: KSh {order.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-muted-foreground text-sm">Subtotal: KSh {(order.subtotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-muted-foreground text-sm">Shipping: KSh {(order.shippingCost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-muted-foreground text-sm">Tax (16%): KSh {(order.taxAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-xl font-bold text-primary">Total: KSh {(order.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
         </CardFooter>
       </Card>
 

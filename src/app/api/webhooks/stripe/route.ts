@@ -6,6 +6,10 @@ import { verifyStripeWebhookSignature, throwIfWebhookVerificationFails } from '@
 import { processWebhookOnce } from '@/lib/webhook-idempotency';
 import { validateStatusTransition } from '@/lib/order-state-machine';
 import { formatApiError, createApiError, ErrorCodes } from '@/lib/api-errors';
+import { withRequestMetrics } from '@/lib/api-metrics';
+import { trackPaymentProcessed } from '@/lib/metrics';
+import { enqueuePayment } from '@/lib/queue-service';
+import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
 import admin from 'firebase-admin';
 
 /**
@@ -69,6 +73,17 @@ async function handlePaymentIntentSucceeded(event: Stripe.PaymentIntentSucceeded
   });
 
   console.log(`Stripe: Order ${orderDoc.id} payment confirmed`);
+  trackPaymentProcessed('stripe', 'success');
+  await releaseReservations(orderDoc.id);
+  enqueuePayment({
+    type: 'payment.completed',
+    paymentId: paymentIntent.id,
+    orderId: orderDoc.id,
+    amount: orderAmount,
+    method: 'stripe',
+    status: 'COMPLETED',
+    timestamp: new Date().toISOString(),
+  }).catch((err) => console.error('Failed to enqueue payment:', err));
 }
 
 async function handlePaymentIntentFailed(event: Stripe.PaymentIntentFailedEvent): Promise<void> {
@@ -112,6 +127,17 @@ async function handlePaymentIntentFailed(event: Stripe.PaymentIntentFailedEvent)
   });
 
   console.log(`Stripe: Order ${orderDoc.id} payment failed`);
+  trackPaymentProcessed('stripe', 'failed');
+  await restoreStockForOrder(orderDoc.id);
+  enqueuePayment({
+    type: 'payment.failed',
+    paymentId: paymentIntent.id,
+    orderId: orderDoc.id,
+    amount: order.totalAmount || 0,
+    method: 'stripe',
+    status: 'FAILED',
+    timestamp: new Date().toISOString(),
+  }).catch((err) => console.error('Failed to enqueue payment:', err));
 }
 
 async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent): Promise<void> {
@@ -152,9 +178,19 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent): Promise<
   });
 
   console.log(`Stripe: Order ${orderDoc.id} refunded`);
+  trackPaymentProcessed('stripe', 'refunded');
+  enqueuePayment({
+    type: 'payment.refunded',
+    paymentId: charge.id,
+    orderId: orderDoc.id,
+    amount: charge.refunded / 100,
+    method: 'stripe',
+    status: 'REFUNDED',
+    timestamp: new Date().toISOString(),
+  }).catch((err) => console.error('Failed to enqueue refund:', err));
 }
 
-export async function POST(req: Request) {
+async function stripeWebhookHandler(req: Request) {
   try {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
@@ -216,3 +252,5 @@ export async function POST(req: Request) {
     return response;
   }
 }
+
+export const POST = withRequestMetrics(stripeWebhookHandler);

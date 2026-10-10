@@ -23,8 +23,8 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
 
     // Get orders for this vendor
     const ordersSnapshot = await firestoreAdmin
-      .collection('orders')
-      .where('vendorIds', 'array-contains', vendorId)
+      .collection('vendorOrders')
+      .where('vendorId', '==', vendorId)
       .orderBy('createdAt', 'desc')
       .limit(10)
       .get();
@@ -39,9 +39,7 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
 
     const reviewsSnapshot = await firestoreAdmin
       .collection('reviews')
-      .where('productId', 'in', productIds.length > 0 ? productIds : ['none'])
-      .orderBy('createdAt', 'desc')
-      .limit(10)
+      .where('vendorId', '==', vendorId)
       .get();
 
     // Calculate earnings and other metrics
@@ -53,7 +51,9 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
         status: data.status,
         payoutProcessed: data.payoutProcessed,
         createdAt: data.createdAt?.toDate(),
-        total: data.total, // Ensure 'total' is included
+        totalAmount: data.totalAmount || data.total, // Fallback for old orders
+        items: data.items || [],
+        customerId: data.customerId || null,
       };
     });
 
@@ -69,11 +69,31 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
       ...doc.data(),
     }));
 
+    // Get ledger entries for accurate financial data
+    const ledgerSnapshot = await firestoreAdmin
+      .collection('users')
+      .doc(vendorId)
+      .collection('ledgerEntries')
+      .get();
+      
+    const ledgerEntries = ledgerSnapshot.docs.map(doc => doc.data());
+
     // Calculate total earnings and other metrics
-    const totalAllTimeEarnings = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    const currentBalance = orders
-      .filter(order => order.status === 'delivered' && !order.payoutProcessed)
-      .reduce((sum, order) => sum + (order.total || 0), 0);
+    let totalAllTimeEarnings = 0;
+    let currentBalance = 0;
+    const earningsByMonth: Record<string, number> = {};
+
+    ledgerEntries.forEach(entry => {
+      currentBalance += entry.netAmount || 0;
+      if (entry.type === 'sale_credit') {
+        totalAllTimeEarnings += entry.netAmount || 0;
+        
+        // Calculate earnings by month for the chart
+        const date = entry.createdAt?.toDate() || new Date();
+        const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        earningsByMonth[monthKey] = (earningsByMonth[monthKey] || 0) + (entry.netAmount || 0);
+      }
+    });
 
     // Get last payout info
     const lastPayoutSnapshot = await firestoreAdmin
@@ -85,19 +105,56 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
 
     const lastPayout = lastPayoutSnapshot.docs[0]?.data();
 
-    // Calculate earnings by month for the chart
-    const earningsByMonth = orders.reduce((acc, order) => {
-      const date = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt);
-      const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-      acc[monthKey] = (acc[monthKey] || 0) + (order.total || 0);
-      return acc;
-    }, {} as Record<string, number>);
-
     // Convert to array and sort by date
     const earningsChartData = Object.entries(earningsByMonth)
       .map(([month, earnings]) => ({ month, earnings }))
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       .slice(-6); // Last 6 months
+
+    // Calculate best selling products
+    const productSales: Record<string, { id: string; name: string; sales: number; revenue: number }> = {};
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          if (!productSales[item.productId]) {
+            productSales[item.productId] = { id: item.productId, name: item.name || 'Unknown', sales: 0, revenue: 0 };
+          }
+          productSales[item.productId].sales += item.quantity || 1;
+          productSales[item.productId].revenue += (item.price || 0) * (item.quantity || 1);
+        });
+      }
+    });
+    const bestSellingProducts = Object.values(productSales)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5);
+
+    // Calculate customer insights
+    const uniqueCustomers = new Set();
+    let returningCustomers = 0;
+    const customerOrderCount: Record<string, number> = {};
+    
+    orders.forEach(order => {
+      if (order.customerId) {
+        uniqueCustomers.add(order.customerId);
+        customerOrderCount[order.customerId] = (customerOrderCount[order.customerId] || 0) + 1;
+      }
+    });
+    
+    Object.values(customerOrderCount).forEach(count => {
+      if (count > 1) returningCustomers++;
+    });
+
+    const customerInsights = {
+      totalCustomers: uniqueCustomers.size,
+      newCustomers: uniqueCustomers.size - returningCustomers,
+      returningCustomers: returningCustomers
+    };
+
+    reviews.sort((a, b) => {
+      const timeA = a.createdAt ? a.createdAt.getTime() : 0;
+      const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+      return timeB - timeA;
+    });
 
     const dashboardData = {
       totalAllTimeEarnings,
@@ -113,6 +170,8 @@ async function getDashboardHandler(req: AuthenticatedRequest) {
         : 0,
       recentOrders: orders.slice(0, 5),
       recentReviews: reviews.slice(0, 5),
+      bestSellingProducts,
+      customerInsights,
     };
 
     return NextResponse.json(dashboardData);

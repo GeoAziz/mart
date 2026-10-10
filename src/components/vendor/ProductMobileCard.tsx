@@ -87,7 +87,7 @@ export function ProductMobileCard({
             {product.imageUrl ? (
               <Image
                 src={product.imageUrl}
-                alt={product.name}
+                alt={product.name || "Product Image"}
                 fill
                 className="object-cover"
               />

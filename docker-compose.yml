@@ -1,11 +1,28 @@
+networks:
+  mart-network:
+    name: mart-network
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
+  vault-data:
+  postgres-data:
+  kafka-data:
+  localstack-data:
+
 services:
-  # ── Core Services (Always Run) ───────────────────────────────────────────
+  # ==========================================
+  # TIER 1: CORE APPLICATION (Default)
+  # ==========================================
   app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
         NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-demo-api-key}
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-localhost}
         NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-zilacart-local}
@@ -13,14 +30,12 @@ services:
         NEXT_PUBLIC_FIREBASE_EMULATOR: ${NEXT_PUBLIC_FIREBASE_EMULATOR:-true}
         NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: ${NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST:-localhost:9099}
         NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: ${NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST:-localhost:8080}
-        # Server-side Firebase vars are consumed at build time because `next build`
-        # executes route modules that import firebase-admin at module scope.
         FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-firebase-emulator:8080}
         FIREBASE_AUTH_EMULATOR_HOST: ${FIREBASE_AUTH_EMULATOR_HOST:-firebase-emulator:9099}
         FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-zilacart-local}
         FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
-        FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
     container_name: mart-app
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
@@ -34,20 +49,23 @@ services:
       - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
       - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      # Firebase Emulators - Admin SDK auto-discovers these env vars.
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
-      # AWS/LocalStack
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_REGION=us-east-1
-      - AWS_S3_ENDPOINT=http://localstack:4566
-      - AWS_DYNAMODB_ENDPOINT=http://localstack:4566
-      - AWS_SQS_ENDPOINT=http://localstack:4566
+      - FIRESTORE_EMULATOR_HOST=${FIRESTORE_EMULATOR_HOST:-firebase-emulator:8080}
+      - FIREBASE_AUTH_EMULATOR_HOST=${FIREBASE_AUTH_EMULATOR_HOST:-firebase-emulator:9099}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT:-http://localstack:4566}
+      - AWS_DYNAMODB_ENDPOINT=${AWS_DYNAMODB_ENDPOINT:-http://localstack:4566}
+      - AWS_SQS_ENDPOINT=${AWS_SQS_ENDPOINT:-http://localstack:4566}
       - REDIS_URL=redis://redis:6379/0
-      - PROMETHEUS_PUSHGATEWAY=http://prometheus-pushgateway:9091
+      - PROMETHEUS_PUSHGATEWAY=${PROMETHEUS_PUSHGATEWAY:-http://prometheus-pushgateway:9091}
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
     depends_on:
       redis:
+        condition: service_healthy
+      firebase-emulator:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     networks:
       - mart-network
@@ -63,6 +81,7 @@ services:
       context: .
       dockerfile: Dockerfile.ws
     container_name: mart-websocket
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
@@ -71,12 +90,13 @@ services:
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-zilacart-local}
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
-      # Firebase Emulators - Admin SDK auto-discovers these env vars.
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
-      - PROMETHEUS_PUSHGATEWAY=http://prometheus-pushgateway:9091
+      - FIRESTORE_EMULATOR_HOST=${FIRESTORE_EMULATOR_HOST:-firebase-emulator:8080}
+      - FIREBASE_AUTH_EMULATOR_HOST=${FIREBASE_AUTH_EMULATOR_HOST:-firebase-emulator:9099}
+      - PROMETHEUS_PUSHGATEWAY=${PROMETHEUS_PUSHGATEWAY:-http://prometheus-pushgateway:9091}
     depends_on:
       redis:
+        condition: service_healthy
+      firebase-emulator:
         condition: service_healthy
     networks:
       - mart-network
@@ -87,9 +107,40 @@ services:
       retries: 3
       start_period: 20s
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: mart-worker
+    restart: unless-stopped
+    command: ["npm", "run", "queue:workers"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_SQS_ENDPOINT=${AWS_SQS_ENDPOINT:-http://localstack:4566}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_REGION=us-east-1
+      - AWS_SES_ENDPOINT=${AWS_SES_ENDPOINT:-http://localstack:4566}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-zilacart-local}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-emulator@example.com}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
+      - FIRESTORE_EMULATOR_HOST=${FIRESTORE_EMULATOR_HOST:-firebase-emulator:8080}
+      - FIREBASE_AUTH_EMULATOR_HOST=${FIREBASE_AUTH_EMULATOR_HOST:-firebase-emulator:9099}
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
+    depends_on:
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      firebase-emulator:
+        condition: service_healthy
+    networks:
+      - mart-network
+
   redis:
     image: redis:7-alpine
     container_name: mart-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     networks:
@@ -102,33 +153,37 @@ services:
     volumes:
       - redis-data:/data
 
-  # ── Dev Services (Run with --profile dev) ────────────────────────────────
   localstack:
     image: localstack/localstack:3.0
     container_name: mart-localstack
-    profiles: ["dev"]
+    restart: unless-stopped
     ports:
       - "4566:4566"
+      - "4510-4559:4510-4559"
     environment:
-      - SERVICES=s3,dynamodb,sqs,sns,apigateway
+      - SERVICES=s3,dynamodb,sqs,sns,apigateway,ses
       - DEBUG=1
-      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
-      - "./scripts/localstack-init.sh:/docker-entrypoint-initaws.d/init.sh"
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./init-scripts:/etc/localstack/init/ready.d:ro
+      - ./scripts/localstack-init.sh:/docker-entrypoint-initaws.d/init.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - mart-network
-    healthcheck:
-      test: ["CMD", "awslocal", "s3", "ls"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   firebase-emulator:
     build:
       context: .
       dockerfile: Dockerfile.emulator
     container_name: mart-firebase-emulator
-    profiles: ["dev"]
+    restart: unless-stopped
     working_dir: /app
     command: ["firebase", "emulators:start", "--project", "zilacart-local"]
     volumes:
@@ -141,11 +196,89 @@ services:
     networks:
       - mart-network
 
-  # ── Monitoring Services (Run with --profile monitoring) ──────────────────
+  # ==========================================
+  # TIER 2: AUTH & ROUTING (Profile: auth)
+  # ==========================================
+  traefik:
+    image: traefik:v2.10
+    container_name: dev-alb
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - mart-network
+    profiles: ["auth", "full"]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: dev-auth
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_PASSWORD:-admin}
+    ports:
+      - "8082:8080"
+    networks:
+      - mart-network
+    profiles: ["auth", "full"]
+
+  # ==========================================
+  # TIER 3: SECRETS & SECURITY (Profile: security)
+  # ==========================================
+  vault:
+    image: hashicorp/vault:1.14.0
+    container_name: dev-vault
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-data:/vault/data
+    networks:
+      - mart-network
+    profiles: ["security", "full"]
+
+  wazuh-manager:
+    image: wazuh/wazuh-manager:latest
+    container_name: mart-wazuh
+    restart: unless-stopped
+    ports:
+      - "55000:55000"
+      - "1514:1514/udp"
+      - "1515:1515"
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+    networks:
+      - mart-network
+    profiles: ["security", "full"]
+
+  opa:
+    image: openpolicyagent/opa:0.63.0-rootless
+    container_name: dev-opa
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "--set=decision_logs.console=true", "/policies"]
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./configs/opa:/policies:ro
+    networks:
+      - mart-network
+    profiles: ["security", "full"]
+
+  # ==========================================
+  # TIER 4: OBSERVABILITY & TRACING (Profile: monitoring)
+  # ==========================================
   prometheus:
     image: prom/prometheus:latest
     container_name: mart-prometheus
-    profiles: ["monitoring"]
+    restart: unless-stopped
     ports:
       - "9090:9090"
     volumes:
@@ -165,11 +298,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    profiles: ["monitoring", "full"]
 
   prometheus-pushgateway:
     image: prom/pushgateway:latest
     container_name: mart-pushgateway
-    profiles: ["monitoring"]
+    restart: unless-stopped
     ports:
       - "9091:9091"
     networks:
@@ -179,15 +313,69 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    profiles: ["monitoring", "full"]
+
+  loki:
+    image: grafana/loki:latest
+    container_name: mart-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - mart-network
+    profiles: ["monitoring", "full"]
+
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: dev-promtail
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./configs/promtail/promtail.yaml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+    networks:
+      - mart-network
+    profiles: ["monitoring", "full"]
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: dev-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./configs/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - mart-network
+    profiles: ["monitoring", "full"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.86.0
+    container_name: dev-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - mart-network
+    profiles: ["monitoring", "full"]
 
   grafana:
     image: grafana/grafana:latest
     container_name: mart-grafana
-    profiles: ["monitoring"]
+    restart: unless-stopped
     ports:
-      - "3002:3000"
+      - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SECURITY_ADMIN_USER=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
@@ -205,12 +393,79 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    profiles: ["monitoring", "full"]
 
-networks:
-  mart-network:
-    driver: bridge
+  # ==========================================
+  # TIER 5: OPTIONAL SERVICES (Profile: full)
+  # ==========================================
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: dev-kafka
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@127.0.0.1:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+      ALLOW_PLAINTEXT_LISTENER: yes
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/bitnami/kafka
+    networks:
+      - mart-network
+    profiles: ["full"]
 
-volumes:
-  redis-data:
-  prometheus-data:
-  grafana-data:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - mart-network
+    profiles: ["full"]
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - mart-network
+    profiles: ["full"]
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mart-network
+    profiles: ["full"]
+
+  demo-app:
+    build:
+      context: ./demo-app
+    container_name: dev-demo-app
+    environment:
+      DB_HOST: postgres
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: redis
+    ports:
+      - "8083:8083"
+    networks:
+      - mart-network
+    profiles: ["full"]

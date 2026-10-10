@@ -1,0 +1,14 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-kill-chaos
+  namespace: zilamart
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces: ["zilamart"]
+    labelSelectors:
+      app.kubernetes.io/name: mart
+  scheduler:
+    cron: '@every 30s'

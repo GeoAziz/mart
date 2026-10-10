@@ -2,10 +2,11 @@ import client from 'prom-client';
 
 const register = client.register;
 
-// Collect default metrics once
-if (!globalThis.__promMetricsInitialized) {
+// Collect default metrics once. The guard is shared with src/lib/metrics.ts so
+// default metrics are never registered twice in one process.
+if (!globalThis.__prometheusMetricsInitialized) {
   client.collectDefaultMetrics({ timeout: 5000 });
-  globalThis.__promMetricsInitialized = true;
+  globalThis.__prometheusMetricsInitialized = true;
 }
 
 export async function GET() {

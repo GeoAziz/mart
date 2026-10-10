@@ -70,6 +70,13 @@ export interface Product {
   rating?: number;
 }
 
+// A storefront-facing view of a product pulled from a vendor's catalog.
+// Exposed by GET /api/vendors/[vendorId]/products.
+export interface ProductWithVendor extends Product {
+  vendorName?: string;
+  vendorStore?: string;
+}
+
 // From orders/route.ts
 export interface OrderItem {
   productId: string;
@@ -88,15 +95,30 @@ export interface ShippingAddress {
   postalCode?: string;
   phone: string;
 }
-export type OrderStatus = 
-  | 'pending'       // Initial state when order is created
-  | 'processing'    // Payment confirmed, being prepared
-  | 'shipped'       // Order has been shipped
-  | 'out_for_delivery' // With delivery agent
-  | 'delivered'     // Successfully delivered
-  | 'cancelled'     // Cancelled by customer or vendor
-  | 'refunded'      // Fully refunded
-  | 'partially_refunded'; // Some items refunded
+export type OrderStatus =
+  | 'pending'             // Initial state when order is created
+  | 'payment_pending'     // Payment being processed
+  | 'confirmed'           // Payment confirmed, awaiting vendor action
+  | 'processing'          // Payment confirmed, being prepared
+  | 'shipped'             // Order has been shipped
+  | 'out_for_delivery'    // With delivery agent
+  | 'delivered'           // Successfully delivered
+  | 'refund_pending'      // Refund requested
+  | 'refunded'            // Fully refunded
+  | 'partially_refunded'  // Some items refunded
+  | 'cancelled';          // Cancelled by customer or vendor
+
+// Per-vendor fulfillment status. A parent Order has one VendorOrder per vendor.
+export type VendorOrderStatus =
+  | 'pending'             // Vendor has not started fulfilling
+  | 'processing'          // Vendor preparing their items
+  | 'shipped'             // Vendor items handed to courier
+  | 'out_for_delivery'    // Vendor items with delivery agent
+  | 'delivered'           // Vendor items delivered
+  | 'cancelled'           // Vendor cancelled their portion
+  | 'refund_pending'      // Refund requested against this vendor
+  | 'refunded'            // Vendor portion fully refunded
+  | 'partially_refunded'; // Some of this vendor's items refunded
 
 export interface OrderTracking {
   status: OrderStatus;
@@ -131,6 +153,37 @@ export interface Order {
   actualDeliveryDate?: Date;
   trackingNumber?: string;
   courierName?: string;
+}
+
+// Per-vendor split of a parent Order. One document per vendor that contributed
+// items to the order. This is the unit that vendors act on: fulfillment,
+// refunds, payouts, and per-vendor analytics all derive from VendorOrder.
+export interface VendorOrder {
+  id?: string;
+  orderId: string;            // Parent order id
+  vendorId: string;           // Vendor uid
+  vendorName?: string;        // Denormalized vendor display name
+  customerId: string;         // Customer uid
+  customerName: string | null;
+  customerEmail: string | null;
+  items: OrderItem[];         // Only this vendor's items
+  status: VendorOrderStatus;
+  statusHistory: OrderTracking[];
+  shippingAddress: ShippingAddress;
+  subtotal: number;           // Gross value of this vendor's items
+  discountAmount: number;     // Allocated share of the order discount
+  taxAmount: number;          // Allocated share of tax
+  shippingCost: number;       // Allocated share of shipping
+  totalAmount: number;        // Vendor share of the order total
+  commissionRate: number;     // Platform fee rate at time of sale (e.g. 0.10)
+  commissionAmount: number;   // Absolute platform fee
+  netAmount: number;          // Payout basis (totalAmount - commissionAmount)
+  estimatedDeliveryDate?: Date;
+  actualDeliveryDate?: Date;
+  trackingNumber?: string;
+  courierName?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 // From refunds/route.ts
@@ -179,6 +232,8 @@ export interface LedgerEntry {
   commissionRate?: number; // The rate at time of transaction (e.g., 0.10 for 10%)
   commissionAmount?: number; // The absolute value of commission deducted (always positive)
   netAmount: number; // The final amount credited (positive) or debited (negative) to the vendor's balance
+  status?: 'confirmed' | 'pending' | 'paid_out'; // Ledger lifecycle state
+  confirmedAt?: Date | Timestamp;
   orderId?: string;
   productId?: string;
   payoutId?: string;
@@ -326,6 +381,7 @@ export interface VendorSettings {
   socialTwitter?: string;
   socialInstagram?: string;
   payoutMpesaNumber?: string;
+  payoutMpesaVerified?: boolean;
   reviewNotifications?: boolean;
   useAutoReply?: boolean;
   autoReplyMessage?: string;
@@ -371,7 +427,8 @@ export interface DashboardData {
   totalProducts: number;
   totalReviews: number;
   avgRating: number;
-  bestSellingProducts?: { name: string; sales: number }[];
+  bestSellingProducts?: { id: string; name: string; sales: number; revenue: number }[];
+  customerInsights?: { newCustomers: number; returningCustomers: number; totalCustomers: number };
   recentReviews: Array<{
     id: string;
     productId: string;

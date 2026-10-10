@@ -1,11 +1,9 @@
-
 'use client';
 
 import { useState } from 'react';
 import { Search, X, Mic, Camera } from 'lucide-react'; // Added Mic and Camera
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { imageSearch } from '@/ai/flows/image-search';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
@@ -36,47 +34,13 @@ const SearchInput = () => {
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setIsImageSearching(true);
-      toast({
-        title: "Processing Image...",
-        description: "Please wait while we analyze your image.",
-      });
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUri = reader.result as string;
-        try {
-          const result = await imageSearch({ photoDataUri: dataUri });
-          if (result.products && result.products.length > 0) {
-            // In a real app, you'd navigate to a search results page
-            // For now, just showing the first product name in a toast
-            toast({
-              title: "Image Search Successful!",
-              description: `Found: ${result.products[0].name}. ${result.products.length > 1 ? `And ${result.products.length -1} more.` : ''}`,
-            });
-          } else {
-            toast({
-              title: "Image Search",
-              description: "No products found matching the image.",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
-          console.error("Image search failed:", error);
-          toast({
-            title: "Image Search Failed",
-            description: "Could not process the image. Please try again.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsImageSearching(false);
-        }
-      };
-      reader.readAsDataURL(file);
-       // Reset file input to allow selecting the same file again if removed
-      event.target.value = "";
-    }
+    toast({
+      title: "Image Search Disabled",
+      description: "AI Image search features have been temporarily disabled.",
+      variant: "destructive",
+    });
+    // Reset file input
+    event.target.value = "";
   };
 
   const handleVoiceSearch = () => {

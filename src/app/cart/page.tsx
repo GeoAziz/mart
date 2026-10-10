@@ -107,7 +107,7 @@ export default function CartPage() {
               <Card key={item.productId} className="flex flex-col sm:flex-row items-center p-4 gap-4 bg-card border-border shadow-md hover:shadow-primary/20 transition-shadow">
                 <Image 
                   src={item.imageUrl || 'https://placehold.co/100x100/cccccc/E0E0E0?text=No+Image'} 
-                  alt={item.name} 
+                  alt={item.name || "Product Image"} 
                   width={100} 
                   height={100} 
                   className="rounded-md object-cover w-full sm:w-24 h-24" 

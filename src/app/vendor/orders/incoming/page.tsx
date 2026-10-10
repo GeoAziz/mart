@@ -59,7 +59,7 @@ export default function IncomingOrdersPage() {
     setIsLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('/api/orders', {
+      const response = await fetch('/api/vendors/me/orders', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -100,7 +100,7 @@ export default function IncomingOrdersPage() {
     setActionLoading(prev => ({...prev, [orderId]: true}));
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/vendors/me/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

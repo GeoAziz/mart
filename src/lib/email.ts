@@ -1,16 +1,21 @@
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import type { Order } from '@/lib/types';
+import { trackExternalApiCall } from '@/lib/metrics';
 
-// Nodemailer optional - only loaded if available
+// Nodemailer setup
 let nodemailer: any = null;
 let transporter: any = null;
+
+// SES setup
+let sesClient: SESClient | null = null;
 
 try {
   nodemailer = require('nodemailer');
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    transporter = nodemailer.createTransporter({
+    transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
+      secure: false,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -18,14 +23,25 @@ try {
     });
   }
 } catch (error) {
-  console.warn('⚠️  Nodemailer not installed. Email notifications disabled.');
-  console.warn('   Run: npm install nodemailer to enable email.');
+  console.warn('⚠️  Nodemailer not installed.');
+}
+
+// Initialize SES for local testing (LocalStack) or AWS
+if (process.env.AWS_REGION) {
+  sesClient = new SESClient({
+    region: process.env.AWS_REGION,
+    endpoint: process.env.AWS_SES_ENDPOINT, // Used for LocalStack
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+    },
+  });
 }
 
 export async function sendOrderConfirmation(order: Order): Promise<void> {
-  // If email is not configured, skip email sending (don't fail the order)
-  if (!transporter) {
-    console.log('ℹ️  Email notification skipped - nodemailer not configured');
+  // Check if any transport is available
+  if (!transporter && !sesClient) {
+    console.log('ℹ️  Email notification skipped - no transport configured');
     return;
   }
 
@@ -106,16 +122,76 @@ export async function sendOrderConfirmation(order: Order): Promise<void> {
   `;
 
   try {
-    await transporter.sendMail({
-      from: '"ZilaCart" <orders@zilacart.com>',
-      to: order.userEmail,
-      subject: `Order Confirmation #${order.id?.substring(0, 8).toUpperCase()} - ZilaCart`,
-      html: emailHtml,
-    });
+    if (sesClient) {
+      const command = new SendEmailCommand({
+        Destination: { ToAddresses: [order.userEmail!] },
+        Message: {
+          Body: { Html: { Data: emailHtml, Charset: 'UTF-8' } },
+          Subject: { Data: `Order Confirmation #${order.id?.substring(0, 8).toUpperCase()} - ZilaCart`, Charset: 'UTF-8' },
+        },
+        Source: 'ZilaCart <orders@zilacart.com>',
+      });
+      await sesClient.send(command);
+      trackExternalApiCall('ses', 'sendOrderConfirmation', 'success');
+    } else if (transporter) {
+      await transporter.sendMail({
+        from: '"ZilaCart" <orders@zilacart.com>',
+        to: order.userEmail,
+        subject: `Order Confirmation #${order.id?.substring(0, 8).toUpperCase()} - ZilaCart`,
+        html: emailHtml,
+      });
+      trackExternalApiCall('smtp', 'sendOrderConfirmation', 'success');
+    }
     console.log('✅ Order confirmation email sent to:', order.userEmail);
   } catch (error) {
     console.error('⚠️  Failed to send order confirmation email:', error);
-    // Don't throw - email failure shouldn't block order creation
+  }
+}
+
+/**
+ * Generic transactional email sender (used by the notification worker and other
+ * async pipelines). No-op when no transport is configured.
+ */
+export async function sendEmail(options: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<void> {
+  if (!transporter && !sesClient) {
+    console.log('ℹ️  Email notification skipped - no transport configured');
+    return;
+  }
+
+  try {
+    if (sesClient) {
+      const command = new SendEmailCommand({
+        Destination: { ToAddresses: [options.to] },
+        Message: {
+          Body: {
+            Html: { Data: options.html, Charset: 'UTF-8' },
+            ...(options.text ? { Text: { Data: options.text, Charset: 'UTF-8' } } : {}),
+          },
+          Subject: { Data: options.subject, Charset: 'UTF-8' },
+        },
+        Source: 'ZilaCart <orders@zilacart.com>',
+      });
+      await sesClient.send(command);
+      trackExternalApiCall('ses', 'sendEmail', 'success');
+    } else if (transporter) {
+      await transporter.sendMail({
+        from: '"ZilaCart" <orders@zilacart.com>',
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+      trackExternalApiCall('smtp', 'sendEmail', 'success');
+    }
+    console.log(`✅ Email sent to: ${options.to}`);
+  } catch (error) {
+    trackExternalApiCall('email', 'sendEmail', 'failed');
+    throw error;
   }
 }
 

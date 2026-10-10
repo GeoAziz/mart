@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { integrationService } from '@/lib/services/analytics/integration-service';
+import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
+import { withRequestMetrics } from '@/lib/api-metrics';
 
-export async function POST(req: NextRequest) {
+async function integrationsHandler(req: AuthenticatedRequest) {
   try {
     const body = await req.json();
     const { action, format, startDate, endDate, data, provider, credentials, config } = body;
@@ -38,3 +40,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withRequestMetrics(withAuth(integrationsHandler, ['vendor', 'admin']));

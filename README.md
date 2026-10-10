@@ -25,7 +25,7 @@ npm install
 ### Environment Variables
 Copy and configure environment variables:
 ```bash
-cp config/.env.example .env.local
+cp .env.example .env.local
 # Edit .env.local with your Firebase and AI credentials
 ```
 
@@ -52,35 +52,60 @@ npm start
 Deploy to Vercel: Connect your repo and set environment variables in the Vercel dashboard.
 
 ### Docker
-The Docker stack uses **Compose profiles** to separate concerns. `docker-compose.yml` defines the core app; emulators and monitoring are opt-in profiles.
+The Docker stack uses **Compose profiles** to separate concerns. `docker-compose.yml` defines the core app (including the Firebase emulator and LocalStack, which the app requires at startup); other services are opt-in via profiles.
 
 | Profile | Includes |
 |---------|----------|
-| *(none)* | `app`, `websocket`, `redis` |
-| `dev` | + `firebase-emulator`, `localstack` |
-| `monitoring` | + `prometheus`, `prometheus-pushgateway`, `grafana` |
+| *(none)* | `app`, `websocket`, `worker`, `redis`, `firebase-emulator`, `localstack` |
+| `auth` | + `traefik`, `keycloak` |
+| `security` | + `vault`, `wazuh-manager`, `opa` |
+| `monitoring` | + `prometheus`, `prometheus-pushgateway`, `grafana`, `loki`, `tempo`, `otel-collector`, `promtail` |
+| `full` | All services (+ `kafka`, `mailpit`, `adminer`, `postgres`, `demo-app`) |
 
 ```bash
-# Core stack only (app + websocket + redis)
-docker compose up --build
+# Core local dev stack
+./scripts/start.sh
 
-# Full local dev stack (adds Firebase emulators + LocalStack)
-docker compose --profile dev up --build
+# With monitoring
+docker compose --profile monitoring up --build
 
-# Add monitoring on top
-docker compose --profile dev --profile monitoring up --build
+# Auth tier
+docker compose --profile auth up --build
+
+# Security tier
+docker compose --profile security up --build
+
+# Full stack
+docker compose --profile full up --build
 ```
 
 | Service | URL |
 |---------|-----|
 | Next.js app | http://localhost:3000 |
 | WebSocket | ws://localhost:3001 |
-| Firebase emulator UI | http://localhost:4000 (dev profile) |
-| LocalStack | http://localhost:4566 (dev profile) |
-| Prometheus | http://localhost:9090 (monitoring profile) |
-| Pushgateway | http://localhost:9091 (monitoring profile) |
-| Grafana | http://localhost:3002, admin/admin (monitoring profile) |
-| Redis | localhost:6379 |
+| Firebase emulator UI | http://localhost:4000 |
+| LocalStack | http://localhost:4566 |
+| Prometheus | http://localhost:9090 (monitoring/full) |
+| Pushgateway | http://localhost:9091 (monitoring/full) |
+| Grafana | http://localhost:3001 (monitoring/full), admin/`${GRAFANA_ADMIN_PASSWORD:-admin}` |
+| Loki | http://localhost:3100 (monitoring/full) |
+| Tempo | http://localhost:3200 (monitoring/full) |
+| OPA | http://localhost:8181 (security/full) |
+| Keycloak | http://localhost:8082 (auth/full) |
+| Vault | http://localhost:8200 (security/full) |
+| Traefik dashboard | http://localhost:8081 (auth/full) |
+| Mailpit UI | http://localhost:8025 (full) |
+| Adminer | http://localhost:8080 (full) |
+| Postgres | localhost:5432 (full) |
+| Kafka | localhost:9092 (full) |
+
+Helper scripts:
+```bash
+./scripts/start.sh [profile]   # Start services, optionally with a profile
+./scripts/stop.sh              # Stop all services
+./scripts/bootstrap.sh         # Wait for LocalStack and run manual awslocal bootstrap
+./scripts/reset-localstack.sh  # Wipe LocalStack state and restart
+```
 
 The stack targets the Firebase emulators by default, so it works with zero external configuration. To use real Firebase instead of the emulators, set `NEXT_PUBLIC_FIREBASE_EMULATOR=false` and unset `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` in the compose environment, then provide real `NEXT_PUBLIC_FIREBASE_*` and `FIREBASE_*` values in your `.env`.
 
@@ -94,70 +119,64 @@ docker compose -f docker-compose.yml -f docker-compose.load-test.yml \
 
 ## 📁 Project Structure
 
+The project uses a **flat root layout** (see `AGENTS.md` for the authoritative
+quick reference). Config files, Dockerfiles, Compose, Terraform, and monitoring
+configs live alongside the app rather than under `infrastructure/` / `config/`.
+
 ```
 mart/
-├── src/                   # Frontend application (Next.js, React)
-│   ├── app/              # Next.js app routes and layouts
-│   ├── components/       # Reusable UI components
-│   ├── ai/              # AI chatbot flows and utilities
-│   └── lib/             # Shared utilities and types
-│
-├── backend/             # Backend code, tests, and scripts
-│   ├── scripts/         # Utility and setup scripts
-│   ├── tests/           # Test suites and artifacts
-│   └── pytest.ini       # Pytest configuration
-│
-├── infrastructure/      # Infrastructure as Code
-│   ├── docker/         # Docker compose configurations
-│   ├── kubernetes/     # Kubernetes manifests
-│   ├── terraform/      # Infrastructure as Code (Terraform)
-│   ├── ansible/        # Configuration management
-│   ├── monitoring/     # Prometheus, Grafana, Loki
-│   └── helm/           # Helm charts
-│
-├── config/              # Application configuration
-│   ├── next.config.ts   # Next.js config
-│   ├── tailwind.config.ts
-│   ├── tsconfig.json
-│   └── firebase/        # Firebase security rules
-│
-├── mlops/               # ML/Ops pipeline
-│   ├── training/        # Model training
-│   ├── kubernetes/      # K8s ML deployments
-│   └── monitoring/      # ML-specific monitoring
-│
-├── docs/                # Complete documentation
-│   ├── 00-getting-started/
-│   ├── 01-user-guides/
-│   ├── 02-architecture/
-│   ├── 03-deployment/
-│   ├── 04-research/
-│   └── 05-implementation/
-│
-├── tools/               # Developer utilities and AI assistants
-│   ├── ai-maestro/      # Project planning
-│   ├── analysecodebase/ # Codebase analysis
-│   ├── docker-expert/   # Docker optimization
-│   ├── devops-iac-engineer/
-│   └── ... (other tools)
-│
-├── public/              # Static assets
-├── node_modules/        # NPM dependencies
-├── package.json         # Node.js dependencies
-└── .env.example         # Environment template
+├── src/                  # Frontend + API (Next.js App Router, React, Genkit AI)
+│   ├── app/              # Routes, layouts, API route handlers, Server Actions
+│   ├── components/       # Reusable UI (ShadCN/ui, sections, dashboards)
+│   ├── ai/               # Genkit AI flows & initialization
+│   ├── context/          # Global React contexts (AuthContext, etc.)
+│   ├── hooks/            # Custom React hooks
+│   ├── lib/              # Shared utilities, types, services, payments
+│   ├── server/           # WebSocket server
+│   ├── styles/           # Global CSS (vendor themes, etc.)
+│   ├── types/            # Type declarations & shims
+│   ├── data/             # Static nav/config data
+│   ├── scripts/          # One-off setup/seed/migration scripts (tsx)
+│   ├── middleware.ts     # Next.js middleware
+│   └── README.md
+├── public/               # Static assets
+├── tests/                # Python E2E/Selenium test suite (pytest)
+├── scripts/              # Shell/ops scripts (localstack-init, k3s, etc.)
+├── load-tests/           # k6 load-testing scripts
+├── terraform/            # Terraform IaC (k3s staging/local)
+├── chart/                # Helm charts
+├── monitoring/           # Prometheus, Grafana, Loki, Alertmanager, Wazuh
+├── docs/                 # Documentation (by topic / numbered)
+├── mlops/                # ML pipeline (training, FastAPI inference, MLflow)
+├── Dockerfile            # Next.js multi-stage app build
+├── Dockerfile.ws         # WebSocket server image
+├── Dockerfile.worker     # Queue worker image
+├── Dockerfile.emulator   # Firebase emulator image
+├── docker-compose.yml    # Core stack (app, ws, redis, worker, emulators, localstack)
+├── docker-compose.load-test.yml  # Load-test overlay (k6 + Jaeger)
+├── firebase.json         # Firebase emulator config
+├── firestore.rules       # Firestore security rules
+├── firestore-indexes.json
+├── next.config.ts        # Next.js config (webpack Node-builtin stubs, images)
+├── tsconfig.json
+├── tailwind.config.ts
+├── vitest.config.ts      # JS unit tests (Vitest)
+├── package.json
+└── .env.example          # Environment variable template
 ```
 
 ### Key Directories
 
 | Directory | Purpose | Learn More |
 |-----------|---------|-----------|
-| `src/` | Frontend code | `docs/02-architecture/blueprint.md` |
-| `backend/` | Tests, scripts, utilities | `backend/README.md` |
-| `infrastructure/` | Deployment & ops config | `infrastructure/README.md` |
-| `config/` | App configuration files | `config/README.md` |
-| `mlops/` | Machine learning pipeline | `mlops/README.md` |
+| `src/` | Frontend, API, AI | `docs/02-architecture/blueprint.md`, `src/README.md` |
+| `tests/` | Python E2E/Selenium tests | `tests/requirements.txt` |
+| `scripts/` | Ops & shell scripts | `scripts/setup-devops.sh` |
+| `terraform/` | Terraform IaC | `terraform/main.tf` |
+| `chart/` | Helm charts | `chart/Chart.yaml` |
+| `monitoring/` | Prometheus, Grafana, Loki | `monitoring/prometheus/prometheus.yml` |
 | `docs/` | Complete documentation | `docs/README.md` |
-| `tools/` | Development utilities | `tools/README.md` |
+| `mlops/` | ML pipeline + inference | `mlops/inference_service.py` |
 
 ---
 
@@ -181,65 +200,74 @@ See [docs/README.md](docs/README.md) for complete documentation navigation.
 
 ### Development
 ```bash
-# Start development server
-npm run dev
+# Start Next.js dev server (+ WebSocket via npm run dev:all)
+npm run dev          # http://localhost:3000
+npm run dev:all      # Next.js + WebSocket server on :3001
 
-# Run tests
-pytest backend/tests/
+# JS unit/integration tests (Vitest)
+npm test
 
-# Type checking
-npx tsc --noEmit
+# Python E2E/Selenium tests (requires dev server on :3000, markers: smoke|e2e|integration)
+pytest tests/test_master.py -m smoke -v
+pytest tests/test_master.py -m e2e -v
+pytest tests/test_master.py -m integration -v
 
-# Lint code
+# Type checking & lint
+npm run typecheck
 npm run lint
 ```
 
 ### Infrastructure
 ```bash
-# Local development with Docker
-cd infrastructure/docker/compose
-docker-compose -f docker-compose.local.yml up
+# Local development with Docker (app + websocket + redis + worker + Firebase emulator + LocalStack)
+docker compose up --build
 
-# Deploy to Kubernetes
-cd infrastructure/kubernetes/core
-kubectl apply -f .
+# Add monitoring stack (Prometheus, Grafana, Loki, Pushgateway)
+docker compose --profile monitoring up --build
 
-# Run Terraform
-cd infrastructure/terraform
-terraform plan && terraform apply
+# Load testing overlay (requires monitoring profile)
+docker compose -f docker-compose.yml -f docker-compose.load-test.yml \\
+  --profile monitoring --profile load-test up
+
+# Deploy to Kubernetes (Helm chart)
+cd chart && helm upgrade --install mart ./nextn -f values.yaml
+
+# Run Terraform (k3s)
+cd terraform && terraform plan && terraform apply
 ```
 
 ### Testing
 ```bash
-# Run all tests
-pytest backend/tests/
+# Python E2E/Selenium tests (markers: smoke, e2e, integration)
+pytest tests/test_master.py -m smoke -v
+pytest tests/test_master.py -m e2e -v
+pytest tests/test_master.py -m integration -v
 
-# Run E2E tests
-pytest backend/tests/e2e/
+# View test reports: tests/reports/screenshots/
 
-# Run unit tests
-pytest backend/tests/unit/
-
-# View test reports
-# Check: backend/tests/screenshots/
-
-# Load Testing
-cd backend/tests
-./run_load_test.sh              # Interactive test selection
-locust -f load_test_scenarios.py --headless -u 100 -r 10  # Quick test
-python run_load_tests.py --test all  # All phases sequentially
+# Load Testing (k6)
+cd load-tests
+# (requires the monitoring profile: docker compose --profile monitoring up)
 ```
 
 ### Scripts
 ```bash
-# Setup environment
-backend/scripts/setup/setup_environment.sh
+# Environment setup
+bash scripts/setup-devops.sh
 
-# Generate test data
-python backend/scripts/data-generation/create_test_products.py
+# Seed Firebase data
+npm run db:seed                  # src/scripts/seed.ts
+npm run seed:vendor-data         # src/scripts/seed-vendor-data.ts
 
-# Run E2E tests
-python backend/scripts/run_selenium_test.py
+# Import a CSV dataset into Firestore
+npm run import:csv               # npm run import:csv -- <dataset-dir>
+
+# Queue workers (background jobs via Redis)
+npm run queue:workers
+npm run worker:reservation-expiry
+
+# LocalStack initialization (runs inside the localstack container)
+# see: scripts/localstack-init.sh
 ```
 
 ---
@@ -266,7 +294,7 @@ See [PRODUCTION_DEPLOYMENT.md](docs/03-deployment/PRODUCTION_DEPLOYMENT.md)
 
 1. Create a feature branch: `git checkout -b feature/your-feature`
 2. Make your changes
-3. Run tests: `pytest backend/tests/`
+3. Run tests: `pytest tests/test_master.py -m smoke -v`
 4. Commit with clear message: `git commit -m "Add feature: ..."`
 5. Push and create a Pull Request
 
@@ -310,10 +338,10 @@ All AI features will now be active!
 ### Issue: Environment variables not loading
 - Restart dev server after changing `.env.local`
 - Use `NEXT_PUBLIC_` prefix for client-side variables
-- Check `config/.env.example` for required variables
+- Check `.env.example` for required variables
 
 ### Issue: Tests failing
-- See `backend/README.md` for test setup
+- See `docs/00-getting-started/TESTING_GUIDE.md` for test setup
 - Check `docs/03-deployment/` for environment setup
 
 ### Issue: Docker build fails

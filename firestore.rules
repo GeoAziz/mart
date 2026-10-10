@@ -79,6 +79,23 @@ service cloud.firestore {
       }
     }
 
+    // Vendor Orders collection - vendors see own, customers see their slice, admins see all
+    match /vendorOrders/{vendorOrderId} {
+      allow read: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        (isCustomer() && resource.data.customerId == request.auth.uid) ||
+        isAdmin()
+      );
+      
+      // Usually written via admin SDK by a backend trigger/cloud function,
+      // but allow updates by vendor for status changes (e.g. shipping)
+      allow update: if isSignedIn() && (
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow create, delete: if isAdmin();
+    }
+
     // Cart - only customer can access their own
     match /users/{userId}/cart/{cartItem} {
       allow read, write: if isSignedIn() && ownedByUser(userId);
@@ -156,6 +173,12 @@ service cloud.firestore {
     // Webhook events - admin only (system-generated)
     match /webhook_events/{eventId} {
       allow read, write: if isAdmin();
+    }
+
+    // Analytics events - admin only (system-generated via admin SDK)
+    match /analytics_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only written via Admin SDK
     }
 
     // Deny all other access

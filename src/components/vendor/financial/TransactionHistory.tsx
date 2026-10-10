@@ -47,11 +47,31 @@ export default function TransactionHistory() {
       if (!currentUser) return
       try {
         const token = await currentUser.getIdToken()
-        const response = await fetch('/api/vendor/transactions', {
+        const response = await fetch('/api/vendors/me/financial', {
           headers: { Authorization: `Bearer ${token}` }
         })
         const data = await response.json()
-        setTransactions(data.transactions)
+        
+        // Map LedgerEntry from /api/vendors/me/financial to local Transaction interface
+        const mappedTransactions = (data.transactions || []).map((t: any) => {
+          let type = 'adjustment';
+          if (t.type === 'sale_credit') type = 'sale';
+          if (t.type === 'payout_debit') type = 'payout';
+          if (t.type === 'commission_debit') type = 'commission';
+          
+          return {
+            id: t.id,
+            date: t.createdAt, // This comes as ISO string or Firebase Timestamp
+            type,
+            description: t.description,
+            amount: t.type.includes('debit') ? -Math.abs(t.amount) : t.amount,
+            status: 'completed', // Defaults to completed for ledger entries
+            paymentMethod: t.paymentMethod || 'System',
+            orderId: t.orderId || null
+          }
+        });
+
+        setTransactions(mappedTransactions)
       } catch (error) {
         console.error('Error fetching transactions:', error)
       } finally {

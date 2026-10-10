@@ -334,7 +334,7 @@ export default function PromotionsPage() {
                     <TableCell>{p.type === 'percentage' ? `${p.value}%` : `KSh ${p.value.toLocaleString()}`}</TableCell>
                     <TableCell>{p.timesUsed} / {p.usageLimit || '∞'}</TableCell>
                     <TableCell><Badge variant="outline" className={getStatusBadgeVariant(p.isActive, p.endDate)}>{getStatusText(p.isActive, p.endDate)}</Badge></TableCell>
-                    <TableCell>{p.endDate ? format(toDate(p.endDate) ?? new Date(p.endDate), 'PPP') : 'Never'}</TableCell>
+                    <TableCell>{p.endDate ? format(new Date(typeof p.endDate === 'object' && 'toDate' in (p.endDate as any) ? (p.endDate as any).toDate() : p.endDate), 'PPP') : 'Never'}</TableCell>
                     <TableCell className="text-right space-x-2">
                        <Button variant="outline" size="icon" aria-label={`Edit promotion ${p.code}`} className="h-8 w-8 text-accent border-accent hover:bg-accent hover:text-accent-foreground" onClick={() => { setEditingPromotion(p); setIsFormOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
                        <AlertDialog open={!!promotionToDelete && promotionToDelete.id === p.id} onOpenChange={(isOpen) => !isOpen && setPromotionToDelete(null)}>

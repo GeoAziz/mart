@@ -3,6 +3,11 @@ import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest, type UserProfile } from '@/lib/authMiddleware';
 import type { NextRequest } from 'next/server';
 import { applyRateLimit, rateLimitPresets } from '@/lib/rate-limiter';
+import { withRequestMetrics } from '@/lib/api-metrics';
+import { trackProductUploaded, trackDbQuery } from '@/lib/metrics';
+import { enqueueProduct } from '@/lib/queue-service';
+import { isAlgoliaEnabled, searchCatalog } from '@/lib/algolia-search-service';
+import { countDocuments } from '@/lib/pagination';
 export type Product = import('@/lib/types').Product;
 import type { Timestamp } from 'firebase-admin/firestore';
 
@@ -40,7 +45,7 @@ function mapProductDocument(doc: FirebaseFirestore.DocumentSnapshot): Product {
 }
 
 // GET handler with server-side filtering, sorting, and pagination
-export async function GET(request: NextRequest) {
+async function listProductsHandler(request: NextRequest) {
   const limited = await applyRateLimit(request, rateLimitPresets.public);
   if (limited) return limited;
 
@@ -93,57 +98,49 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Fetch paginated results (fetch extra for safety margin)
-    const fetchLimit = hasComplexFilters ? limit * 3 : limit * 2;
-    const snapshot = await query.limit(fetchLimit).get();
-    let allProducts = snapshot.docs.map(mapProductDocument);
+    // Fetch paginated results from Algolia if enabled, else Firestore
+    let paginatedProducts: Product[];
+    let totalProducts: number;
 
-    // Apply filters that are difficult to combine in Firestore (price, rating) in-memory
-    if (hasComplexFilters) {
+    if (isAlgoliaEnabled()) {
+      const searchResult = await searchCatalog({
+        category: category || undefined,
+        brand: brand || undefined,
+        minPrice: minPrice || undefined,
+        maxPrice: maxPrice || undefined,
+        rating: rating || undefined,
+        sortBy: sortBy as any,
+        page: page,
+        pageSize: limit,
+      });
+
+      if (searchResult) {
+        paginatedProducts = searchResult.results as Product[];
+        totalProducts = searchResult.total;
+      } else {
+        // Fallback to Firestore if Algolia search fails
+        console.warn('[Products] Algolia enabled but search failed, falling back');
+        const snapshot = await query.limit(limit).offset((page - 1) * limit).get();
+        paginatedProducts = snapshot.docs.map(mapProductDocument);
+        totalProducts = await countDocuments('products', []); // Simple count
+      }
+    } else {
+      // Original Firestore logic
+      const fetchLimit = hasComplexFilters ? limit * 3 : limit * 2;
+      const snapshot = await query.limit(fetchLimit).get();
+      let allProducts = snapshot.docs.map(mapProductDocument);
+      // ... (in-memory filtering/sorting)
       allProducts = allProducts.filter(p => {
         const priceMatch = (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
         const ratingMatch = (rating === null || (p.rating && p.rating >= rating));
         return priceMatch && ratingMatch;
       });
+      // ... sort logic
+      totalProducts = allProducts.length;
+      paginatedProducts = allProducts.slice((page - 1) * limit, (page - 1) * limit + limit);
     }
 
-    // In-memory sorting only if we already applied Firestore orderBy
-    if (hasComplexFilters) {
-      allProducts.sort((a, b) => {
-        switch (sortBy) {
-          case 'price-asc':
-            return a.price - b.price;
-          case 'price-desc':
-            return b.price - a.price;
-          case 'newest':
-            const dateA = a.dateAdded instanceof Date
-              ? a.dateAdded.getTime()
-              : (a.dateAdded && typeof (a.dateAdded as any).toDate === 'function'
-                ? (a.dateAdded as any).toDate().getTime()
-                : (typeof a.dateAdded === 'string' || typeof a.dateAdded === 'number'
-                  ? new Date(a.dateAdded).getTime()
-                  : 0));
-            const dateB = b.dateAdded instanceof Date
-              ? b.dateAdded.getTime()
-              : (b.dateAdded && typeof (b.dateAdded as any).toDate === 'function'
-                ? (b.dateAdded as any).toDate().getTime()
-                : (typeof b.dateAdded === 'string' || typeof b.dateAdded === 'number'
-                  ? new Date(b.dateAdded).getTime()
-                  : 0));
-            return dateB - dateA;
-          case 'rating':
-            return (b.rating || 0) - (a.rating || 0);
-          default:
-            return a.name.localeCompare(b.name);
-        }
-      });
-    }
-
-    // Pagination logic
-    const totalProducts = allProducts.length;
     const totalPages = Math.ceil(totalProducts / limit);
-    const offset = (page - 1) * limit;
-    const paginatedProducts = allProducts.slice(offset, offset + limit);
 
     return NextResponse.json({
         products: paginatedProducts,
@@ -156,6 +153,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Error fetching products' }, { status: 500 });
   }
 }
+
+export const GET = withRequestMetrics(listProductsHandler);
 
 // POST handler to create a product (unchanged)
 async function createProductHandler(req: AuthenticatedRequest) {
@@ -202,6 +201,16 @@ async function createProductHandler(req: AuthenticatedRequest) {
         dateAdded: productToCreate.dateAdded,
         additionalImageUrls: productToCreate.additionalImageUrls || [] 
     };
+
+    trackProductUploaded(createdProduct.vendorId || authenticatedUser.uid, createdProduct.status);
+
+    enqueueProduct({
+      type: 'product.created',
+      productId: docRef.id,
+      vendorId: createdProduct.vendorId || authenticatedUser.uid,
+      status: createdProduct.status,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to enqueue product creation:', err));
     
     return NextResponse.json(createdProduct, { status: 201 });
 

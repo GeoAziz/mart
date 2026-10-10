@@ -1,6 +1,4 @@
-"""
-Prometheus Alert Rules for MLOps
-"""
+# Prometheus Alert Rules for MLOps
 
 groups:
   - name: mlops_alerts

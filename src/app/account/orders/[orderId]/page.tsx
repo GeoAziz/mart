@@ -245,14 +245,27 @@ export default function OrderDetailPage() {
                 {order.items.map((item) => (
                   <TableRow key={item.productId}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image src={item.imageUrl || ''} alt={item.name} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint} />
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name || 'Product image'}
+                          width={64}
+                          height={64}
+                          className="rounded-md object-cover border border-border"
+                          data-ai-hint={item.dataAiHint}
+                        />
+                      ) : (
+                        <div className="rounded-md object-cover border border-border w-16 h-16 flex items-center justify-center bg-muted text-muted-foreground text-xs">
+                          No image
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Link href={`/products/${item.productId}`} className="font-medium hover:text-primary hover:underline">{item.name}</Link>
                     </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
-                    <TableCell className="text-right">KSh {item.price.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">KSh {(item.price * item.quantity).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">KSh {(item.price || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">KSh {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                        {item.refundStatus === 'approved' ? (
                          <Badge variant="outline" className="bg-green-500/20 text-green-300 border-green-400">Refunded</Badge>
@@ -291,12 +304,18 @@ export default function OrderDetailPage() {
               <h3 className="text-lg font-semibold text-glow-accent flex items-center">
                 <Home className="mr-2 h-5 w-5 text-accent" /> Shipping Address
               </h3>
-              <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-md border border-border/50">
-                <p className="font-medium text-foreground">{order.shippingAddress.fullName}</p>
-                <p>{order.shippingAddress.address}</p>
-                <p>{order.shippingAddress.city}{order.shippingAddress.postalCode ? `, ${order.shippingAddress.postalCode}` : ''}</p>
-                <p>Phone: {order.shippingAddress.phone}</p>
-              </div>
+              {order.shippingAddress ? (
+                <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-md border border-border/50">
+                  <p className="font-medium text-foreground">{order.shippingAddress.fullName}</p>
+                  <p>{order.shippingAddress.address}</p>
+                  <p>{order.shippingAddress.city}{order.shippingAddress.postalCode ? `, ${order.shippingAddress.postalCode}` : ''}</p>
+                  <p>Phone: {order.shippingAddress.phone}</p>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-md border border-border/50">
+                  <p>No shipping address provided.</p>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-glow-accent flex items-center">
@@ -312,11 +331,11 @@ export default function OrderDetailPage() {
         </CardContent>
         <CardFooter className="p-6 bg-muted/30 border-t border-border/50 flex flex-col sm:flex-row justify-end items-center gap-4">
           <div className="text-right">
-            <p className="text-muted-foreground text-sm">Subtotal: KSh {order.subtotal.toLocaleString()}</p>
+            <p className="text-muted-foreground text-sm">Subtotal: KSh {(order.subtotal || 0).toLocaleString()}</p>
              {order.discountAmount && <p className="text-muted-foreground text-sm">Discount ({order.promotionCode}): -KSh {order.discountAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>}
-            <p className="text-muted-foreground text-sm">Shipping: KSh {order.shippingCost.toLocaleString()}</p>
-            <p className="text-muted-foreground text-sm">Tax (16%): KSh {order.taxAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-            <p className="text-xl font-bold text-primary">Total: KSh {order.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-muted-foreground text-sm">Shipping: KSh {(order.shippingCost || 0).toLocaleString()}</p>
+            <p className="text-muted-foreground text-sm">Tax (16%): KSh {(order.taxAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-xl font-bold text-primary">Total: KSh {(order.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </div>
         </CardFooter>
       </Card>

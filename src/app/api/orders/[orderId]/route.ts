@@ -2,9 +2,13 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { firestoreAdmin } from '@/lib/firebase-admin';
 import { withAuth, type AuthenticatedRequest } from '@/lib/authMiddleware';
-import type { Order, LedgerEntry } from '@/lib/types';
+import type { Order, LedgerEntry, VendorOrder } from '@/lib/types';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLog } from '@/lib/audit-log';
+import { validateStatusTransition } from '@/lib/order-state-machine';
+import { PLATFORM_COMMISSION_RATE } from '@/lib/vendor-order-split';
+import { restoreStockForOrder } from '@/lib/inventory';
+import { enqueueOrder } from '@/lib/queue-service';
 
 // Define OrderTracking type if not already imported
 type OrderTracking = {
@@ -14,26 +18,16 @@ type OrderTracking = {
   updatedBy: string;
 };
 
-const ALLOWED_ORDER_STATUSES_FOR_UPDATE: Order['status'][] = [
-  'pending',
-  'processing',
-  'shipped',
-  'out_for_delivery',
-  'delivered',
-  'cancelled',
-  'refunded',
-  'partially_refunded'
-];
-
 const ADMIN_ONLY_STATUSES: Order['status'][] = [
   'refunded',
-  'partially_refunded'
+  'partially_refunded',
 ];
 
 const VENDOR_ALLOWED_STATUSES: Order['status'][] = [
   'processing',
   'shipped',
-  'delivered'
+  'out_for_delivery',
+  'delivered',
 ];
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
@@ -104,7 +98,7 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
     const body = await req.json() as { status: Order['status'], note?: string };
     const { status, note } = body;
 
-    if (!status || !ALLOWED_ORDER_STATUSES_FOR_UPDATE.includes(status)) {
+    if (!status) {
       return NextResponse.json({ message: `Invalid status value.`, status: 400 });
     }
 
@@ -127,17 +121,18 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
 
       // Authorization checks
       if (authenticatedUser.role === 'vendor') {
-        // Vendor can only update their own items' status
         if (!orderData.vendorIds?.includes(authenticatedUser.uid)) {
           throw new Error('Forbidden: This order does not contain items from your store.');
         }
-        // Vendors can only update to certain statuses
         if (!VENDOR_ALLOWED_STATUSES.includes(status)) {
           throw new Error('Forbidden: Vendors cannot set this status.');
         }
       } else if (authenticatedUser.role !== 'admin') {
         throw new Error('Forbidden: You do not have permission to update order status.');
       }
+
+      // Enforce the unified state machine
+      validateStatusTransition(orderData.status, status);
 
       // Add tracking entry
       const tracking: OrderTracking = {
@@ -149,29 +144,78 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
 
       // If order is being delivered, create financial transactions
       if (status === 'delivered' && orderData.status !== 'delivered') {
-        for (const item of orderData.items) {
-          if (item.vendorId) {
-            const grossSaleAmount = item.price * item.quantity;
-            const commissionAmount = grossSaleAmount * 0.10; // 10% platform fee
-            const netAmount = grossSaleAmount - commissionAmount;
+        const vendorOrderSnap = await transaction.get(
+          firestoreAdmin.collection('vendorOrders').where('orderId', '==', orderId)
+        );
+        const vendorOrders = vendorOrderSnap.docs.map((d) => d.data() as VendorOrder);
 
-            // Create ledger entry for the vendor
+        if (vendorOrders.length > 0) {
+          for (const vendorOrder of vendorOrders) {
+            if (vendorOrder.status === 'delivered' || vendorOrder.status === 'refunded' || vendorOrder.status === 'cancelled') {
+              continue;
+            }
             const ledgerEntry = {
-              vendorId: item.vendorId,
+              vendorId: vendorOrder.vendorId,
               type: 'sale_credit',
-              amount: grossSaleAmount,
-              commissionRate: 0.10,
-              commissionAmount,
-              netAmount,
+              amount: vendorOrder.subtotal,
+              commissionRate: vendorOrder.commissionRate,
+              commissionAmount: vendorOrder.commissionAmount,
+              netAmount: vendorOrder.netAmount,
               orderId,
-              productId: item.productId,
+              productId: vendorOrder.items[0]?.productId,
               createdAt: new Date(),
-              description: `Sale of ${item.quantity}x ${item.name}`,
+              status: 'confirmed',
+              description: `Sale of ${vendorOrder.items.reduce((sum, i) => sum + i.quantity, 0)} items`,
             };
 
             const ledgerRef = firestoreAdmin
               .collection('users')
-              .doc(item.vendorId)
+              .doc(vendorOrder.vendorId)
+              .collection('ledgerEntries')
+              .doc();
+
+            transaction.set(ledgerRef, ledgerEntry);
+
+            // Mark the vendor order delivered in the same transaction
+            transaction.update(firestoreAdmin.collection('vendorOrders').doc(vendorOrder.id!), {
+              status: 'delivered',
+              statusHistory: FieldValue.arrayUnion(tracking),
+              actualDeliveryDate: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+            });
+          }
+        } else {
+          // Legacy orders without vendorOrders: fall back to per-item grouping.
+          const grouped = new Map<string, { subtotal: number; count: number }>();
+          for (const item of orderData.items) {
+            if (!item.vendorId) continue;
+            const entry = grouped.get(item.vendorId) ?? { subtotal: 0, count: 0 };
+            entry.subtotal += item.price * item.quantity;
+            entry.count += item.quantity;
+            grouped.set(item.vendorId, entry);
+          }
+
+          for (const [vendorId, totals] of grouped) {
+            const grossSaleAmount = totals.subtotal;
+            const commissionAmount = grossSaleAmount * PLATFORM_COMMISSION_RATE;
+            const netAmount = grossSaleAmount - commissionAmount;
+
+            const ledgerEntry = {
+              vendorId,
+              type: 'sale_credit',
+              amount: grossSaleAmount,
+              commissionRate: PLATFORM_COMMISSION_RATE,
+              commissionAmount,
+              netAmount,
+              orderId,
+              createdAt: new Date(),
+              status: 'confirmed',
+              description: `Sale of ${totals.count} items`,
+            };
+
+            const ledgerRef = firestoreAdmin
+              .collection('users')
+              .doc(vendorId)
               .collection('ledgerEntries')
               .doc();
 
@@ -200,6 +244,22 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
       before: { status: updatedOrder.statusHistory.at(-2)?.status ?? 'unknown' },
       after: { status, note: note ?? null },
     });
+
+    // Restore inventory when an order is cancelled or refunded.
+    if (status === 'cancelled' || status === 'refunded') {
+      await restoreStockForOrder(orderId);
+    }
+
+    // Async pipeline: notify the customer of the status change.
+    enqueueOrder({
+      type: status === 'shipped' ? 'order.shipped' : status === 'delivered' ? 'order.delivered' : 'order.updated',
+      orderId,
+      vendorId: updatedOrder.vendorIds?.[0] || 'unknown',
+      vendorIds: updatedOrder.vendorIds || [],
+      customerId: updatedOrder.userId,
+      totalAmount: updatedOrder.totalAmount,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to enqueue order status event:', err));
 
     return NextResponse.json(updatedOrder, { status: 200 });
 

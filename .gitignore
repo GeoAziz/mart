@@ -76,3 +76,12 @@ __pycache__/
 # local scratch / analysis artifacts
 brainstorm.md
 sentinel-landing.html
+.scratch/
+test_icons.html
+mermaid-diagram.png
+"Screenshot at "*.png
+"ChatGPT Image"*.png
+mlops.log
+.localstack-compose.log
+.localstack-host.log
+fix_layout.ps1

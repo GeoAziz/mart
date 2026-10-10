@@ -170,7 +170,7 @@ export default function AdminOrdersPage() {
                       </Link>
                     </TableCell>
                     <TableCell>{order.userFullName || order.userEmail || 'N/A'}</TableCell>
-                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(typeof order.createdAt === 'object' && 'toDate' in (order.createdAt as any) ? (order.createdAt as any).toDate() : (order.createdAt as any)).toLocaleDateString()}</TableCell>
                     <TableCell className="text-center">{order.items.length}</TableCell>
                     <TableCell className="text-right">{order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">

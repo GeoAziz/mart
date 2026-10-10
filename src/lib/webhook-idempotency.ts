@@ -7,9 +7,11 @@ import admin from 'firebase-admin';
  * (PayPal and Stripe may retry webhooks)
  */
 
+export type WebhookProvider = 'stripe' | 'paypal' | 'mpesa';
+
 interface WebhookRecord {
   eventId: string;
-  provider: 'stripe' | 'paypal';
+  provider: WebhookProvider;
   eventType: string;
   processedAt: admin.firestore.Timestamp;
   status: 'success' | 'failed';
@@ -23,7 +25,7 @@ const WEBHOOK_COLLECTION = 'webhook_events';
  * Check if webhook has already been processed
  */
 export async function getWebhookRecord(
-  provider: 'stripe' | 'paypal',
+  provider: WebhookProvider,
   eventId: string
 ): Promise<WebhookRecord | null> {
   try {
@@ -45,7 +47,7 @@ export async function getWebhookRecord(
  * Store webhook event record to prevent duplicate processing
  */
 export async function storeWebhookRecord(
-  provider: 'stripe' | 'paypal',
+  provider: WebhookProvider,
   eventId: string,
   eventType: string,
   status: 'success' | 'failed',
@@ -75,7 +77,7 @@ export async function storeWebhookRecord(
  * Check if webhook is duplicate and return cached result if available
  */
 export async function checkWebhookIdempotency(
-  provider: 'stripe' | 'paypal',
+  provider: WebhookProvider,
   eventId: string
 ): Promise<{ isDuplicate: boolean; cachedResult?: WebhookRecord }> {
   const existing = await getWebhookRecord(provider, eventId);
@@ -94,7 +96,7 @@ export async function checkWebhookIdempotency(
  * Wrapper function for processing webhooks with idempotency
  */
 export async function processWebhookOnce<T>(
-  provider: 'stripe' | 'paypal',
+  provider: WebhookProvider,
   eventId: string,
   eventType: string,
   processor: () => Promise<T>

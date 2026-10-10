@@ -4,6 +4,7 @@ import admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
 import path from 'path';
 import fs from 'fs';
+import { Registry, Gauge, Counter } from 'prom-client';
 import type { WebSocketClient } from '@/lib/websocket';
 import {
   handleConnection,
@@ -12,6 +13,7 @@ import {
   generateDemoMetrics,
   generateDemoChartData,
 } from '@/lib/websocket';
+import { WS_EVENT_CHANNEL, createWsSubscriber } from '@/lib/ws-events';
 
 // ── Firebase Admin (standalone process – initialised separately from Next.js) ──
 
@@ -57,6 +59,30 @@ function initFirebaseAdmin() {
 
 initFirebaseAdmin();
 
+// ── Prometheus metrics (scraped at /metrics by the mart-websocket job) ───────
+
+const wsRegistry = new Registry();
+
+const wsConnectedClients = new Gauge({
+  name: 'ws_connected_clients',
+  help: 'Currently connected authenticated WebSocket clients',
+  registers: [wsRegistry],
+});
+
+const wsConnectionsTotal = new Counter({
+  name: 'ws_connections_total',
+  help: 'Total accepted WebSocket connections',
+  labelNames: ['role'],
+  registers: [wsRegistry],
+});
+
+const wsMessagesSent = new Counter({
+  name: 'ws_messages_sent_total',
+  help: 'Total messages broadcast to WebSocket clients',
+  labelNames: ['type'],
+  registers: [wsRegistry],
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -94,9 +120,21 @@ async function verifyToken(
   }
 }
 
-// ── WebSocket server (noServer mode so we control the upgrade) ───────────────
+// ── HTTP server (noServer mode so we control the upgrade) ────────────────────
 
-const httpServer = http.createServer((_req, res) => {
+const httpServer = http.createServer(async (req, res) => {
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  if (url.pathname === '/metrics') {
+    try {
+      const metrics = await wsRegistry.metrics();
+      res.writeHead(200, { 'Content-Type': wsRegistry.contentType });
+      res.end(metrics);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Metrics error: ${(err as Error).message}`);
+    }
+    return;
+  }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('ZilaCart WebSocket server');
 });
@@ -131,63 +169,133 @@ httpServer.on('upgrade', async (req, socket, head) => {
 
 wss.on('connection', (ws: WebSocketClient) => {
   handleConnection(ws, clients);
+  wsConnectedClients.set(clients.size);
+  wsConnectionsTotal.labels(ws.role).inc();
+  ws.on('close', () => {
+    wsConnectedClients.set(clients.size);
+  });
   console.log(`[WS] Client connected: uid=${ws.userId} role=${ws.role}`);
 });
 
 startHeartbeat(clients);
 
-// ── Periodic data push (role-scoped) ─────────────────────────────────────────
+// ── Real-time event fan-out via Redis pub/sub ────────────────────────────────
+//
+// The Next.js app publishes business events (orders, notifications, inventory)
+// to the WS_EVENT_CHANNEL. Every WS server instance subscribes, so fan-out
+// works across multiple instances. Clients are matched by role / userId /
+// vendorId in the event payload.
 
-setInterval(() => {
-  if (clients.size === 0) return;
+interface RedisWsEvent {
+  type: string;
+  payload: any;
+  roles?: Array<'customer' | 'vendor' | 'admin'>;
+  userIds?: string[];
+  vendorIds?: string[];
+}
 
-  // Metrics: admin and vendors only
-  broadcastMessage(
-    clients,
-    { type: 'metrics_update', payload: { metrics: generateDemoMetrics() } },
-    (c) => c.role === 'admin' || c.role === 'vendor',
-  );
-
-  // Chart data: admin only
-  broadcastMessage(
-    clients,
-    { type: 'chart_data', payload: { chartData: generateDemoChartData() } },
-    (c) => c.role === 'admin',
-  );
-
-  // Notifications: all authenticated users
-  if (Math.random() > 0.7) {
-    broadcastMessage(clients, {
-      type: 'notification',
-      payload: {
-        id: Date.now().toString(),
-        type: 'sale',
-        message: 'New sale completed!',
-        severity: 'success',
-        timestamp: new Date().toISOString(),
-      },
-    });
+function clientMatches(event: RedisWsEvent, client: WebSocketClient): boolean {
+  if (event.roles && event.roles.length > 0 && !event.roles.includes(client.role)) {
+    return false;
   }
+  if (event.userIds && event.userIds.length > 0 && !event.userIds.includes(client.userId)) {
+    return false;
+  }
+  if (event.vendorIds && event.vendorIds.length > 0 && !event.vendorIds.includes(client.vendorId || '')) {
+    return false;
+  }
+  return true;
+}
 
-  // Inventory alerts: admin and the relevant vendor only
-  if (Math.random() > 0.9) {
-    const demoVendorId = 'demo-vendor-id'; // In production this comes from real data
+async function connectRealtimeSource() {
+  const subscriber = createWsSubscriber();
+  subscriber.on('error', (err) => {
+    console.error('[WS] Redis subscriber error:', err);
+  });
+  subscriber.on('end', () => {
+    console.warn('[WS] Redis subscriber disconnected; realtime events paused');
+  });
+
+  try {
+    await subscriber.connect();
+    await subscriber.subscribe(WS_EVENT_CHANNEL, (message) => {
+      try {
+        const event = JSON.parse(message) as RedisWsEvent;
+        broadcastMessage(
+          clients,
+          { type: event.type, payload: event.payload },
+          (c) => clientMatches(event, c),
+        );
+        wsMessagesSent.labels(event.type).inc();
+      } catch (err) {
+        console.error('[WS] Failed to handle realtime event:', err);
+      }
+    });
+    console.log('[WS] Real-time event channel connected');
+  } catch (err) {
+    console.warn('[WS] Real-time channel unavailable (Redis down); only local broadcasts active:', err);
+  }
+}
+
+connectRealtimeSource();
+
+// ── Periodic demo data push (opt-in) ─────────────────────────────────────────
+//
+// Synthetic payloads are only emitted when WS_DEMO_MODE=true. In production the
+// server forwards real events from the Redis channel instead.
+
+const demoMode = process.env.WS_DEMO_MODE === 'true';
+
+if (demoMode) {
+  setInterval(() => {
+    if (clients.size === 0) return;
+
     broadcastMessage(
       clients,
-      {
-        type: 'inventory_alert',
-        payload: {
-          productId: '123',
-          productName: 'Sample Product',
-          currentStock: 5,
-          threshold: 10,
-          severity: 'warning',
-        },
-      },
-      (c) => c.role === 'admin' || c.vendorId === demoVendorId,
+      { type: 'metrics_update', payload: { metrics: generateDemoMetrics() } },
+      (c) => c.role === 'admin' || c.role === 'vendor',
     );
-  }
-}, 5000);
+
+    broadcastMessage(
+      clients,
+      { type: 'chart_data', payload: { chartData: generateDemoChartData() } },
+      (c) => c.role === 'admin',
+    );
+
+    if (Math.random() > 0.7) {
+      broadcastMessage(clients, {
+        type: 'notification',
+        payload: {
+          id: Date.now().toString(),
+          type: 'sale',
+          message: 'New sale completed!',
+          severity: 'success',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (Math.random() > 0.9) {
+      const demoVendorId = 'demo-vendor-id';
+      broadcastMessage(
+        clients,
+        {
+          type: 'inventory_alert',
+          payload: {
+            productId: '123',
+            productName: 'Sample Product',
+            currentStock: 5,
+            threshold: 10,
+            severity: 'warning',
+          },
+        },
+        (c) => c.role === 'admin' || c.vendorId === demoVendorId,
+      );
+    }
+  }, 5000);
+} else {
+  console.log('[WS] Demo mode disabled — forwarding real events from Redis channel');
+}
 
 const PORT = parseInt(process.env.WS_PORT ?? '3001', 10);
 httpServer.listen(PORT, () => {
