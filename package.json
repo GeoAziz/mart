@@ -85,7 +85,7 @@
     "ml-regression-simple-linear": "^3.0.1",
     "next": "15.3.8",
     "node-cache": "^5.1.2",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^10.0.15",
     "patch-package": "^8.0.0",
     "pdfkit": "^0.17.1",
     "prom-client": "^15.0.0",
