@@ -25,6 +25,14 @@ function recordRequest(req: NextRequest, status: number, start: number): void {
   trackRequestMetrics(req.method, route, status, performance.now() - start);
 }
 
+const VALID_ROLES: Role[] = ['customer', 'vendor', 'admin'];
+
+function normalizeRole(value: unknown): Role | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return VALID_ROLES.includes(normalized as Role) ? (normalized as Role) : null;
+}
+
 export function withAuth(
   handler: ApiHandler,
   requiredRole?: Role | Role[]
@@ -48,7 +56,6 @@ export function withAuth(
     }
 
     try {
-      // Use firebaseAdminAuth directly
       const { firebaseAdminAuth, firestoreAdmin } = await import('./firebase-admin');
       if (!firebaseAdminAuth) {
         const res = NextResponse.json({ message: 'Internal Server Error: Firebase Admin Auth not initialized.' }, { status: 500 });
@@ -73,11 +80,23 @@ export function withAuth(
       }
 
       const firestoreData = userDocSnap.data();
+      const customClaimRole = normalizeRole(decodedToken.role ?? userDocSnap.data()?.role);
+      const firestoreRole = normalizeRole(firestoreData?.role);
+      const effectiveRole: Role = customClaimRole ?? firestoreRole ?? 'customer';
+
+      if (customClaimRole && firestoreRole && customClaimRole !== firestoreRole) {
+        console.warn(`Role mismatch for UID ${decodedToken.uid}: custom claim=${customClaimRole}, Firestore=${firestoreRole}. Using Firebase custom claim.`);
+      }
+
+      if (!customClaimRole && firestoreRole) {
+        console.warn(`Legacy Firestore-only role used for UID ${decodedToken.uid}: ${firestoreRole}. Custom claims should be synced.`);
+      }
+
       const userProfile: UserProfile = {
         uid: decodedToken.uid,
         email: firestoreData?.email || decodedToken.email || null,
         fullName: firestoreData?.fullName || decodedToken.name || null,
-        role: firestoreData?.role || 'customer',
+        role: effectiveRole,
         status: firestoreData?.status || 'active',
         createdAt: firestoreData?.createdAt,
         updatedAt: firestoreData?.updatedAt,
@@ -92,7 +111,6 @@ export function withAuth(
         }
       }
 
-      // Fetch the full UserRecord from Firebase Admin
       const userRecord = await firebaseAdminAuth.getUser(decodedToken.uid);
 
       const authenticatedReq = req as AuthenticatedRequest;

@@ -68,7 +68,7 @@ if (typeof window === 'undefined' && !admin.apps.length) {
     }
 
     admin.initializeApp({
-      projectId: process.env.FIREBASE_PROJECT_ID || 'zilacart-local',
+      projectId: serviceAccount?.projectId || process.env.FIREBASE_PROJECT_ID || 'zilacart-local',
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       ...(serviceAccount ? { credential: admin.credential.cert(serviceAccount as ServiceAccount) } : {}),
     });
@@ -82,6 +82,11 @@ if (typeof window === 'undefined' && !admin.apps.length) {
 
 // Named exports for compatibility
 export const firestoreAdmin = getFirestore();
+try {
+  firestoreAdmin.settings({ ignoreUndefinedProperties: true });
+} catch {
+  // Settings can only be set once before any operations
+}
 export const db = firestoreAdmin; // Alias for legacy code
 export const storageAdmin = getStorage();
 export const firebaseAdminAuth = admin.auth();

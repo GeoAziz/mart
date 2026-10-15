@@ -64,7 +64,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   signUp: (email_param: string, password_param: string, fullName_param: string) => Promise<void>;
-  logIn: (email_param: string, password_param: string) => Promise<void>;
+  logIn: (email_param: string, password_param: string, redirectTo?: string) => Promise<void>;
   logOut: () => Promise<void>;
   sendPasswordReset: (email_param: string) => Promise<void>;
   refreshUserProfile: () => Promise<void>;
@@ -488,7 +488,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logIn = async (email_param: string, password_param: string) => {
+  const logIn = async (email_param: string, password_param: string, redirectTo?: string) => {
     if (!isFirebaseConfigured) {
       toast({ title: 'Application Not Configured', description: 'Please provide the Firebase API keys in the .env file and restart the server.', variant: 'destructive', duration: 10000 });
       throw new Error('Firebase is not configured');
@@ -529,14 +529,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       toast({ title: 'Login Successful!', description: 'Welcome back!' });
-      // Role-based navigation
-      if (profile.role === 'admin') {
-        router.push('/admin');
-      } else if (profile.role === 'vendor') {
-        router.push('/vendor');
-      } else {
-        router.push('/account');
-      }
+      const defaultDestination = profile.role === 'admin'
+        ? '/admin'
+        : profile.role === 'vendor'
+          ? '/vendor'
+          : '/account';
+      const safeRedirect = redirectTo?.startsWith('/') &&
+        !redirectTo.startsWith('//') &&
+        !redirectTo.includes('\\')
+        ? redirectTo
+        : defaultDestination;
+      router.push(safeRedirect);
     } catch (error: any) {
       toast({ title: 'Login Failed', description: error.message || 'Invalid credentials.', variant: 'destructive' });
       throw error; 

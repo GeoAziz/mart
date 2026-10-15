@@ -1,82 +1,199 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Package, Truck, CheckCircle, Circle, HelpCircle, FileText, Loader2 } from 'lucide-react';
+import { Package, Truck, CheckCircle, Circle, HelpCircle, FileText, Loader2, LogIn } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/context/AuthContext';
 
 interface OrderStatusStep {
-  name: string;
-  icon: React.ElementType;
+  status: string;
+  label: string;
   date?: string;
-  completed: boolean;
+  note?: string;
   current: boolean;
 }
 
-interface OrderDetails {
+interface TrackedOrder {
   id: string;
-  customerName: string;
-  estimatedDelivery: string;
-  items: Array<{ name: string; quantity: number; imageUrl: string; dataAiHint: string }>;
-  statusHistory: OrderStatusStep[];
-  currentStatusText: string;
+  customerName?: string | null;
+  estimatedDeliveryDate?: unknown;
+  items?: Array<{
+    productId?: string;
+    name?: string;
+    quantity?: number;
+    imageUrl?: string;
+    dataAiHint?: string;
+  }>;
+  status: string;
+  statusHistory?: Array<{
+    status: string;
+    timestamp?: unknown;
+    note?: string;
+  }>;
+  updatedAt?: unknown;
 }
 
-const placeholderOrder: OrderDetails = {
-  id: 'ZLC-123456789',
-  customerName: 'Aisha Wanjiru',
-  estimatedDelivery: 'July 28, 2024',
-  items: [
-    { name: 'Quantum Entanglement Communicator', quantity: 1, imageUrl: 'https://placehold.co/80x80/FF00FF/FFFFFF?text=Item1', dataAiHint: "communication device" },
-    { name: 'Cryo-Sleep Pod Chamber', quantity: 1, imageUrl: 'https://placehold.co/80x80/00FFFF/000000?text=Item2', dataAiHint: "sleep pod" },
-  ],
-  statusHistory: [
-    { name: 'Ordered', icon: FileText, date: 'July 20, 2024', completed: true, current: false },
-    { name: 'Processing', icon: Loader2, date: 'July 21, 2024', completed: true, current: false },
-    { name: 'Shipped', icon: Truck, date: 'July 22, 2024', completed: true, current: true },
-    { name: 'Out for Delivery', icon: Package, completed: false, current: false },
-    { name: 'Delivered', icon: CheckCircle, completed: false, current: false },
-  ],
-  currentStatusText: 'Your order is on its way!',
-};
+function formatStatus(status: string): string {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDate(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === 'string' || typeof value === 'number') {
+    date = new Date(value);
+  } else if (typeof value === 'object') {
+    const timestamp = value as { seconds?: unknown; _seconds?: unknown };
+    const seconds = typeof timestamp.seconds === 'number'
+      ? timestamp.seconds
+      : typeof timestamp._seconds === 'number'
+        ? timestamp._seconds
+        : null;
+    if (seconds === null) return undefined;
+    date = new Date(seconds * 1000);
+  } else {
+    return undefined;
+  }
+
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function statusIcon(status: string) {
+  switch (status) {
+    case 'delivered':
+      return CheckCircle;
+    case 'shipped':
+    case 'out_for_delivery':
+      return Truck;
+    case 'processing':
+    case 'confirmed':
+      return Package;
+    case 'pending':
+    case 'payment_pending':
+      return FileText;
+    default:
+      return Circle;
+  }
+}
+
+function buildStatusHistory(order: TrackedOrder): OrderStatusStep[] {
+  const history = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+  const steps = history
+    .filter((entry) => entry && typeof entry.status === 'string')
+    .map((entry) => ({
+      status: entry.status,
+      label: formatStatus(entry.status),
+      date: formatDate(entry.timestamp),
+      note: entry.note,
+      current: false,
+    }));
+
+  const currentStatus = order.status || 'pending';
+  const currentStep = [...steps].reverse().find((step) => step.status === currentStatus);
+  if (currentStep) {
+    currentStep.current = true;
+  } else {
+    steps.push({
+      status: currentStatus,
+      label: formatStatus(currentStatus),
+      date: formatDate(order.updatedAt),
+      note: undefined,
+      current: true,
+    });
+  }
+
+  return steps;
+}
 
 export default function OrderTrackingPage() {
+  const { currentUser, loading: authLoading } = useAuth();
   const [orderId, setOrderId] = useState('');
-  const [searchedOrder, setSearchedOrder] = useState<OrderDetails | null>(null);
+  const [searchedOrder, setSearchedOrder] = useState<TrackedOrder | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signInRequired, setSignInRequired] = useState(false);
+  const autoTrackedId = useRef<string | null>(null);
 
-  const handleTrackOrder = async () => {
-    if (!orderId.trim()) {
-      setError('Please enter an Order ID.');
+  const trackOrder = useCallback(async (requestedOrderId: string) => {
+    const normalizedId = requestedOrderId.trim();
+    if (!normalizedId) {
+      setError('Please enter an order ID.');
       setSearchedOrder(null);
       return;
     }
+
+    if (!currentUser) {
+      setSignInRequired(true);
+      setError('Sign in to securely view your order details.');
+      setSearchedOrder(null);
+      return;
+    }
+
+    setOrderId(normalizedId);
     setIsLoading(true);
     setError(null);
+    setSignInRequired(false);
     setSearchedOrder(null);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      let token = await currentUser.getIdToken();
+      let response = await fetch(`/api/orders/${encodeURIComponent(normalizedId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.status === 401) {
+        token = await currentUser.getIdToken(true);
+        response = await fetch(`/api/orders/${encodeURIComponent(normalizedId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
 
-    if (orderId.trim().toUpperCase() === 'ZLC-123456789') {
-      setSearchedOrder(placeholderOrder);
-    } else {
-      setError(`Order ID "${orderId}" not found. Please check the ID and try again.`);
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setSignInRequired(true);
+        }
+        throw new Error(result?.message || 'Could not retrieve this order.');
+      }
+
+      setSearchedOrder(result as TrackedOrder);
+    } catch (trackingError) {
+      console.error('Order tracking request failed:', trackingError);
+      setError(trackingError instanceof Error ? trackingError.message : 'Could not retrieve this order.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    const queryOrderId = new URLSearchParams(window.location.search).get('id')?.trim();
+    if (!queryOrderId) return;
+
+    setOrderId(queryOrderId);
+    if (authLoading || autoTrackedId.current === queryOrderId) return;
+    autoTrackedId.current = queryOrderId;
+    void trackOrder(queryOrderId);
+  }, [authLoading, trackOrder]);
+
+  const signInHref = `/auth/login?redirect=${encodeURIComponent(
+    `/track-order${orderId ? `?id=${encodeURIComponent(orderId)}` : ''}`
+  )}`;
 
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-headline font-bold text-glow-primary">Track Your Order</h1>
-        <p className="text-lg text-muted-foreground mt-2">Enter your order ID to see its current status.</p>
+        <p className="text-lg text-muted-foreground mt-2">Enter your order ID to see its latest status.</p>
       </div>
 
       <Card className="w-full max-w-md mx-auto mb-12 bg-card border-primary shadow-xl glow-edge-primary">
@@ -89,31 +206,43 @@ export default function OrderTrackingPage() {
             <Input
               id="orderId"
               type="text"
-              placeholder="e.g., ZLC-123456789"
+              placeholder="Enter the order ID from your confirmation"
               value={orderId}
-              onChange={(e) => {
-                setOrderId(e.target.value);
-                if (error) setError(null); // Clear error when user types
+              onChange={(event) => {
+                setOrderId(event.target.value);
+                setError(null);
+                setSignInRequired(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !isLoading) void trackOrder(orderId);
               }}
               className="bg-input border-primary focus:ring-accent"
+              autoComplete="off"
             />
           </div>
           {error && (
             <Alert variant="destructive" className="bg-destructive/20 border-destructive/50">
               <HelpCircle className="h-4 w-4 !text-destructive-foreground" />
-              <AlertTitle className="text-destructive-foreground">Error</AlertTitle>
+              <AlertTitle className="text-destructive-foreground">Unable to track order</AlertTitle>
               <AlertDescription className="text-destructive-foreground/80">
                 {error}
+                {signInRequired && (
+                  <span className="mt-2 block">
+                    <Link href={signInHref} className="inline-flex items-center font-medium underline">
+                      <LogIn className="mr-1 h-4 w-4" /> Sign in to continue
+                    </Link>
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
           )}
         </CardContent>
         <CardFooter>
-          <Button onClick={handleTrackOrder} disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground animate-pulse-glow">
-            {isLoading ? (
+          <Button onClick={() => void trackOrder(orderId)} disabled={isLoading || authLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+            {isLoading || authLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Tracking...
+                {authLoading ? 'Checking sign-in...' : 'Loading order...'}
               </>
             ) : (
               'Track Order'
@@ -127,61 +256,77 @@ export default function OrderTrackingPage() {
           <CardHeader>
             <CardTitle className="text-2xl font-headline text-glow-primary">Order Details: {searchedOrder.id}</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Hello {searchedOrder.customerName}, here's the latest on your order. Estimated delivery: {searchedOrder.estimatedDelivery}.
+              {searchedOrder.customerName ? `Hello ${searchedOrder.customerName}. ` : ''}
+              Current status: {formatStatus(searchedOrder.status)}.
+              {formatDate(searchedOrder.estimatedDeliveryDate)
+                ? ` Estimated delivery: ${formatDate(searchedOrder.estimatedDeliveryDate)}.`
+                : ''}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-3 text-glow-accent">Items in this Order</h3>
-              <div className="space-y-3">
-                {searchedOrder.items.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border border-border/50">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name || 'Product image'}
-                        width={60}
-                        height={60}
-                        className="rounded object-cover"
-                        data-ai-hint={item.dataAiHint}
-                      />
-                    ) : (
-                      <div className="w-15 h-15 rounded object-cover bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                        No image
+              <h2 className="text-lg font-semibold mb-3 text-glow-accent">Items in this Order</h2>
+              {searchedOrder.items?.length ? (
+                <div className="space-y-3">
+                  {searchedOrder.items.map((item, index) => (
+                    <div key={`${item.productId || item.name || 'item'}-${index}`} className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border border-border/50">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name || 'Product image'}
+                          width={60}
+                          height={60}
+                          className="h-[60px] w-[60px] rounded object-cover"
+                          data-ai-hint={item.dataAiHint}
+                        />
+                      ) : (
+                        <div className="h-[60px] w-[60px] rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                          No image
+                        </div>
+                      )}
+                      <div className="flex-grow">
+                        <p className="text-sm font-medium text-foreground">{item.name || 'Product'}</p>
+                        <p className="text-xs text-muted-foreground">Quantity: {item.quantity ?? 0}</p>
                       </div>
-                    )}
-                    <div className="flex-grow">
-                      <p className="text-sm font-medium text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">Quantity: {item.quantity}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No item details are available for this order.</p>
+              )}
             </div>
 
             <Separator />
 
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-glow-accent">Order Status: <span className="text-primary">{searchedOrder.currentStatusText}</span></h3>
-              <div className="relative space-y-8 ">
-                {searchedOrder.statusHistory.map((step, index) => (
-                  <div key={step.name} className="flex items-start">
-                    <div className="flex flex-col items-center mr-4">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${step.completed ? 'border-primary bg-primary/20 text-primary' : 'border-muted-foreground text-muted-foreground'}`}>
-                        <step.icon className={`h-5 w-5 ${step.completed && step.current ? 'animate-pulse' : ''} ${step.name === 'Processing' && step.completed && step.current ? 'animate-spin': ''}`} />
+            <section aria-labelledby="order-status-heading">
+              <h2 id="order-status-heading" className="text-lg font-semibold mb-4 text-glow-accent">
+                Order status: <span className="text-primary">{formatStatus(searchedOrder.status)}</span>
+              </h2>
+              <ol className="relative space-y-6">
+                {buildStatusHistory(searchedOrder).map((step, index, steps) => {
+                  const Icon = statusIcon(step.status);
+                  return (
+                    <li key={`${step.status}-${index}`} className="flex items-start">
+                      <div className="flex flex-col items-center mr-4" aria-hidden="true">
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${step.current ? 'border-primary bg-primary/20 text-primary' : 'border-muted-foreground text-muted-foreground'}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        {index < steps.length - 1 && (
+                          <div className={`w-0.5 h-8 mt-1 ${step.current ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
+                        )}
                       </div>
-                      {index < searchedOrder.statusHistory.length - 1 && (
-                        <div className={`w-0.5 h-12 mt-1 ${step.completed ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
-                      )}
-                    </div>
-                    <div>
-                      <p className={`font-medium ${step.completed ? 'text-foreground' : 'text-muted-foreground'}`}>{step.name}</p>
-                      {step.date && <p className="text-xs text-muted-foreground">{step.date}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                      <div>
+                        <p className={`font-medium ${step.current ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {step.label}{step.current ? ' (Current)' : ''}
+                        </p>
+                        {step.date && <p className="text-xs text-muted-foreground">{step.date}</p>}
+                        {step.note && <p className="mt-1 text-sm text-muted-foreground">{step.note}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
           </CardContent>
         </Card>
       )}

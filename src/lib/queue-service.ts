@@ -9,9 +9,14 @@ import {
 } from '@/lib/algolia-search-service';
 import { publishWSEvent } from '@/lib/ws-events';
 
+// In Docker, localstack is reachable via http://localstack:4566.
+// In host dev environment, fallback to localhost:4566 or disable gracefully.
+const defaultSqsEndpoint = process.env.AWS_SQS_ENDPOINT || 
+  (process.env.DOCKER_CONTAINER ? 'http://localstack:4566' : 'http://localhost:4566');
+
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
-  endpoint: process.env.AWS_SQS_ENDPOINT || 'http://localstack:4566',
+  endpoint: defaultSqsEndpoint,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
@@ -19,11 +24,12 @@ const sqs = new SQS({
 });
 
 // Queue URLs
+const defaultQueueBase = defaultSqsEndpoint;
 const QUEUES = {
-  ORDERS: process.env.ORDER_QUEUE_URL || 'http://localstack:4566/000000000000/order-queue.fifo',
-  PRODUCTS: process.env.PRODUCT_QUEUE_URL || 'http://localstack:4566/000000000000/product-queue.fifo',
-  PAYMENTS: process.env.PAYMENT_QUEUE_URL || 'http://localstack:4566/000000000000/payment-queue.fifo',
-  NOTIFICATIONS: process.env.NOTIFICATION_QUEUE_URL || 'http://localstack:4566/000000000000/notification-queue.fifo',
+  ORDERS: process.env.ORDER_QUEUE_URL || `${defaultQueueBase}/000000000000/order-queue.fifo`,
+  PRODUCTS: process.env.PRODUCT_QUEUE_URL || `${defaultQueueBase}/000000000000/product-queue.fifo`,
+  PAYMENTS: process.env.PAYMENT_QUEUE_URL || `${defaultQueueBase}/000000000000/payment-queue.fifo`,
+  NOTIFICATIONS: process.env.NOTIFICATION_QUEUE_URL || `${defaultQueueBase}/000000000000/notification-queue.fifo`,
 };
 
 // Dead-letter queues (set in production; optional locally)

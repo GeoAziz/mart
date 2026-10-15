@@ -33,8 +33,10 @@ async function adminCreateUserHandler(req: AuthenticatedRequest) {
       email,
       password,
       displayName: fullName,
-      emailVerified: true, // Or false, depending on desired flow
+      emailVerified: true,
     });
+
+    await firebaseAdminAuth.setCustomUserClaims(userRecord.uid, { role });
 
     // Create user profile in Firestore
     const userDocRef = firestoreAdmin.collection('users').doc(userRecord.uid);
@@ -45,8 +47,8 @@ async function adminCreateUserHandler(req: AuthenticatedRequest) {
       fullName,
       role,
       status,
-      createdAt: now, // Firestore will convert to Timestamp
-      updatedAt: now, // Firestore will convert to Timestamp
+      createdAt: now,
+      updatedAt: now,
     };
 
     await userDocRef.set(userProfileData);

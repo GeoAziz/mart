@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { LogIn, Mail, Loader2 } from 'lucide-react'; // Added Loader2
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext'; // Updated import
-import { useRouter } from 'next/navigation';
 import { isFirebaseConfigured } from '@/lib/firebase-client';
 import { TogglePassword } from '@/components/auth/TogglePassword';
 
@@ -18,7 +17,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { logIn, loading: authLoading } = useAuth(); // Use logIn from context
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +27,8 @@ export default function LoginPage() {
     }
     setIsLoading(true);
     try {
-      await logIn(email, password);
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || undefined;
+      await logIn(email, password, redirectTo);
       // Redirection is handled by AuthContext's logIn on success
     } catch (error) {
       // Error handling is done in AuthContext
@@ -89,7 +88,7 @@ export default function LoginPage() {
             {isLoading || authLoading ? 'Logging In...' : 'Login'}
           </Button>
           <div className="text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
+            <span className="text-muted-foreground">Don&apos;t have an account? </span>
             <Link href="/auth/register" className="font-medium text-accent hover:underline">
               Register here
             </Link>

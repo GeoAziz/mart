@@ -24,9 +24,11 @@ export const StripePaymentIntentSchema = z.object({
     .min(PaymentConfig.STRIPE.MIN_AMOUNT, `Minimum amount is $${PaymentConfig.STRIPE.MIN_AMOUNT / 100}`)
     .max(PaymentConfig.STRIPE.MAX_AMOUNT, `Maximum amount is $${PaymentConfig.STRIPE.MAX_AMOUNT / 100}`),
   currency: z
-    .enum(['usd', 'kes', 'eur', 'gbp'])
+    .string()
+    .transform((val) => val.toLowerCase())
+    .pipe(z.enum(['usd', 'kes', 'eur', 'gbp']))
     .default('usd'),
-  orderId: z.string().min(1, 'Order ID is required'),
+  orderId: z.string().optional(),
   metadata: z
     .record(z.string())
     .optional(),

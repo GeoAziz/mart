@@ -47,9 +47,28 @@ export function decodeCursor(cursor: string): { docId: string; sortValue: string
 /**
  * Paginate Firestore query results using cursor-based pagination
  */
+type QueryConstraint = {
+  field: string;
+  operator?: FirebaseFirestore.WhereFilterOp | string;
+  op?: FirebaseFirestore.WhereFilterOp | string;
+  value: unknown;
+};
+
+const VALID_FIRESTORE_OPERATORS = new Set<FirebaseFirestore.WhereFilterOp>([
+  '<', '<=', '==', '!=', '>', '>=', 'array-contains', 'in', 'not-in', 'array-contains-any'
+]);
+
+function resolveConstraintOperator(constraint: QueryConstraint): FirebaseFirestore.WhereFilterOp {
+  const operator = (constraint.operator ?? constraint.op) as FirebaseFirestore.WhereFilterOp | undefined;
+  if (!operator || !VALID_FIRESTORE_OPERATORS.has(operator as FirebaseFirestore.WhereFilterOp)) {
+    throw new Error(`Query constraint is missing a valid Firestore operator: ${String(operator)}`);
+  }
+  return operator as FirebaseFirestore.WhereFilterOp;
+}
+
 export async function paginateQuery<T extends { id?: string }>(
   collectionPath: string,
-  constraints: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }>,
+  constraints: QueryConstraint[],
   sortField: string,
   sortDirection: 'asc' | 'desc' = 'desc',
   options: PaginationParams
@@ -67,7 +86,8 @@ export async function paginateQuery<T extends { id?: string }>(
 
     // Apply constraints
     for (const constraint of constraints) {
-      query = query.where(constraint.field, constraint.operator, constraint.value);
+      const operator = resolveConstraintOperator(constraint);
+      query = query.where(constraint.field, operator, constraint.value);
     }
 
     // Apply sorting
@@ -137,13 +157,14 @@ export async function paginateQuery<T extends { id?: string }>(
  */
 export async function countDocuments(
   collectionPath: string,
-  constraints: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }>
+  constraints: QueryConstraint[]
 ): Promise<number> {
   try {
     let query: Query<DocumentData, DocumentData> = db.collection(collectionPath);
 
     for (const constraint of constraints) {
-      query = query.where(constraint.field, constraint.operator, constraint.value);
+      const operator = resolveConstraintOperator(constraint);
+      query = query.where(constraint.field, operator, constraint.value);
     }
 
     const snapshot = await query.count().get();

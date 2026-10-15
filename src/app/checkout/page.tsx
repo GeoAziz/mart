@@ -26,7 +26,8 @@ export default function CheckoutPage() {
       return;
     }
     
-    if (cart.length === 0) {
+    // Allow checkout to stay mounted if an order has just completed or is in checkout
+    if (cart.length === 0 && !window.location.search.includes('orderId')) {
       setIsRedirecting(true);
       router.replace('/products');
       return;
@@ -56,22 +57,13 @@ export default function CheckoutPage() {
     );
   }
 
-  // Additional safety check - don't render checkout if conditions aren't met
-  if (!currentUser || cart.length === 0) {
+  // Additional safety check - don't render checkout if not logged in
+  if (!currentUser) {
     return (
       <div className="container mx-auto py-8">
         <div className="mb-8 text-center">
           <Skeleton className="h-10 w-48 mx-auto mb-4" />
           <Skeleton className="h-6 w-64 mx-auto" />
-        </div>
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Skeleton className="h-96 w-full rounded-lg" />
-          </div>
-          <div>
-            <Skeleton className="h-96 w-full rounded-lg" />
-          </div>
         </div>
       </div>
     );

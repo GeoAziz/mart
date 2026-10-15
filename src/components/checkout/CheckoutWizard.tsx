@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import OrderSuccessExperience from '@/components/checkout/OrderSuccessExperience';
 
 const steps = [
   { id: 'address', name: 'Delivery Address', icon: <MapPin className="h-5 w-5" /> },
@@ -126,13 +127,17 @@ const CheckoutWizard = () => {
       try {
         if (!currentUser) throw new Error('User not authenticated');
         const token = await currentUser.getIdToken();
-        // Create payment intent on backend
+        // Create payment intent on backend (total is in KES, stripe-adapter converts to cents)
         const intentRes = await fetch('/api/payment/stripe/intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ amount: Math.round(total * 100), currency: 'KES' })
+          body: JSON.stringify({ amount: total, currency: 'kes' })
         });
-        const { clientSecret } = await intentRes.json();
+        const intentData = await intentRes.json();
+        if (!intentRes.ok) {
+          throw new Error(intentData?.message || intentData?.error?.message || 'Failed to initialize payment');
+        }
+        const { clientSecret } = intentData;
         const result = await stripe.confirmCardPayment(clientSecret, {
           payment_method: {
             card: elements.getElement(CardElement)!,
@@ -222,14 +227,13 @@ const CheckoutWizard = () => {
         throw new Error(createdOrder?.message || 'Failed to place order.');
       }
 
-      // Only clear cart after confirming the order was created successfully
-      // For payment methods that require upfront payment (card/paypal), 
-      // payment is already verified at this point
-      // For COD/M-Pesa, order creation confirms the transaction
+      // Keep placed order ID and transition to success view
+      // Cart will be cleared without triggering instant premature redirects
       if (createdOrder && createdOrder.id) {
-        await clearCart();
         setPlacedOrderId(createdOrder.id);
         setOrderPlaced(true);
+        // Clear cart quietly in background
+        clearCart().catch((e) => console.warn('Could not clear cart immediately:', e));
       } else {
         throw new Error('Order was not created successfully');
       }
@@ -245,40 +249,15 @@ const CheckoutWizard = () => {
     }
   };
 
-  if (orderPlaced) {
+  if (orderPlaced && placedOrderId) {
     return (
-      <Card className="w-full max-w-2xl mx-auto p-8 text-center bg-card border-primary shadow-2xl glow-edge-primary overflow-hidden">
-        <div className="relative">
-            {[...Array(30)].map((_,i) => ( 
-                <div
-                  key={i}
-                  className="confetti-burst"
-                  style={{
-                    // Set CSS variables for dynamic styling
-                    // @ts-ignore
-                    '--confetti-bg': `hsl(${Math.random()*360}, 100%, ${50 + Math.random()*20}%)`,
-                    '--confetti-left': `${Math.random()*100}%`,
-                    '--confetti-top': `${Math.random()*50 - 25}%`,
-                    '--confetti-delay': `${Math.random()*0.3}s`,
-                    '--confetti-duration': `${0.7 + Math.random()*0.8}s`,
-                    '--confetti-transform': `scale(${0.5 + Math.random() * 0.8}) rotate(${Math.random() * 360}deg)`
-                  } as React.CSSProperties}
-                ></div>
-            ))}
-        </div>
-        <CheckCircle className="h-20 w-20 text-green-400 mx-auto mb-6 animate-bounce relative z-10" /> 
-        <h2 className="text-3xl font-bold font-headline mb-4 text-glow-primary relative z-10">Order Placed Successfully!</h2>
-        <p className="text-lg text-muted-foreground mb-6 relative z-10">Thank you for your purchase. Your order ID is <span className="font-semibold text-primary">{placedOrderId}</span>.</p>
-        <p className="text-muted-foreground mb-8 relative z-10">You will receive an email confirmation shortly. You can track your order in your account dashboard.</p>
-        <div className="flex justify-center space-x-4 relative z-10">
-            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground glow-edge-primary">
-                <Link href="/account/orders">Track Order</Link>
-            </Button>
-            <Button variant="outline" asChild className="border-accent text-accent hover:bg-accent hover:text-accent-foreground glow-edge-accent">
-                <Link href="/products">Continue Shopping</Link>
-            </Button>
-        </div>
-      </Card>
+      <OrderSuccessExperience
+        orderId={placedOrderId}
+        totalAmount={total}
+        paymentMethod={selectedPaymentMethod}
+        customerEmail={currentUser?.email || userProfile?.email}
+        itemCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+      />
     );
   }
 

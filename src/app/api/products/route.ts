@@ -136,22 +136,40 @@ async function listProductsHandler(request: NextRequest) {
       }
     } else {
       // Original Firestore logic
-      const fetchLimit = hasComplexFilters || searchParam ? limit * 4 : limit * 2;
-      const snapshot = await query.limit(fetchLimit).get();
+      let snapshot: FirebaseFirestore.QuerySnapshot;
+      if (searchParam) {
+        // When searching, fetch active products up to 500 so client gets matching products across the entire catalog
+        snapshot = await query.limit(500).get();
+      } else if (hasComplexFilters) {
+        snapshot = await query.limit(Math.max(limit * 4, 100)).get();
+      } else {
+        snapshot = await query.limit(limit).offset((page - 1) * limit).get();
+      }
+
       let allProducts = snapshot.docs.map(mapProductDocument);
-      // ... (in-memory filtering/sorting)
-      allProducts = allProducts.filter(p => {
-        const priceMatch = (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
-        const ratingMatch = (rating === null || (p.rating && p.rating >= rating));
-        const searchMatch = !searchParam || 
-          p.name.toLowerCase().includes(searchParam) || 
-          p.description.toLowerCase().includes(searchParam) ||
-          p.category.toLowerCase().includes(searchParam);
-        return priceMatch && ratingMatch && searchMatch;
-      });
-      // ... sort logic
-      totalProducts = allProducts.length;
-      paginatedProducts = allProducts.slice((page - 1) * limit, (page - 1) * limit + limit);
+
+      if (hasComplexFilters || searchParam) {
+        allProducts = allProducts.filter(p => {
+          const priceMatch = (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
+          const ratingMatch = (rating === null || (p.rating && p.rating >= rating));
+          const searchMatch = !searchParam || 
+            p.name.toLowerCase().includes(searchParam) || 
+            p.description.toLowerCase().includes(searchParam) ||
+            p.category.toLowerCase().includes(searchParam) ||
+            (p.brand && p.brand.toLowerCase().includes(searchParam));
+          return priceMatch && ratingMatch && searchMatch;
+        });
+
+        totalProducts = allProducts.length;
+        paginatedProducts = allProducts.slice((page - 1) * limit, (page - 1) * limit + limit);
+      } else {
+        paginatedProducts = allProducts;
+        totalProducts = await countDocuments('products', [
+          ...(category ? [{ field: 'category', op: '==', value: category }] : []),
+          ...(brand ? [{ field: 'brand', op: '==', value: brand }] : []),
+          ...(role !== 'admin' ? [{ field: 'status', op: '==', value: 'active' }] : []),
+        ] as any);
+      }
     }
 
     const totalPages = Math.ceil(totalProducts / limit);

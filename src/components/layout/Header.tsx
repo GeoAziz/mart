@@ -136,8 +136,8 @@ const Header = () => {
           <SearchInput />
         </div>
 
-        {/* DESKTOP ACTIONS (>= 768px) */}
-        <div className="hidden md:flex items-center gap-2 lg:gap-3">
+        {/* DESKTOP ACTIONS (>= 1024px) */}
+        <div className="hidden lg:flex items-center gap-2 lg:gap-3">
           <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} />
           
           <TooltipButton 

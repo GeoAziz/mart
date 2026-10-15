@@ -75,10 +75,10 @@ export function computeVendorOrderSplits(
     return {
       orderId: ctx.orderId ?? '',
       vendorId: input.vendorId,
-      vendorName: input.vendorName,
+      vendorName: input.vendorName || 'Vendor',
       customerId: ctx.customerId,
-      customerName: ctx.customerName,
-      customerEmail: ctx.customerEmail,
+      customerName: ctx.customerName || 'Customer',
+      customerEmail: ctx.customerEmail || '',
       items: input.items,
       status: 'pending',
       statusHistory: [
