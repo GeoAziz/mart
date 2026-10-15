@@ -1,10 +1,7 @@
 name: Integration Tests (Kind Cluster)
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+  workflow_dispatch:
   schedule:
     - cron: '0 4 * * *'  # Daily at 4 AM UTC
 

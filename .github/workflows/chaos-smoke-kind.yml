@@ -2,10 +2,6 @@ name: Chaos Smoke Test (Kind + Chaos Mesh)
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [ main, develop ]
-  push:
-    branches: [ main, develop ]
 
 env:
   REGISTRY: ghcr.io

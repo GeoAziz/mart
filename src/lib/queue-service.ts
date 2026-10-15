@@ -94,6 +94,29 @@ export async function enqueueNotification(message: NotificationMessage): Promise
   return enqueue(QUEUES.NOTIFICATIONS, message, 'notification-message');
 }
 
+const ensuredQueues = new Set<string>();
+
+async function ensureQueue(queueUrl: string): Promise<void> {
+  if (ensuredQueues.has(queueUrl)) return;
+  try {
+    const queueName = queueUrl.split('/').pop() || '';
+    const isFifo = queueName.endsWith('.fifo');
+    await sqs.createQueue({
+      QueueName: queueName,
+      Attributes: isFifo
+        ? {
+            FifoQueue: 'true',
+            ContentBasedDeduplication: 'true',
+          }
+        : undefined,
+    });
+    ensuredQueues.add(queueUrl);
+  } catch (err: any) {
+    // If already exists or error, ignore
+    ensuredQueues.add(queueUrl);
+  }
+}
+
 async function enqueue(queueUrl: string, message: unknown, deduplicationId: string): Promise<string> {
   const params = {
     QueueUrl: queueUrl,
@@ -102,8 +125,18 @@ async function enqueue(queueUrl: string, message: unknown, deduplicationId: stri
     MessageDeduplicationId: `${deduplicationId}-${Date.now()}`,
   };
 
-  const result = await sqs.sendMessage(params);
-  return result.MessageId || '';
+  try {
+    const result = await sqs.sendMessage(params);
+    return result.MessageId || '';
+  } catch (err: any) {
+    // Auto-create queue in local/dev environment if it does not exist
+    if (err?.name === 'QueueDoesNotExist' || err?.__type === 'QueueDoesNotExist' || err?.Code === 'AWS.SimpleQueueService.NonExistentQueue') {
+      await ensureQueue(queueUrl);
+      const retryResult = await sqs.sendMessage(params);
+      return retryResult.MessageId || '';
+    }
+    throw err;
+  }
 }
 
 // Consumer functions
