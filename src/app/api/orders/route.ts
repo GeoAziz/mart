@@ -355,6 +355,56 @@ async function listOrdersHandler(req: AuthenticatedRequest) {
     const snapshot = await query.get();
     let orders = snapshot.docs.map(mapOrderDocument);
 
+    // If admin is viewing orders, enrich any orders that lack userFullName or userEmail
+    if (authenticatedUser.role === 'admin' && orders.length > 0) {
+      const missingUserIds = Array.from(
+        new Set(
+          orders
+            .filter((o) => (!o.userFullName || !o.userEmail) && o.userId)
+            .map((o) => o.userId)
+        )
+      );
+
+      if (missingUserIds.length > 0) {
+        // Fetch up to 100 unique users concurrently (or in chunks if large)
+        const userMap = new Map<string, { fullName?: string; email?: string }>();
+        const chunkSize = 20;
+        for (let i = 0; i < missingUserIds.length; i += chunkSize) {
+          const chunk = missingUserIds.slice(i, i + chunkSize);
+          await Promise.all(
+            chunk.map(async (uid) => {
+              try {
+                const userDoc = await firestoreAdmin.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                  const uData = userDoc.data();
+                  if (uData) {
+                    userMap.set(uid, {
+                      fullName: uData.fullName || uData.name || uData.displayName || undefined,
+                      email: uData.email || undefined,
+                    });
+                  }
+                }
+              } catch (e) {
+                // Silently ignore individual user fetch failures
+              }
+            })
+          );
+        }
+
+        orders = orders.map((o) => {
+          if ((!o.userFullName || !o.userEmail) && userMap.has(o.userId)) {
+            const u = userMap.get(o.userId);
+            return {
+              ...o,
+              userFullName: o.userFullName || u?.fullName || undefined,
+              userEmail: o.userEmail || u?.email || undefined,
+            };
+          }
+          return o;
+        });
+      }
+    }
+
     if (authenticatedUser.role !== 'admin') {
       orders.sort((a, b) => {
         const dateA = safeParseDate(a.createdAt)?.getTime() ?? 0;

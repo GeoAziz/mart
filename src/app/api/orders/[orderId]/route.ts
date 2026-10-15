@@ -75,6 +75,61 @@ async function getOrderHandler(req: AuthenticatedRequest, context: { params: Pro
       return NextResponse.json({ message: 'Forbidden: You do not have permission to view this order due to an unknown role.' }, { status: 403 });
     }
 
+    // Enrich order customer info if missing
+    if ((!order.userFullName || !order.userEmail) && order.userId) {
+      try {
+        const userDoc = await firestoreAdmin.collection('users').doc(order.userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          if (userData) {
+            order.userFullName = order.userFullName || userData.fullName || userData.name || userData.displayName || undefined;
+            order.userEmail = order.userEmail || userData.email || undefined;
+          }
+        }
+      } catch (e) {
+        // Soft fallback
+      }
+    }
+
+    // Enrich order items (price, unitPrice, name, imageUrl) if missing or 0
+    if (order.items && order.items.length > 0) {
+      const enrichedItems = await Promise.all(
+        order.items.map(async (item: any) => {
+          let price = item.price ?? item.unitPrice ?? 0;
+          let name = item.name;
+          let imageUrl = item.imageUrl;
+          let vendorId = item.vendorId;
+
+          // If price is 0 or name is missing, attempt lookup from products collection
+          if ((price === 0 || !name || !imageUrl || !vendorId) && item.productId) {
+            try {
+              const productDoc = await firestoreAdmin.collection('products').doc(item.productId).get();
+              if (productDoc.exists) {
+                const pData = productDoc.data();
+                if (pData) {
+                  if (price === 0) price = Number(pData.price || 0);
+                  if (!name) name = pData.name || pData.title || `Product ${item.productId.slice(0, 7)}`;
+                  if (!imageUrl) imageUrl = pData.imageUrl || (Array.isArray(pData.images) ? pData.images[0] : undefined);
+                  if (!vendorId) vendorId = pData.vendorId;
+                }
+              }
+            } catch (err) {
+              // Ignore product lookup failures
+            }
+          }
+
+          return {
+            ...item,
+            price: Number(price) || 0,
+            name: name || `Product ${item.productId ? item.productId.slice(0, 7) : ''}`,
+            imageUrl: imageUrl || item.imageUrl,
+            vendorId: vendorId || item.vendorId,
+          };
+        })
+      );
+      order.items = enrichedItems;
+    }
+
     return NextResponse.json(order, { status: 200 });
 
   } catch (error: any) {

@@ -98,6 +98,8 @@ async function listProductsHandler(request: NextRequest) {
       }
     }
     
+    const searchParam = (searchParams.get('search') || searchParams.get('q') || '').trim().toLowerCase();
+
     // Fetch paginated results from Algolia if enabled, else Firestore
     let paginatedProducts: Product[];
     let totalProducts: number;
@@ -115,8 +117,16 @@ async function listProductsHandler(request: NextRequest) {
       });
 
       if (searchResult) {
-        paginatedProducts = searchResult.results as Product[];
-        totalProducts = searchResult.total;
+        let results = searchResult.results as Product[];
+        if (searchParam) {
+          results = results.filter(p => 
+            p.name.toLowerCase().includes(searchParam) || 
+            p.description.toLowerCase().includes(searchParam) ||
+            p.category.toLowerCase().includes(searchParam)
+          );
+        }
+        paginatedProducts = results;
+        totalProducts = searchParam ? results.length : searchResult.total;
       } else {
         // Fallback to Firestore if Algolia search fails
         console.warn('[Products] Algolia enabled but search failed, falling back');
@@ -126,14 +136,18 @@ async function listProductsHandler(request: NextRequest) {
       }
     } else {
       // Original Firestore logic
-      const fetchLimit = hasComplexFilters ? limit * 3 : limit * 2;
+      const fetchLimit = hasComplexFilters || searchParam ? limit * 4 : limit * 2;
       const snapshot = await query.limit(fetchLimit).get();
       let allProducts = snapshot.docs.map(mapProductDocument);
       // ... (in-memory filtering/sorting)
       allProducts = allProducts.filter(p => {
         const priceMatch = (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
         const ratingMatch = (rating === null || (p.rating && p.rating >= rating));
-        return priceMatch && ratingMatch;
+        const searchMatch = !searchParam || 
+          p.name.toLowerCase().includes(searchParam) || 
+          p.description.toLowerCase().includes(searchParam) ||
+          p.category.toLowerCase().includes(searchParam);
+        return priceMatch && ratingMatch && searchMatch;
       });
       // ... sort logic
       totalProducts = allProducts.length;

@@ -1,146 +1,76 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-export interface NavItem {
+export interface NavShortcut {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  sectionTitle?: string;
-  subItems?: NavItem[];
+  matchPrefixes?: string[];
   badge?: number;
 }
 
-interface VendorDesktopNavProps {
-  items: NavItem[];
-  collapsed: boolean;
+export interface NavItem extends NavShortcut {
+  sectionTitle?: string;
+  subItems?: NavItem[];
 }
 
-export default function VendorDesktopNav({ items, collapsed }: VendorDesktopNavProps) {
+interface VendorDesktopNavProps {
+  items: NavShortcut[];
+}
+
+export default function VendorDesktopNav({ items }: VendorDesktopNavProps) {
   const pathname = usePathname();
 
   return (
-    <TooltipProvider>
-      <div className="space-y-1">
-        {items.map((item, index) => {
-          // Handle section titles
-          if (item.sectionTitle && item.href === "#") {
-            return (
-              <div key={`section-${index}`} className={cn("px-3 py-2 mt-4", !collapsed && "border-b border-border/50")}>
-                {!collapsed && (
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {item.sectionTitle}
-                  </h3>
-                )}
-              </div>
-            );
-          }
-
+    <TooltipProvider delayDuration={50}>
+      <div className="flex flex-col items-center gap-2.5 py-1">
+        {items.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)));
-          
-          const navButton = (
-            <Button
-              asChild
-              variant={isActive ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 h-11 relative",
-                collapsed && "justify-center px-2"
-              )}
-            >
-              <Link href={item.href}>
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span className="font-medium flex-1 text-left">{item.label}</span>}
-                {!collapsed && item.badge && item.badge > 0 && (
-                  <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-semibold ml-auto">
-                    {item.badge}
-                  </span>
-                )}
-                {collapsed && item.badge && item.badge > 0 && (
-                  <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-primary" />
-                )}
-              </Link>
-            </Button>
-          );
-
-          if (collapsed) {
-            return (
-              <div key={item.href}>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    {navButton}
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>{item.label}</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                {/* Show sub-items as additional tooltips when collapsed */}
-                {item.subItems && item.subItems.map((subItem) => {
-                  const SubIcon = subItem.icon;
-                  const isSubActive = pathname === subItem.href || pathname.startsWith(subItem.href + '/');
-                  
-                  return (
-                    <Tooltip key={subItem.href} delayDuration={0}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          asChild
-                          variant={isSubActive ? "secondary" : "ghost"}
-                          className="w-full justify-center px-2 h-9 mt-1 relative"
-                        >
-                          <Link href={subItem.href}>
-                            <SubIcon className="h-4 w-4" />
-                            {subItem.badge && subItem.badge > 0 && (
-                              <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-primary" />
-                            )}
-                          </Link>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        <p>{subItem.label}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            );
-          }
+          const isActive =
+            pathname === item.href ||
+            (item.matchPrefixes && item.matchPrefixes.some((p) => pathname.startsWith(p)));
 
           return (
-            <div key={item.href} className="space-y-1">
-              {navButton}
-              
-              {/* Show sub-items when expanded */}
-              {item.subItems && !collapsed && (
-                <div className="ml-4 space-y-1">
-                  {item.subItems.map((subItem) => {
-                    const SubIcon = subItem.icon;
-                    const isSubActive = pathname === subItem.href || pathname.startsWith(subItem.href + '/');
-                    
-                    return (
-                      <Button
-                        key={subItem.href}
-                        asChild
-                        variant={isSubActive ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3 h-9 text-sm"
-                      >
-                        <Link href={subItem.href}>
-                          <SubIcon className="h-4 w-4" />
-                          <span className="flex-1 text-left">{subItem.label}</span>
-                          {subItem.badge && subItem.badge > 0 && (
-                            <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-semibold ml-auto">
-                              {subItem.badge}
-                            </span>
-                          )}
-                        </Link>
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <Tooltip key={item.label}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "relative flex items-center justify-center h-12 w-12 rounded-2xl transition-all duration-200 group touch-manipulation",
+                    isActive
+                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/35 scale-105"
+                      : "text-muted-foreground hover:text-foreground hover:bg-card/90 border border-transparent hover:border-border/60"
+                  )}
+                  aria-label={item.label}
+                >
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 transition-transform group-hover:scale-110",
+                      isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground"
+                    )}
+                  />
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border-2 border-background shadow-sm">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                sideOffset={14}
+                className="rounded-xl px-3 py-1.5 text-xs font-semibold bg-card/95 border border-border shadow-xl backdrop-blur-md"
+              >
+                {item.label}
+              </TooltipContent>
+            </Tooltip>
           );
         })}
       </div>

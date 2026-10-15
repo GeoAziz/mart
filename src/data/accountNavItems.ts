@@ -1,48 +1,68 @@
 import { 
-  User, 
+  Home,
+  LayoutDashboard,
   ShoppingBag, 
   Heart, 
   MapPin, 
-  CreditCard, 
-  Settings,
-  Home,
-  LayoutDashboard
+  User, 
+  Lock, 
+  Bell 
 } from 'lucide-react';
 
-export const accountNavItems = [
+export interface AccountNavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  section?: 'Shopping' | 'Account Settings';
+}
+
+export const accountNavItems: AccountNavItem[] = [
   {
-    title: 'Home',
+    title: 'Storefront',
     href: '/',
     icon: Home,
+    section: 'Shopping',
   },
   {
     title: 'Dashboard',
     href: '/account',
     icon: LayoutDashboard,
+    section: 'Shopping',
   },
   {
-    title: 'Orders',
+    title: 'My Orders',
     href: '/account/orders',
     icon: ShoppingBag,
+    section: 'Shopping',
   },
   {
     title: 'Wishlist',
     href: '/account/wishlist',
     icon: Heart,
+    section: 'Shopping',
   },
   {
-    title: 'Addresses',
+    title: 'Saved Addresses',
     href: '/account/addresses',
     icon: MapPin,
+    section: 'Shopping',
   },
   {
-    title: 'Payment Methods',
-    href: '/account/payment-methods',
-    icon: CreditCard,
+    title: 'Personal Info',
+    href: '/account/profile',
+    icon: User,
+    section: 'Account Settings',
   },
   {
-    title: 'Settings',
-    href: '/account/settings',
-    icon: Settings,
+    title: 'Change Password',
+    href: '/account/change-password',
+    icon: Lock,
+    section: 'Account Settings',
+  },
+  {
+    title: 'Notifications',
+    href: '/account/notifications',
+    icon: Bell,
+    section: 'Account Settings',
   },
 ];

@@ -379,13 +379,13 @@ const CheckoutWizard = () => {
           {currentStep === 1 && (
             <>
               <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="space-y-4">
-                {/* M-Pesa - STK Push Coming Soon */}
+                {/* M-Pesa Payment */}
                 <div className="p-4 border border-border rounded-md hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10 relative">
                   <Label htmlFor="mpesa" className="flex items-center cursor-pointer">
                     <RadioGroupItem value="mpesa" id="mpesa" className="mr-3 border-primary text-primary focus:ring-primary"/>
                     <div className="flex-grow">
                       <span className="font-semibold">M-Pesa</span>
-                      <p className="text-xs text-muted-foreground">Pay securely with M-Pesa. <span className="text-amber-500 font-medium">(STK Push coming soon - manual payment for now)</span></p>
+                      <p className="text-xs text-muted-foreground">Pay via Lipa na M-Pesa Paybill / STK prompt.</p>
                     </div>
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/M-PESA_LOGO-01.svg/512px-M-PESA_LOGO-01.svg.png" alt="M-Pesa Logo" className="ml-auto h-6" />
                   </Label>

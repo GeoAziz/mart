@@ -19,7 +19,8 @@ import {
   TrendingUp, 
   TrendingDown, 
   DollarSign, 
-  Percent 
+  Percent,
+  Loader2
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import type { LedgerEntry } from '@/lib/types'
@@ -36,6 +37,11 @@ interface FinancialStats {
   }[]
 }
 
+const formatKsh = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) return '0.00'
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 export default function FinancialReports() {
   const [stats, setStats] = useState<FinancialStats | null>(null)
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
@@ -44,7 +50,10 @@ export default function FinancialReports() {
 
   useEffect(() => {
     const fetchFinancialData = async () => {
-      if (!currentUser) return
+      if (!currentUser) {
+        setIsLoading(false)
+        return
+      }
       try {
         const token = await currentUser.getIdToken()
         
@@ -52,23 +61,31 @@ export default function FinancialReports() {
         const response = await fetch('/api/vendors/me/financial', {
           headers: { Authorization: `Bearer ${token}` }
         })
-        const data = await response.json()
+        const data = await response.json().catch(() => ({}))
         
-        const summary = data.summary || { totalSales: 0, netEarnings: 0, totalCommissions: 0 }
+        const summary = data?.summary || { totalSales: 0, netEarnings: 0, totalCommissions: 0 }
         
-        // Map the API summary to the expected stats format
+        // Map the API summary to the expected stats format with safe fallbacks
         setStats({
-          totalRevenue: summary.totalSales,
-          netEarnings: summary.netEarnings,
-          totalCommissions: summary.totalCommissions,
-          averageOrderValue: 0, // Not provided by API currently
-          revenueGrowth: 0,     // Not provided by API currently
-          monthlyData: []       // Not provided by API currently
+          totalRevenue: Number(summary.totalSales ?? 0),
+          netEarnings: Number(summary.netEarnings ?? 0),
+          totalCommissions: Number(summary.totalCommissions ?? 0),
+          averageOrderValue: Number(summary.averageOrderValue ?? 0),
+          revenueGrowth: Number(summary.revenueGrowth ?? 0),
+          monthlyData: Array.isArray(summary.monthlyData) ? summary.monthlyData : []
         })
 
-        setLedgerEntries(data.transactions || [])
+        setLedgerEntries(Array.isArray(data?.transactions) ? data.transactions : [])
       } catch (error) {
         console.error('Error fetching financial data:', error)
+        setStats({
+          totalRevenue: 0,
+          netEarnings: 0,
+          totalCommissions: 0,
+          averageOrderValue: 0,
+          revenueGrowth: 0,
+          monthlyData: []
+        })
       } finally {
         setIsLoading(false)
       }
@@ -97,8 +114,22 @@ export default function FinancialReports() {
     }
   }
 
-  if (isLoading || !stats) {
-    return <div>Loading financial data...</div>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-sm text-muted-foreground gap-2">
+        <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+        <span>Loading financial data...</span>
+      </div>
+    )
+  }
+
+  const safeStats = stats || {
+    totalRevenue: 0,
+    netEarnings: 0,
+    totalCommissions: 0,
+    averageOrderValue: 0,
+    revenueGrowth: 0,
+    monthlyData: []
   }
 
   return (
@@ -118,29 +149,29 @@ export default function FinancialReports() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              KSh {stats.totalRevenue.toLocaleString()}
+              KSh {formatKsh(safeStats.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              +{stats.revenueGrowth}% from last month
+              +{safeStats.revenueGrowth || 0}% from last month
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Net Earnings</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              KSh {stats.netEarnings.toLocaleString()}
+            <div className="text-2xl font-bold text-emerald-400">
+              KSh {formatKsh(safeStats.netEarnings)}
             </div>
             <p className="text-xs text-muted-foreground">
               After platform fees and commissions
@@ -148,14 +179,14 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
             <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              KSh {stats.totalCommissions.toLocaleString()}
+              KSh {formatKsh(safeStats.totalCommissions)}
             </div>
             <p className="text-xs text-muted-foreground">
               Total commissions paid
@@ -163,14 +194,14 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Average Order</CardTitle>
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              KSh {stats.averageOrderValue.toLocaleString()}
+              KSh {formatKsh(safeStats.averageOrderValue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Per order average
@@ -180,26 +211,26 @@ export default function FinancialReports() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Revenue Overview</TabsTrigger>
-          <TabsTrigger value="ledger">Ledger Entries</TabsTrigger>
+        <TabsList className="bg-card/60 border border-border/60 rounded-xl p-1">
+          <TabsTrigger value="overview" className="rounded-lg text-xs">Revenue Overview</TabsTrigger>
+          <TabsTrigger value="ledger" className="rounded-lg text-xs">Ledger Entries</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <Card>
+          <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80">
             <CardHeader>
-              <CardTitle>Monthly Revenue</CardTitle>
+              <CardTitle className="text-base">Monthly Revenue</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-              <Overview data={stats.monthlyData} />
+              <Overview data={safeStats.monthlyData} />
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="ledger">
-          <Card>
+          <Card className="rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80">
             <CardHeader>
-              <CardTitle>Ledger Entries</CardTitle>
+              <CardTitle className="text-base">Ledger Entries</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -213,31 +244,41 @@ export default function FinancialReports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ledgerEntries.map((entry) => (
-                    <TableRow key={entry.description + entry.createdAt.toString()}>
-                      <TableCell>
-                        {entry.createdAt instanceof Date 
-                          ? entry.createdAt.toLocaleDateString()
-                          : new Date(entry.createdAt.seconds * 1000).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <span className={
-                          entry.type.includes('credit') 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }>
-                          {entry.type.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </TableCell>
-                      <TableCell>{entry.description}</TableCell>
-                      <TableCell className="text-right">
-                        KSh {entry.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        KSh {entry.netAmount.toLocaleString()}
+                  {ledgerEntries.length > 0 ? (
+                    ledgerEntries.map((entry, idx) => (
+                      <TableRow key={`ledger-${idx}-${entry.description || ''}`}>
+                        <TableCell>
+                          {entry.createdAt instanceof Date 
+                            ? entry.createdAt.toLocaleDateString()
+                            : (entry.createdAt as any)?.seconds 
+                              ? new Date((entry.createdAt as any).seconds * 1000).toLocaleDateString()
+                              : 'Recent'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={
+                            entry.type?.includes('credit') 
+                              ? 'text-emerald-400 font-medium' 
+                              : 'text-red-400 font-medium'
+                          }>
+                            {entry.type ? entry.type.replace('_', ' ').toUpperCase() : 'TRANSACTION'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{entry.description || 'Order payment'}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          KSh {formatKsh(entry.amount)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-emerald-400">
+                          KSh {formatKsh(entry.netAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-xs">
+                        No financial ledger records found yet.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

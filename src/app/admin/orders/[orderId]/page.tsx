@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Package, Home, CreditCard, Truck, FileText, ShoppingBag, MoreHorizontal, Edit, Send, PackageCheck, PackageX, Loader2, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Package, Home, CreditCard, Truck, FileText, ShoppingBag, MoreHorizontal, Edit, Send, PackageCheck, PackageX, Loader2, User as UserIcon, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -264,31 +264,42 @@ export default function AdminOrderDetailPage() {
                   <TableHead className="text-right">Subtotal</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {order.items.map((item) => (
-                  <TableRow key={item.productId}>
-                    <TableCell className="hidden sm:table-cell">
-                      <Image src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'} alt={item.name || "Product Image"} width={64} height={64} className="rounded-md object-cover border border-border" data-ai-hint={item.dataAiHint || "product"}/>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">Product ID: {item.productId.substring(0,7)}...</p>
-                    </TableCell>
-                     <TableCell>
-                      {item.vendorId ? (
-                        <Link href={`/admin/users?userId=${item.vendorId}`} className="text-primary hover:underline text-xs">
-                          {item.vendorId.substring(0, 7)}...
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">ZilaCart</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">{item.quantity}</TableCell>
-                    <TableCell className="text-right">KSh {(item.price || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">KSh {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                {order.items.map((item: any, idx: number) => {
+                  const effectivePrice = item.price ?? item.unitPrice ?? 0;
+                  const displayName = item.name || `Product #${(item.productId || '').substring(0, 7)}`;
+                  return (
+                    <TableRow key={item.productId || `item-${idx}`}>
+                      <TableCell className="hidden sm:table-cell">
+                        <Image
+                          src={item.imageUrl || 'https://placehold.co/64x64/cccccc/E0E0E0?text=NoImg'}
+                          alt={displayName}
+                          width={64}
+                          height={64}
+                          className="rounded-md object-cover border border-border"
+                          data-ai-hint={item.dataAiHint || "product"}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium text-foreground">{displayName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          ID: {(item.productId || '').substring(0, 10)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        {item.vendorId ? (
+                          <Link href={`/admin/users?userId=${item.vendorId}`} className="text-primary hover:underline text-xs">
+                            {item.vendorId.substring(0, 7)}...
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">ZilaCart</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">{item.quantity || 1}</TableCell>
+                      <TableCell className="text-right font-medium">KSh {effectivePrice.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-semibold">KSh {(effectivePrice * (item.quantity || 1)).toLocaleString()}</TableCell>
+                    </TableRow>
+                  );
+                })}
             </Table>
           </div>
 
@@ -347,8 +358,10 @@ export default function AdminOrderDetailPage() {
           </Link>
         </Button>
          { (order.status === 'delivered' || order.status === 'shipped' || order.status === 'processing') &&
-            <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => toast({title: "Feature Coming Soon", description: "Refund processing will be available soon."})}>
-                Initiate Refund Process
+            <Button asChild variant="outline" className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+              <Link href={`/admin/refunds?orderId=${order.id}`}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Manage / Review Refunds
+              </Link>
             </Button>
          }
       </div>

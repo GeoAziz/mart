@@ -14,9 +14,21 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const staticCategories = ["Electronics", "Fashion", "Home Goods", "Accessories", "Books", "Wearables", "AI Assistants", "Bio-Tech", "Cybernetics", "Gadgets", "Apparel", "Neurotech"];
+// Database active categories
+const defaultAvailableCategories = [
+  "Electronics",
+  "Fashion",
+  "Home & Kitchen",
+  "Health & Beauty",
+  "Sports & Outdoors",
+  "Automotive",
+  "Groceries"
+];
+
 const staticBrands = ["NovaCorp", "CyberGear", "AuraDesigns", "EcoTech", "StellarWear", "Quantum Leap", "BioSynth", "StellarCorp", "FutureTech"];
 const ratings = [5, 4, 3, 2, 1];
 
@@ -37,27 +49,45 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 }
 
+// Convert slug to standard category title (e.g. "electronics" -> "Electronics", "home-kitchen" -> "Home & Kitchen")
+function parseCategorySlug(slug: string): string {
+  if (!slug) return 'All';
+  const decoded = decodeURIComponent(slug).toLowerCase().trim();
+
+  const slugMap: Record<string, string> = {
+    'electronics': 'Electronics',
+    'fashion': 'Fashion',
+    'home-kitchen': 'Home & Kitchen',
+    'home': 'Home & Kitchen',
+    'home-and-kitchen': 'Home & Kitchen',
+    'health-beauty': 'Health & Beauty',
+    'health-and-beauty': 'Health & Beauty',
+    'sports-outdoors': 'Sports & Outdoors',
+    'sports-and-outdoors': 'Sports & Outdoors',
+    'automotive': 'Automotive',
+    'groceries': 'Groceries',
+  };
+
+  if (slugMap[decoded]) return slugMap[decoded];
+
+  // Fallback: title case hyphenated words
+  return decoded.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 export default function CategoryProductListingPage() {
   const params = useParams();
-  const categoryName = params.categoryName as string;
+  const router = useRouter();
+  const categoryName = (params.categoryName as string) || '';
 
-  const decodedCategoryName = useMemo(() => {
-    try {
-      if (!categoryName) return 'All';
-      const decoded = decodeURIComponent(categoryName);
-      // "home-goods" -> "Home Goods", "fashion" -> "Fashion"
-      return decoded.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    } catch (e) {
-      console.error("Failed to decode category name:", e);
-      return "All";
-    }
+  const canonicalCategoryName = useMemo(() => {
+    return parseCategorySlug(categoryName);
   }, [categoryName]);
   
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filter States
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  // Filter States - initialize directly with the canonical category from route param
+  const [selectedCategory, setSelectedCategory] = useState<string>(canonicalCategoryName);
   const [priceRange, setPriceRange] = useState<[number, number]>([DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]);
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
@@ -71,30 +101,29 @@ export default function CategoryProductListingPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
-  // Effect to set the initial selected category from the URL param
+  // Sync state if route param changes
   useEffect(() => {
-    if (decodedCategoryName) {
-      setSelectedCategory(decodedCategoryName);
-    }
-  }, [decodedCategoryName]);
-
+    setSelectedCategory(canonicalCategoryName);
+  }, [canonicalCategoryName]);
 
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
-    const params = new URLSearchParams();
+    const queryParams = new URLSearchParams();
     
-    if (selectedCategory !== 'All') params.append('category', selectedCategory);
-    if (selectedBrand !== 'All') params.append('brand', selectedBrand);
-    if (priceRange[0] > DEFAULT_MIN_PRICE) params.append('minPrice', String(priceRange[0]));
-    if (priceRange[1] < DEFAULT_MAX_PRICE) params.append('maxPrice', String(priceRange[1]));
-    if (selectedRating !== null) params.append('rating', String(selectedRating));
+    if (selectedCategory && selectedCategory !== 'All') {
+      queryParams.append('category', selectedCategory);
+    }
+    if (selectedBrand !== 'All') queryParams.append('brand', selectedBrand);
+    if (priceRange[0] > DEFAULT_MIN_PRICE) queryParams.append('minPrice', String(priceRange[0]));
+    if (priceRange[1] < DEFAULT_MAX_PRICE) queryParams.append('maxPrice', String(priceRange[1]));
+    if (selectedRating !== null) queryParams.append('rating', String(selectedRating));
     
-    params.append('sortBy', sortOption);
-    params.append('page', String(currentPage));
-    params.append('limit', String(ITEMS_PER_PAGE));
+    queryParams.append('sortBy', sortOption);
+    queryParams.append('page', String(currentPage));
+    queryParams.append('limit', String(ITEMS_PER_PAGE));
 
     try {
-      const response = await fetch(`/api/products?${params.toString()}`);
+      const response = await fetch(`/api/products?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch products');
       
       const data = await response.json();
@@ -129,13 +158,13 @@ export default function CategoryProductListingPage() {
   };
 
   const resetFilters = useCallback(() => {
-    setSelectedCategory(decodedCategoryName);
+    setSelectedCategory(canonicalCategoryName);
     setPriceRange([DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]);
     setSelectedBrand("All");
     setSelectedRating(null);
     setSortOption("newest");
     setCurrentPage(1);
-  }, [decodedCategoryName]);
+  }, [canonicalCategoryName]);
   
   const getResultsText = () => {
     if (isLoading) return 'Loading products...';
@@ -145,11 +174,20 @@ export default function CategoryProductListingPage() {
     return `Showing ${startItem}-${endItem} of ${totalProducts} results`;
   };
 
+  const handleCategoryDropdownChange = (newCat: string) => {
+    if (newCat === 'All') {
+      router.push('/products');
+    } else {
+      const slug = newCat.toLowerCase().replace(/ & /g, '-').replace(/\s+/g, '-');
+      router.push(`/categories/${encodeURIComponent(slug)}`);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8 text-center">
-        <h1 className="text-4xl font-headline font-bold text-glow-primary">{decodedCategoryName}</h1>
-        <p className="text-lg text-muted-foreground mt-2">Browse all products in the {decodedCategoryName} category.</p>
+        <h1 className="text-4xl font-headline font-bold text-glow-primary">{canonicalCategoryName}</h1>
+        <p className="text-lg text-muted-foreground mt-2">Browse all products in the {canonicalCategoryName} category.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
@@ -160,13 +198,13 @@ export default function CategoryProductListingPage() {
              <AccordionItem value="category">
               <AccordionTrigger className="text-lg hover:text-primary">Category</AccordionTrigger>
               <AccordionContent className="space-y-2 pt-2">
-                <Select onValueChange={setSelectedCategory} value={selectedCategory}>
+                <Select onValueChange={handleCategoryDropdownChange} value={selectedCategory}>
                   <SelectTrigger className="bg-input border-primary focus:ring-accent" aria-label="Select Category">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Categories</SelectItem>
-                    {staticCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {defaultAvailableCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </AccordionContent>
@@ -280,6 +318,9 @@ export default function CategoryProductListingPage() {
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button variant="outline" onClick={resetFilters} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"><Filter className="mr-2 h-4 w-4" /> Reset All Filters</Button>
                   <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground"><a href="/products">Search All Products</a></Button>
+                  <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground">
+                    <Link href="/products">Search All Products</Link>
+                  </Button>
                 </div>
             </div>
           )}

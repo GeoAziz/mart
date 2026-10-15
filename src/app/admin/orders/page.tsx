@@ -169,7 +169,20 @@ export default function AdminOrdersPage() {
                         #{order.id?.substring(0, 7)}...
                       </Link>
                     </TableCell>
-                    <TableCell>{order.userFullName || order.userEmail || 'N/A'}</TableCell>
+                    <TableCell>
+                      {order.userFullName || order.userEmail ? (
+                        <div>
+                          <p className="font-medium text-foreground">{order.userFullName || 'Customer'}</p>
+                          {order.userEmail && (
+                            <p className="text-xs text-muted-foreground">{order.userEmail}</p>
+                          )}
+                        </div>
+                      ) : order.userId ? (
+                        <span className="font-mono text-xs text-muted-foreground">User #{order.userId}</span>
+                      ) : (
+                        <span className="text-muted-foreground italic">Guest</span>
+                      )}
+                    </TableCell>
                     <TableCell>{new Date(typeof order.createdAt === 'object' && 'toDate' in (order.createdAt as any) ? (order.createdAt as any).toDate() : (order.createdAt as any)).toLocaleDateString()}</TableCell>
                     <TableCell className="text-center">{order.items.length}</TableCell>
                     <TableCell className="text-right">{order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

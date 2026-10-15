@@ -68,6 +68,8 @@ function ProductListingContent() {
     setIsLoading(true);
     const params = new URLSearchParams();
     
+    const searchQuery = searchParams.get('search') || searchParams.get('q');
+    if (searchQuery) params.append('search', searchQuery);
     if (selectedCategory !== 'All') params.append('category', selectedCategory);
     if (selectedBrand !== 'All') params.append('brand', selectedBrand);
     if (priceRange[0] > DEFAULT_MIN_PRICE) params.append('minPrice', String(priceRange[0]));
@@ -92,7 +94,7 @@ function ProductListingContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCategory, selectedBrand, priceRange, selectedRating, sortOption, currentPage]);
+  }, [selectedCategory, selectedBrand, priceRange, selectedRating, sortOption, currentPage, searchParams]);
   
   // Trigger fetch when filters change
   useEffect(() => {

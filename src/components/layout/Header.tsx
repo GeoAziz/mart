@@ -1,43 +1,49 @@
-
 'use client';
 
 import Link from 'next/link';
-import { ShoppingCart, UserCircle, Menu, LogOutIcon as LogoutIconComp, Loader2 } from 'lucide-react';
+import { 
+  ShoppingCart, 
+  UserCircle, 
+  Menu, 
+  LogOut as LogoutIcon, 
+  Loader2, 
+  ShieldCheck, 
+  Store, 
+  ShoppingBag, 
+  Sparkles
+} from 'lucide-react';
 import Logo from './Logo';
 import SearchInput from './SearchInput';
 import CommandPalette from '@/components/command/CommandPalette';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import CartDrawerContent from '@/components/ecommerce/CartDrawerContent'; 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext'; 
 
-
 const Header = () => {
   const { currentUser, userProfile, logOut, loading: authLoading, cart, isCartLoading } = useAuth(); 
-  // Only show cart for customers or unauthenticated
+  
+  // Cart is relevant for customers and unauthenticated users
   const showCart = !userProfile || userProfile.role === 'customer';
   const cartItemCount = useMemo(() => cart?.length ?? 0, [cart]);
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
 
-  // Accessibility: keyboard shortcut for cart (Ctrl+K)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && showCart) {
-        setIsCartDrawerOpen((open) => !open);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCart]);
-
-  // Command palette: Ctrl/Cmd+Shift+K
+  // Command palette shortcut: Ctrl+K or Cmd+K
   useEffect(() => {
     const handleCmdPalette = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandOpen((o) => !o);
       }
@@ -46,122 +52,184 @@ const Header = () => {
     return () => window.removeEventListener('keydown', handleCmdPalette);
   }, []);
 
-  // cartItemCount is already defined above, remove duplicate below
-
   const baseNavLinks = [
     { href: "/products", label: "All Products" },
     { href: "/categories/fashion", label: "Fashion" },
     { href: "/categories/electronics", label: "Electronics" },
+    { href: "/about", label: "About" },
+    { href: "/contact", label: "Contact" },
   ];
-
-  // Only show customer-facing links to customers (or unauthenticated)
-  type NavLink = { href: string; label: string };
-  const dynamicNavLinks: NavLink[] = useMemo(() => {
-    if (!userProfile || userProfile.role === 'customer') {
-      return baseNavLinks;
-    } else if (userProfile.role === 'vendor') {
-      return [
-        { href: "/vendor", label: "Vendor Dashboard" }
-      ];
-    } else if (userProfile.role === 'admin') {
-      return [
-        { href: "/admin", label: "Admin Panel" },
-        { href: "/vendor", label: "Vendor Dashboard" }
-      ];
-    }
-    return [];
-  }, [userProfile]);
 
   const handleLogout = async () => {
     await logOut();
     setIsMobileMenuOpen(false); 
   };
 
+  const cartTriggerButton = (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      aria-label="View shopping cart" 
+      className="relative hover:text-primary transition-colors"
+      onClick={() => setIsCartDrawerOpen(true)}
+    >
+      <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
+      {cartItemCount > 0 && !isCartLoading && (
+        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs font-bold leading-none text-primary-foreground bg-accent rounded-full shadow-sm">
+          {cartItemCount > 99 ? '99+' : cartItemCount}
+        </span>
+      )}
+      {isCartLoading && (
+        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold leading-none text-primary-foreground bg-accent rounded-full shadow-sm">
+          <Loader2 className="h-3 w-3 animate-spin" />
+        </span>
+      )}
+    </Button>
+  );
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-md">
-      <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:h-20">
-        <div className="flex min-w-0 items-center">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4 sm:h-20">
+        
+        {/* LOGO */}
+        <div className="flex shrink-0 items-center">
           <Logo />
         </div>
         
-        {/* DESKTOP NAVIGATION */}
+        {/* DESKTOP NAVIGATION (>= 1024px) */}
         <nav className="hidden lg:flex items-center justify-center gap-6 xl:gap-8">
-          <Link href="/" className="text-muted-foreground hover:text-primary transition-colors font-medium">
+          <Link href="/" className="text-sm xl:text-base text-muted-foreground hover:text-primary transition-colors font-medium">
             Home
           </Link>
-          {dynamicNavLinks.map((link) => (
+          {baseNavLinks.map((link) => (
             <Link 
               key={link.href} 
               href={link.href}
-              className="text-muted-foreground hover:text-primary transition-colors font-medium"
+              className="text-sm xl:text-base text-muted-foreground hover:text-primary transition-colors font-medium"
             >
               {link.label}
             </Link>
           ))}
-          <Link href="/about" className="text-muted-foreground hover:text-primary transition-colors font-medium">
-            About
-          </Link>
-          <Link href="/contact" className="text-muted-foreground hover:text-primary transition-colors font-medium">
-            Contact
-          </Link>
+          {/* Quick link to Vendor or Admin dashboard if role applies */}
+          {userProfile?.role === 'vendor' && (
+            <Link 
+              href="/vendor" 
+              className="text-sm xl:text-base text-primary font-semibold hover:underline flex items-center gap-1"
+            >
+              <Store className="h-4 w-4" />
+              Vendor Portal
+            </Link>
+          )}
+          {userProfile?.role === 'admin' && (
+            <Link 
+              href="/admin" 
+              className="text-sm xl:text-base text-primary font-semibold hover:underline flex items-center gap-1"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin Panel
+            </Link>
+          )}
         </nav>
 
-        {/* DESKTOP RIGHT SIDE */}
-        <div className="hidden md:flex items-center space-x-4">
-          <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} />
+        {/* SEARCH BAR (Visible on >= 768px in the center/right) */}
+        <div className="hidden md:flex flex-1 max-w-xs lg:max-w-sm xl:max-w-md mx-2">
           <SearchInput />
+        </div>
+
+        {/* DESKTOP ACTIONS (>= 768px) */}
+        <div className="hidden md:flex items-center gap-2 lg:gap-3">
+          <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} />
           
-          {/* Cart for customers */}
-          {showCart && (
-            <Sheet open={isCartDrawerOpen} onOpenChange={setIsCartDrawerOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Cart" className="relative hover:text-primary transition-colors">
-                  <ShoppingCart className="h-6 w-6" />
-                  {cartItemCount > 0 && !isCartLoading && (
-                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      {cartItemCount > 99 ? '99+' : cartItemCount}
-                    </span>
-                  )}
-                  {isCartLoading && (
-                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1 py-1 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="flex w-[300px] flex-col border-primary bg-card p-0 shadow-xl sm:w-[350px]">
-                <SheetHeader className="p-4 border-b border-border">
-                  <SheetTitle className="text-xl font-headline text-glow-primary">Your Cart</SheetTitle>
-                </SheetHeader>
-                <CartDrawerContent onClose={() => setIsCartDrawerOpen(false)} />
-              </SheetContent>
-            </Sheet>
-          )}
+          <TooltipButton 
+            label="Quick Search (Ctrl+K)" 
+            onClick={() => setIsCommandOpen(true)}
+          >
+            <Button variant="ghost" size="icon" aria-label="Search Palette" className="text-muted-foreground hover:text-primary">
+              <Sparkles className="h-5 w-5" />
+            </Button>
+          </TooltipButton>
+
+          {/* Cart for customers/guests */}
+          {showCart && cartTriggerButton}
 
           {/* User Menu */}
           {currentUser ? (
-            <div className="flex items-center gap-2">
-              <Link href="/account">
-                <Button variant="ghost" size="icon" aria-label="Account" className="hover:text-primary transition-colors">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Account Menu" className="relative hover:text-primary transition-colors">
                   <UserCircle className="h-6 w-6" />
-                  <span className="sr-only">Account</span>
                 </Button>
-              </Link>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleLogout}
-                className="hover:text-destructive transition-colors"
-                disabled={authLoading}
-              >
-                {authLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : (
-                  <LogoutIconComp className="h-4 w-4 mr-1" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-2">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-semibold leading-none">{userProfile?.fullName || currentUser.displayName || 'My Account'}</p>
+                    <p className="text-xs leading-none text-muted-foreground truncate">{currentUser.email}</p>
+                    {userProfile?.role && (
+                      <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        Role: {userProfile.role}
+                      </span>
+                    )}
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem asChild>
+                  <Link href="/account" className="cursor-pointer flex items-center gap-2">
+                    <UserCircle className="h-4 w-4" />
+                    <span>My Account</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link href="/account/orders" className="cursor-pointer flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>My Orders</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                {userProfile?.role === 'vendor' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/vendor" className="cursor-pointer flex items-center gap-2 font-medium text-primary">
+                      <Store className="h-4 w-4" />
+                      <span>Vendor Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
                 )}
-                Logout
-              </Button>
-            </div>
+
+                {userProfile?.role === 'admin' && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="cursor-pointer flex items-center gap-2 font-medium text-primary">
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Admin Panel</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/vendor" className="cursor-pointer flex items-center gap-2">
+                        <Store className="h-4 w-4" />
+                        <span>Vendor Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  disabled={authLoading}
+                  className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
+                >
+                  {authLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogoutIcon className="h-4 w-4" />
+                  )}
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/auth/login">
@@ -170,7 +238,7 @@ const Header = () => {
                 </Button>
               </Link>
               <Link href="/auth/register">
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   Sign Up
                 </Button>
               </Link>
@@ -178,137 +246,172 @@ const Header = () => {
           )}
         </div>
 
-        {/* MOBILE MENU */}
-        <div className="flex items-center gap-2 lg:hidden">
-          {/* Mobile Cart */}
-          {showCart && (
-            <Sheet open={isCartDrawerOpen} onOpenChange={setIsCartDrawerOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Cart" className="relative hover:text-primary transition-colors">
-                  <ShoppingCart className="h-6 w-6" />
-                  {cartItemCount > 0 && !isCartLoading && (
-                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      {cartItemCount > 99 ? '99+' : cartItemCount}
-                    </span>
-                  )}
-                  {isCartLoading && (
-                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1 py-1 text-xs font-bold leading-none text-primary-foreground transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="flex w-[300px] flex-col border-primary bg-card p-0 shadow-xl sm:w-[350px]">
-                <SheetHeader className="p-4 border-b border-border">
-                  <SheetTitle className="text-xl font-headline text-glow-primary">Your Cart</SheetTitle>
-                </SheetHeader>
-                <CartDrawerContent onClose={() => setIsCartDrawerOpen(false)} />
-              </SheetContent>
-            </Sheet>
-          )}
+        {/* MOBILE & TABLET RIGHT ACTIONS (< 1024px) */}
+        <div className="flex items-center gap-1 sm:gap-2 lg:hidden">
+          {/* Cart Icon */}
+          {showCart && cartTriggerButton}
 
-          {/* Mobile Menu */}
+          {/* Mobile Drawer */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Menu">
+              <Button variant="ghost" size="icon" aria-label="Open Navigation Menu">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[300px] bg-card sm:w-[360px]">
-              <SheetHeader>
-                <SheetTitle className="text-left text-xl font-headline">Menu</SheetTitle>
+            <SheetContent side="right" className="w-[300px] bg-card sm:w-[360px] overflow-y-auto flex flex-col">
+              <SheetHeader className="text-left pb-4 border-b border-border">
+                <SheetTitle className="text-xl font-headline">Menu</SheetTitle>
               </SheetHeader>
               
-              <div className="flex flex-col space-y-4 mt-6">
-                {/* Search in mobile */}
-                <div className="pb-4 border-b border-border">
-                  <SearchInput />
+              <div className="flex flex-col space-y-4 py-4 flex-1">
+                {/* Search in mobile sheet */}
+                <div className="pb-3 border-b border-border">
+                  <SearchInput onSearchComplete={() => setIsMobileMenuOpen(false)} />
                 </div>
 
-                {/* Navigation Links */}
-                <div className="space-y-3">
+                {/* Primary Navigation Links */}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-1">
+                    Navigation
+                  </p>
                   <Link 
                     href="/" 
-                    className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground"
+                    className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground font-medium"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
-                  {dynamicNavLinks.map((link) => (
+                  {baseNavLinks.map((link) => (
                     <Link 
                       key={link.href} 
                       href={link.href}
-                      className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground"
+                      className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground font-medium"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       {link.label}
                     </Link>
                   ))}
-                  <Link 
-                    href="/about" 
-                    className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    About
-                  </Link>
-                  <Link 
-                    href="/contact" 
-                    className="block py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Contact
-                  </Link>
                 </div>
 
-                <Separator />
-
-                {/* User Section */}
-                {currentUser ? (
-                  <div className="space-y-3">
-                    <Link 
-                      href="/account"
-                      className="flex items-center space-x-2 py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <UserCircle className="h-5 w-5" />
-                      <span>My Account</span>
-                    </Link>
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleLogout}
-                      className="w-full justify-start hover:text-destructive transition-colors"
-                      disabled={authLoading}
-                    >
-                      {authLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <LogoutIconComp className="h-4 w-4 mr-2" />
-                      )}
-                      Logout
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start">
-                        Login
-                      </Button>
-                    </Link>
-                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Button className="w-full bg-primary hover:bg-primary/90">
-                        Sign Up
-                      </Button>
-                    </Link>
+                {/* Dedicated Portals for Vendors/Admins */}
+                {(userProfile?.role === 'vendor' || userProfile?.role === 'admin') && (
+                  <div className="space-y-1 pt-2 border-t border-border">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-1">
+                      Management Portals
+                    </p>
+                    {userProfile?.role === 'vendor' && (
+                      <Link 
+                        href="/vendor" 
+                        className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-accent text-primary font-medium"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Store className="h-4 w-4" />
+                        <span>Vendor Dashboard</span>
+                      </Link>
+                    )}
+                    {userProfile?.role === 'admin' && (
+                      <>
+                        <Link 
+                          href="/admin" 
+                          className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-accent text-primary font-medium"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>Admin Panel</span>
+                        </Link>
+                        <Link 
+                          href="/vendor" 
+                          className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-accent text-muted-foreground"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <Store className="h-4 w-4" />
+                          <span>Vendor Portal</span>
+                        </Link>
+                      </>
+                    )}
                   </div>
                 )}
+
+                <div className="mt-auto pt-4 border-t border-border">
+                  {currentUser ? (
+                    <div className="space-y-2">
+                      <div className="px-3 py-1">
+                        <p className="text-sm font-semibold truncate">{userProfile?.fullName || currentUser.displayName || 'User'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
+                      </div>
+                      <Link 
+                        href="/account"
+                        className="flex items-center space-x-2 py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground font-medium"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <UserCircle className="h-5 w-5" />
+                        <span>My Account</span>
+                      </Link>
+                      <Link 
+                        href="/account/orders"
+                        className="flex items-center space-x-2 py-2 px-3 rounded-md hover:bg-accent transition-colors text-foreground font-medium"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <ShoppingBag className="h-5 w-5" />
+                        <span>My Orders</span>
+                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        onClick={handleLogout}
+                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        disabled={authLoading}
+                      >
+                        {authLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <LogoutIcon className="h-4 w-4 mr-2" />
+                        )}
+                        Logout
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                        <Button variant="outline" className="w-full justify-center">
+                          Login
+                        </Button>
+                      </Link>
+                      <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                        <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground justify-center">
+                          Sign Up
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
             </SheetContent>
           </Sheet>
         </div>
+
       </div>
+
+      {/* SHARED CART DRAWER */}
+      {showCart && (
+        <Sheet open={isCartDrawerOpen} onOpenChange={setIsCartDrawerOpen}>
+          <SheetContent className="flex w-[300px] flex-col border-primary bg-card p-0 shadow-xl sm:w-[380px]">
+            <SheetHeader className="p-4 border-b border-border">
+              <SheetTitle className="text-xl font-headline text-glow-primary">Your Cart</SheetTitle>
+            </SheetHeader>
+            <CartDrawerContent onClose={() => setIsCartDrawerOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      )}
     </header>
   );
 };
 
+function TooltipButton({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <div onClick={onClick} title={label}>
+      {children}
+    </div>
+  );
+}
 
 export default Header;

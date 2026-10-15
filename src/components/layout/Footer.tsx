@@ -31,9 +31,10 @@ const Footer = () => {
           <div>
             <h5 className="font-semibold text-lg mb-4 text-foreground">Shop</h5>
             <ul className="space-y-2">
-              <li><Link href="/categories/fashion" className="text-sm text-muted-foreground hover:text-primary transition-colors">Fashion</Link></li>
               <li><Link href="/categories/electronics" className="text-sm text-muted-foreground hover:text-primary transition-colors">Electronics</Link></li>
-              <li><Link href="/categories/home" className="text-sm text-muted-foreground hover:text-primary transition-colors">Home & Garden</Link></li>
+              <li><Link href="/categories/fashion" className="text-sm text-muted-foreground hover:text-primary transition-colors">Fashion</Link></li>
+              <li><Link href="/categories/home-kitchen" className="text-sm text-muted-foreground hover:text-primary transition-colors">Home & Kitchen</Link></li>
+              <li><Link href="/categories/health-beauty" className="text-sm text-muted-foreground hover:text-primary transition-colors">Health & Beauty</Link></li>
               <li><Link href="/products" className="text-sm text-muted-foreground hover:text-primary transition-colors">All Products</Link></li>
             </ul>
           </div>

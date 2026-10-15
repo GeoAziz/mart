@@ -415,7 +415,7 @@ export default function CmsHomePage() {
           {cmsData.featuredItems.map(item => (
             <Card key={item.id} className="p-3 bg-muted/30 border border-border/50 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {item.imageUrl && <NextImage src={item.imageUrl} alt={item.displayName} width={80} height={50} className="rounded object-cover" data-ai-hint={item.dataAiHint || 'featured image'} unoptimized/>}
+                    {item.imageUrl && <NextImage src={item.imageUrl} alt={item.displayName || 'Featured item'} width={80} height={50} className="rounded object-cover" data-ai-hint={item.dataAiHint || 'featured image'} unoptimized/>}
                     <div>
                         <p className="font-medium text-foreground">{item.displayName}</p>
                         <p className="text-xs text-muted-foreground capitalize">Type: {item.type} (ID: {item.itemId})</p>
@@ -466,7 +466,7 @@ export default function CmsHomePage() {
           {cmsData.promoBanners.map(banner => (
              <Card key={banner.id} className="p-3 bg-muted/30 border border-border/50">
                 <div className="flex flex-col md:flex-row gap-4">
-                    <NextImage src={banner.imageUrl} alt={banner.name} width={250} height={60} className="rounded-md object-contain md:w-1/3 bg-black/20" data-ai-hint={banner.dataAiHint || 'promo banner'} unoptimized/>
+                    <NextImage src={banner.imageUrl} alt={banner.name || 'Promotional banner'} width={250} height={60} className="rounded-md object-contain md:w-1/3 bg-black/20" data-ai-hint={banner.dataAiHint || 'promo banner'} unoptimized/>
                     <div className="flex-grow space-y-1">
                         <h4 className="font-semibold text-foreground">{banner.name}</h4>
                         <p className="text-xs text-muted-foreground">Link: <a href={banner.link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{banner.link}</a></p>
