@@ -14,6 +14,7 @@ env:
   KUBE_NAMESPACE: ${{ vars.KUBE_NAMESPACE || 'app' }}
   STAGING_HOST: ${{ vars.STAGING_HOST || 'example.com' }}
   CERT_MANAGER_ISSUER: ${{ vars.CERT_MANAGER_ISSUER || 'letsencrypt-staging' }}
+  HAS_KUBECONFIG: ${{ secrets.KUBECONFIG != '' }}
 
 jobs:
   deploy:
@@ -27,21 +28,23 @@ jobs:
           version: '1.28'
 
       - name: Configure kubeconfig
-        if: ${{ secrets.KUBECONFIG != '' }}
+        if: ${{ env.HAS_KUBECONFIG == 'true' }}
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+          printf '%s' "$KUBECONFIG_SECRET" > kubeconfig
           mkdir -p $HOME/.kube
           mv kubeconfig $HOME/.kube/config
 
       - name: Configure AWS credentials via GitHub OIDC
-        if: ${{ secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        if: ${{ env.HAS_KUBECONFIG != 'true' && env.AWS_ROLE_TO_ASSUME != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig for EKS
-        if: ${{ secrets.KUBECONFIG == '' && env.AWS_ROLE_TO_ASSUME != '' }}
+        if: ${{ env.HAS_KUBECONFIG != 'true' && env.AWS_ROLE_TO_ASSUME != '' }}
         run: |
           if [ "${EKS_CLUSTER_NAME}" = "" ]; then
             echo "EKS_CLUSTER_NAME not set; cannot update kubeconfig"

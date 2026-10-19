@@ -34,7 +34,7 @@ jobs:
           cache: 'npm'
       
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -46,8 +46,36 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r tests/requirements.txt
+
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Start Firebase emulators
+        run: |
+          npx --yes firebase-tools@13.29.2 emulators:start --only auth,firestore --project demo-zilacart > /tmp/firebase-emulator.log 2>&1 &
+          echo $! > /tmp/firebase-emulator.pid
+          for i in {1..90}; do
+            if curl --silent --show-error --max-time 2 http://127.0.0.1:8080/ -o /dev/null &&
+               curl --silent --show-error --max-time 2 http://127.0.0.1:9099/ -o /dev/null; then
+              echo "Firebase emulators are ready"
+              exit 0
+            fi
+            echo "Waiting for Firebase emulators... ($i/90)"
+            sleep 2
+          done
+          echo "Firebase emulators did not become ready in time"
+          tail -n 200 /tmp/firebase-emulator.log
+          exit 1
       
       - name: Start dev server
+        env:
+          FIREBASE_PROJECT_ID: demo-zilacart
+          FIREBASE_STORAGE_BUCKET: demo-zilacart.appspot.com
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
         run: |
           npm run dev > /tmp/next-dev.log 2>&1 &
           echo $! > /tmp/next-dev.pid
