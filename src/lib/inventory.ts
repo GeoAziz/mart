@@ -11,7 +11,9 @@ import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 
 function itemRefs(items: any[]) {
-  return items.filter((item) => item?.productId && item?.quantity);
+  return items.filter(
+    (item) => typeof item?.productId === 'string' && item.productId.trim() !== '' && typeof item?.quantity === 'number' && item.quantity > 0
+  );
 }
 
 /**

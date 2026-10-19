@@ -76,9 +76,10 @@ async function getOrderHandler(req: AuthenticatedRequest, context: { params: Pro
     }
 
     // Enrich order customer info if missing
-    if ((!order.userFullName || !order.userEmail) && order.userId) {
+    const cleanUserId = typeof order.userId === 'string' ? order.userId.trim() : '';
+    if ((!order.userFullName || !order.userEmail) && cleanUserId) {
       try {
-        const userDoc = await firestoreAdmin.collection('users').doc(order.userId).get();
+        const userDoc = await firestoreAdmin.collection('users').doc(cleanUserId).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
           if (userData) {
@@ -101,9 +102,10 @@ async function getOrderHandler(req: AuthenticatedRequest, context: { params: Pro
           let vendorId = item.vendorId;
 
           // If price is 0 or name is missing, attempt lookup from products collection
-          if ((price === 0 || !name || !imageUrl || !vendorId) && item.productId) {
+          const cleanProductId = typeof item.productId === 'string' ? item.productId.trim() : '';
+          if ((price === 0 || !name || !imageUrl || !vendorId) && cleanProductId) {
             try {
-              const productDoc = await firestoreAdmin.collection('products').doc(item.productId).get();
+              const productDoc = await firestoreAdmin.collection('products').doc(cleanProductId).get();
               if (productDoc.exists) {
                 const pData = productDoc.data();
                 if (pData) {
@@ -205,58 +207,72 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
         const vendorOrders = vendorOrderSnap.docs.map((d) => d.data() as VendorOrder);
 
         if (vendorOrders.length > 0) {
-          for (const vendorOrder of vendorOrders) {
+          for (let i = 0; i < vendorOrders.length; i++) {
+            const vendorOrder = vendorOrders[i];
+            const vendorDocSnapshot = vendorOrderSnap.docs[i];
+            const vendorOrderId = vendorOrder.id || vendorDocSnapshot?.id;
+
             if (vendorOrder.status === 'delivered' || vendorOrder.status === 'refunded' || vendorOrder.status === 'cancelled') {
               continue;
             }
-            const ledgerEntry = {
-              vendorId: vendorOrder.vendorId,
-              type: 'sale_credit',
-              amount: vendorOrder.subtotal,
-              commissionRate: vendorOrder.commissionRate,
-              commissionAmount: vendorOrder.commissionAmount,
-              netAmount: vendorOrder.netAmount,
-              orderId,
-              productId: vendorOrder.items[0]?.productId,
-              createdAt: new Date(),
-              status: 'confirmed',
-              description: `Sale of ${vendorOrder.items.reduce((sum, i) => sum + i.quantity, 0)} items`,
-            };
 
-            const ledgerRef = firestoreAdmin
-              .collection('users')
-              .doc(vendorOrder.vendorId)
-              .collection('ledgerEntries')
-              .doc();
+            const rawVendorId = vendorOrder.vendorId?.trim();
+            if (rawVendorId) {
+              const ledgerEntry = {
+                vendorId: rawVendorId,
+                type: 'sale_credit',
+                amount: vendorOrder.subtotal,
+                commissionRate: vendorOrder.commissionRate,
+                commissionAmount: vendorOrder.commissionAmount,
+                netAmount: vendorOrder.netAmount,
+                orderId,
+                productId: vendorOrder.items?.[0]?.productId,
+                createdAt: new Date(),
+                status: 'confirmed',
+                description: `Sale of ${(vendorOrder.items || []).reduce((sum, item) => sum + item.quantity, 0)} items`,
+              };
 
-            transaction.set(ledgerRef, ledgerEntry);
+              const ledgerRef = firestoreAdmin
+                .collection('users')
+                .doc(rawVendorId)
+                .collection('ledgerEntries')
+                .doc();
 
-            // Mark the vendor order delivered in the same transaction
-            transaction.update(firestoreAdmin.collection('vendorOrders').doc(vendorOrder.id!), {
-              status: 'delivered',
-              statusHistory: FieldValue.arrayUnion(tracking),
-              actualDeliveryDate: Timestamp.now(),
-              updatedAt: Timestamp.now(),
-            });
+              transaction.set(ledgerRef, ledgerEntry);
+            }
+
+            // Mark the vendor order delivered in the same transaction if ID exists
+            if (vendorOrderId) {
+              transaction.update(firestoreAdmin.collection('vendorOrders').doc(vendorOrderId), {
+                status: 'delivered',
+                statusHistory: FieldValue.arrayUnion(tracking),
+                actualDeliveryDate: Timestamp.now(),
+                updatedAt: Timestamp.now(),
+              });
+            }
           }
         } else {
           // Legacy orders without vendorOrders: fall back to per-item grouping.
           const grouped = new Map<string, { subtotal: number; count: number }>();
-          for (const item of orderData.items) {
-            if (!item.vendorId) continue;
-            const entry = grouped.get(item.vendorId) ?? { subtotal: 0, count: 0 };
+          for (const item of (orderData.items || [])) {
+            const itemVendorId = typeof item.vendorId === 'string' ? item.vendorId.trim() : '';
+            if (!itemVendorId) continue;
+            const entry = grouped.get(itemVendorId) ?? { subtotal: 0, count: 0 };
             entry.subtotal += item.price * item.quantity;
             entry.count += item.quantity;
-            grouped.set(item.vendorId, entry);
+            grouped.set(itemVendorId, entry);
           }
 
           for (const [vendorId, totals] of grouped) {
+            const cleanVendorId = vendorId.trim();
+            if (!cleanVendorId) continue;
+
             const grossSaleAmount = totals.subtotal;
             const commissionAmount = grossSaleAmount * PLATFORM_COMMISSION_RATE;
             const netAmount = grossSaleAmount - commissionAmount;
 
             const ledgerEntry = {
-              vendorId,
+              vendorId: cleanVendorId,
               type: 'sale_credit',
               amount: grossSaleAmount,
               commissionRate: PLATFORM_COMMISSION_RATE,
@@ -270,7 +286,7 @@ async function updateOrderStatusHandler(req: AuthenticatedRequest, context: { pa
 
             const ledgerRef = firestoreAdmin
               .collection('users')
-              .doc(vendorId)
+              .doc(cleanVendorId)
               .collection('ledgerEntries')
               .doc();
 

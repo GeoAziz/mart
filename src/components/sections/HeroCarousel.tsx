@@ -39,6 +39,7 @@ const HeroCarousel = () => {
         if (!data.heroSlides || data.heroSlides.length === 0) {
            setPromos([
              { title: "Welcome to ZilaCart", description: "Your adventure in futuristic shopping begins here.", imageUrl: "https://placehold.co/1200x600/2A0B3D/E0E0E0?text=ZilaCart+Welcome", dataAiHint: "welcome banner", buttonText: "Shop Now", link: "/products" },
+             { title: "Welcome to ZilaCart", description: "Your adventure in futuristic shopping begins here.", imageUrl: "/images/hero-banner.jpg", dataAiHint: "welcome banner", buttonText: "Shop Now", link: "/products" },
            ]);
         } else {
            setPromos(data.heroSlides);

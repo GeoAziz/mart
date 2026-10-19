@@ -10,18 +10,26 @@ import {
 import { publishWSEvent } from '@/lib/ws-events';
 
 // In Docker, localstack is reachable via http://localstack:4566.
-// In host dev environment, fallback to localhost:4566 or disable gracefully.
+// In cloud/production without explicit SQS configuration, disable queueing gracefully without throwing ECONNREFUSED.
+const isSqsConfigured = Boolean(
+  process.env.AWS_SQS_ENDPOINT ||
+  (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.ORDER_QUEUE_URL) ||
+  (process.env.NODE_ENV !== 'production' && !process.env.VERCEL)
+);
+
 const defaultSqsEndpoint = process.env.AWS_SQS_ENDPOINT || 
   (process.env.DOCKER_CONTAINER ? 'http://localstack:4566' : 'http://localhost:4566');
 
-const sqs = new SQS({
-  region: process.env.AWS_REGION || 'us-east-1',
-  endpoint: defaultSqsEndpoint,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
-  },
-});
+const sqs = isSqsConfigured
+  ? new SQS({
+      region: process.env.AWS_REGION || 'us-east-1',
+      ...(process.env.AWS_SQS_ENDPOINT ? { endpoint: process.env.AWS_SQS_ENDPOINT } : (process.env.NODE_ENV !== 'production' && !process.env.VERCEL ? { endpoint: defaultSqsEndpoint } : {})),
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+      },
+    })
+  : null;
 
 // Queue URLs
 const defaultQueueBase = defaultSqsEndpoint;
@@ -97,7 +105,7 @@ export async function enqueueNotification(message: NotificationMessage): Promise
 const ensuredQueues = new Set<string>();
 
 async function ensureQueue(queueUrl: string): Promise<void> {
-  if (ensuredQueues.has(queueUrl)) return;
+  if (!sqs || ensuredQueues.has(queueUrl)) return;
   try {
     const queueName = queueUrl.split('/').pop() || '';
     const isFifo = queueName.endsWith('.fifo');
@@ -118,6 +126,11 @@ async function ensureQueue(queueUrl: string): Promise<void> {
 }
 
 async function enqueue(queueUrl: string, message: unknown, deduplicationId: string): Promise<string> {
+  if (!sqs) {
+    // Graceful fallback when SQS is not configured or in environments without AWS/LocalStack
+    return '';
+  }
+
   const params = {
     QueueUrl: queueUrl,
     MessageBody: JSON.stringify(message),
@@ -132,8 +145,18 @@ async function enqueue(queueUrl: string, message: unknown, deduplicationId: stri
     // Auto-create queue in local/dev environment if it does not exist
     if (err?.name === 'QueueDoesNotExist' || err?.__type === 'QueueDoesNotExist' || err?.Code === 'AWS.SimpleQueueService.NonExistentQueue') {
       await ensureQueue(queueUrl);
-      const retryResult = await sqs.sendMessage(params);
-      return retryResult.MessageId || '';
+      try {
+        const retryResult = await sqs.sendMessage(params);
+        return retryResult.MessageId || '';
+      } catch (retryErr: any) {
+        console.warn('[Queue] Failed retry send to queue:', retryErr?.message || retryErr);
+        return '';
+      }
+    }
+    // Handle ECONNREFUSED or network failures gracefully
+    if (err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) {
+      console.warn('[Queue] SQS unreachable, message skipped gracefully:', err.message);
+      return '';
     }
     throw err;
   }
@@ -184,6 +207,10 @@ async function consume(
   queueName: string,
   dlqUrl?: string
 ): Promise<void> {
+  if (!sqs) {
+    return;
+  }
+
   const params = {
     QueueUrl: queueUrl,
     MaxNumberOfMessages: Math.min(maxMessages, 10), // SQS limit is 10
@@ -192,7 +219,13 @@ async function consume(
     AttributeNames: ['ApproximateReceiveCount'] as unknown as QueueAttributeName[],
   };
 
-  const result: ReceiveMessageCommandOutput = await sqs.receiveMessage(params);
+  let result: ReceiveMessageCommandOutput;
+  try {
+    result = await sqs.receiveMessage(params);
+  } catch (err: any) {
+    console.warn(`[Queue:${queueName}] ReceiveMessage failed or unreachable:`, err?.message || err);
+    return;
+  }
 
   if (!result.Messages || result.Messages.length === 0) {
     await updateQueueDepthMetric(queueUrl, queueName);
@@ -260,6 +293,7 @@ async function deadLetter(
   receiptHandle: string,
   error: unknown
 ): Promise<void> {
+  if (!sqs) return;
   if (dlqUrl) {
     try {
       await sqs.sendMessage({
@@ -287,6 +321,7 @@ async function deadLetter(
  * Report the real queue depth (ApproximateNumberOfMessages) to Prometheus.
  */
 async function updateQueueDepthMetric(queueUrl: string, queueName: string): Promise<void> {
+  if (!sqs) return;
   try {
     const attributes = await sqs.getQueueAttributes({
       QueueUrl: queueUrl,

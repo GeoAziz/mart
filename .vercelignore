@@ -1,1 +1,3 @@
 clean-mart/
+.env*
+serviceAccountKey.json
