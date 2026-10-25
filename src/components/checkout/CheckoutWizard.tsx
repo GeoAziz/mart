@@ -5,6 +5,7 @@ import { PayPalScriptProvider, PayPalButtons, usePayPalScriptReducer, FUNDING } 
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
+import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo, getAttributionContext } from '@/lib/analytics';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -91,6 +92,19 @@ const CheckoutWizard = () => {
     }
   }, [cart, currentUser, isPlacingOrder, orderPlaced, router]);
 
+  useEffect(() => {
+    if (cart.length > 0) {
+      trackBeginCheckout(
+        cart.map((item) => ({
+          item_id: item.productId,
+          item_name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        }))
+      );
+    }
+  }, []);
+
 
   const progressValue = ((currentStep + 1) / steps.length) * 100;
 
@@ -99,6 +113,15 @@ const CheckoutWizard = () => {
 
   const onAddressSubmit = (data: AddressFormData) => {
     console.log('Address Data:', data);
+    trackAddShippingInfo(
+      cart.map((item) => ({
+        item_id: item.productId,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      data.city
+    );
     handleNextStep();
   };
 
@@ -197,12 +220,14 @@ const CheckoutWizard = () => {
       return;
     }
     setIsPlacingOrder(true);
+    const attribution = getAttributionContext();
     const orderPayload = {
       items: cart.map(item => ({ productId: item.productId, quantity: item.quantity })),
       shippingAddress: methods.getValues(),
       paymentMethod: methodOverride || selectedPaymentMethod,
       promotionCode: appliedPromotion?.code,
       paypalOrderId,
+      attribution,
     };
     try {
       const token = await currentUser.getIdToken();

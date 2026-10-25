@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { authClient, db, isFirebaseConfigured } from '@/lib/firebase-client';
+import { trackAddToCart, trackRemoveFromCart } from '@/lib/analytics';
 import { useRouter, usePathname } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { WishlistItem as WishlistItemApiType } from '@/app/api/users/me/wishlist/route';
@@ -342,6 +343,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       saveCartToServer(newCart, user);
       return newCart;
     });
+    trackAddToCart({
+      item_id: productDetails.id,
+      item_name: productDetails.name,
+      price: productDetails.price,
+      quantity,
+    });
     toast({ title: 'Item Added', description: `${productDetails.name} added to cart.`});
   };
 
@@ -360,11 +367,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeCartItem = async (productId: string) => {
+    const itemToRemove = cart.find((i) => i.productId === productId);
     setCart(prevCart => {
       const newCart = prevCart.filter(item => item.productId !== productId);
       saveCartToServer(newCart, currentUser);
       return newCart;
     });
+    if (itemToRemove) {
+      trackRemoveFromCart({
+        item_id: itemToRemove.productId,
+        item_name: itemToRemove.name,
+        price: itemToRemove.price,
+        quantity: itemToRemove.quantity,
+      });
+    }
   };
 
   const clearCart = async () => {

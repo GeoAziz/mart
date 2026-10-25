@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { trackViewItemList } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types'; // Import main Product type
 
@@ -85,9 +86,25 @@ function ProductListingContent() {
       if (!response.ok) throw new Error('Failed to fetch products');
       
       const data = await response.json();
-      setProducts(data.products || []);
+      const loadedProducts: Product[] = data.products || [];
+      setProducts(loadedProducts);
       setTotalPages(data.totalPages || 1);
       setTotalProducts(data.totalProducts || 0);
+
+      // Track view_item_list in GA4
+      if (loadedProducts.length > 0) {
+        trackViewItemList(
+          loadedProducts.map((p) => ({
+            item_id: p.id,
+            item_name: p.name,
+            price: p.price,
+            quantity: 1,
+            item_category: p.category,
+            vendor_id: p.vendorId,
+          })),
+          selectedCategory !== 'All' ? `Category: ${selectedCategory}` : 'Catalog Listing'
+        );
+      }
     } catch (error) {
       console.error("Error fetching products:", error);
       setProducts([]);

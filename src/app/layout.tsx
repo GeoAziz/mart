@@ -7,6 +7,7 @@ import { isFirebaseConfigured } from '@/lib/firebase-client';
 import SetupInstructions from '@/components/layout/SetupInstructions';
 import ParticleBackground from '@/components/ParticleBackground';
 import ConditionalShell from '@/components/layout/ConditionalShell';
+import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 
 /**
  * Root Layout
@@ -39,6 +40,7 @@ export default function RootLayout({
         {/* Font links are now handled by next/font */}
       </head>
       <body className="antialiased flex flex-col min-h-screen">
+        <GoogleAnalytics />
         <ParticleBackground />
         <AuthProvider>
           {/* ConditionalShell will render Header/Footer for public routes and hide them for dashboard routes */}

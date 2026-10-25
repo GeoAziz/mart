@@ -12,6 +12,7 @@ import {
   startNotificationWorker,
 } from '@/lib/queue-service';
 import { runReservationExpiryWorker } from '@/scripts/workers/reservation-expiry';
+import { startAnalyticsOutboxWorker } from '@/lib/analytics-worker';
 import { initializeRedis } from '@/lib/cache-service';
 import { initWsPublisher } from '@/lib/ws-events';
 
@@ -43,6 +44,10 @@ async function main() {
     {
       name: 'Reservation Expiry Worker',
       start: async () => setInterval(() => runReservationExpiryWorker().catch(console.error), 5 * 60 * 1000),
+    },
+    {
+      name: 'Analytics Outbox Worker',
+      start: async () => startAnalyticsOutboxWorker(30000), // Run every 30 seconds
     },
   ];
 

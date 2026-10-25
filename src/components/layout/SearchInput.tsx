@@ -5,6 +5,7 @@ import { Search, X, Mic, Camera, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { trackSearch } from '@/lib/analytics';
 import {
   Tooltip,
   TooltipContent,
@@ -75,6 +76,7 @@ const SearchInput = ({ onSearchComplete, className = '' }: SearchInputProps) => 
     if (!target) return;
     setIsOpen(false);
     onSearchComplete?.();
+    trackSearch(true, target.length);
     router.push(`/products?search=${encodeURIComponent(target)}`);
   };
 

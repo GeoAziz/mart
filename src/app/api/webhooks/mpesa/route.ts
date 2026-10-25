@@ -6,6 +6,7 @@ import { withRequestMetrics } from '@/lib/api-metrics';
 import { trackPaymentProcessed } from '@/lib/metrics';
 import { enqueuePayment } from '@/lib/queue-service';
 import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
+import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
 import admin from 'firebase-admin';
 
 interface StkCallback {
@@ -55,39 +56,50 @@ async function handleStkCallback(callback: StkCallback): Promise<void> {
   const succeeded = callback.ResultCode === 0;
   const receipt = extractReceipt(callback);
 
-  const nextStatus = succeeded ? 'confirmed' : 'cancelled';
-  validateStatusTransition(order.status, nextStatus);
-
-  await orderDoc.ref.update({
-    status: nextStatus,
-    paymentDetails: {
-      ...order.paymentDetails,
-      provider: 'mpesa',
-      status: succeeded ? 'COMPLETED' : 'FAILED',
-      mpesaMerchantRequestId: merchantRequestId,
-      mpesaCheckoutRequestId: checkoutRequestId,
-      mpesaReceiptNumber: receipt,
-      mpesaResultCode: callback.ResultCode,
-      mpesaResultDesc: callback.ResultDesc,
-      webhookVerified: true,
-      webhookReceivedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    statusHistory: admin.firestore.FieldValue.arrayUnion({
-      status: nextStatus,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      note: succeeded
-        ? `M-Pesa payment confirmed${receipt ? ` (Receipt ${receipt})` : ''}`
-        : `M-Pesa payment failed: ${callback.ResultDesc}`,
-    }),
-  });
-
-  console.log(`M-Pesa: Order ${orderDoc.id} ${succeeded ? 'confirmed' : 'cancelled'}`);
-  trackPaymentProcessed('mpesa', succeeded ? 'success' : 'failed');
   if (succeeded) {
+    // Transactional confirmation + Outbox record creation
+    await confirmOrderAndRecordPurchaseTransaction({
+      provider: 'mpesa',
+      paymentId: receipt || checkoutRequestId,
+      orderId: orderDoc.id,
+      amount: order.totalAmount,
+      currency: order.paymentDetails?.currency || 'KES',
+      providerReference: checkoutRequestId,
+      status: 'COMPLETED',
+      verifiedAt: new Date().toISOString(),
+    });
+
+    console.log(`M-Pesa: Order ${orderDoc.id} confirmed transactionally with outbox`);
+    trackPaymentProcessed('mpesa', 'success');
     await releaseReservations(orderDoc.id);
   } else {
+    // Unsuccessful payment cancellation
+    validateStatusTransition(order.status, 'cancelled');
+    await orderDoc.ref.update({
+      status: 'cancelled',
+      paymentDetails: {
+        ...order.paymentDetails,
+        provider: 'mpesa',
+        status: 'FAILED',
+        mpesaMerchantRequestId: merchantRequestId,
+        mpesaCheckoutRequestId: checkoutRequestId,
+        mpesaResultCode: callback.ResultCode,
+        mpesaResultDesc: callback.ResultDesc,
+        webhookVerified: true,
+        webhookReceivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      statusHistory: admin.firestore.FieldValue.arrayUnion({
+        status: 'cancelled',
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        note: `M-Pesa payment failed: ${callback.ResultDesc}`,
+      }),
+    });
+
+    console.log(`M-Pesa: Order ${orderDoc.id} cancelled`);
+    trackPaymentProcessed('mpesa', 'failed');
     await restoreStockForOrder(orderDoc.id);
   }
+
   enqueuePayment({
     type: succeeded ? 'payment.completed' : 'payment.failed',
     paymentId: receipt || checkoutRequestId,

@@ -43,6 +43,7 @@ import { withRequestMetrics } from '@/lib/api-metrics';
 import { trackPaymentProcessed } from '@/lib/metrics';
 import { enqueuePayment } from '@/lib/queue-service';
 import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
+import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
 
 interface PayPalWebhookEvent {
   // WHAT PAYPAL SENDS US:
@@ -123,28 +124,19 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent): Promise<void> 
     );
   }
 
-  // Validate status transition
-  validateStatusTransition(order.status, 'confirmed');
-
-  // Update order
-  await orderDoc.ref.update({
-    status: 'confirmed',
-    paymentDetails: {
-      ...order.paymentDetails,
-      status: 'COMPLETED',
-      paypalCaptureId: captureId,
-      paypalCurrency: currency,
-      webhookVerified: true,
-      webhookReceivedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    statusHistory: admin.firestore.FieldValue.arrayUnion({
-      status: 'confirmed',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      note: 'Payment confirmed via PayPal webhook',
-    }),
+  // Transactional confirmation + Outbox record creation
+  await confirmOrderAndRecordPurchaseTransaction({
+    provider: 'paypal',
+    paymentId: captureId,
+    orderId: orderDoc.id,
+    amount: order.totalAmount,
+    currency: currency,
+    providerReference: captureId,
+    status: 'COMPLETED',
+    verifiedAt: new Date().toISOString(),
   });
 
-  console.log(`PayPal: Order ${orderDoc.id} payment confirmed`);
+  console.log(`PayPal: Order ${orderDoc.id} payment confirmed transactionally with outbox`);
   trackPaymentProcessed('paypal', 'success');
   await releaseReservations(orderDoc.id);
   enqueuePayment({

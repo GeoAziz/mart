@@ -1,0 +1,58 @@
+name: Scheduled GA4 Synthetic Traffic
+
+on:
+  schedule:
+    # Runs twice a day at 06:00 and 18:00 UTC
+    - cron: '0 6,18 * * *'
+  workflow_dispatch:
+    inputs:
+      user_count:
+        description: 'Number of synthetic users to simulate (optional)'
+        required: false
+        default: '45'
+
+jobs:
+  simulate-analytics:
+    name: Generate GA4 Traffic & Purchases (mart-ke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Firebase Service Account
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "$FIREBASE_SERVICE_ACCOUNT_KEY" > serviceAccountKey.json
+          else
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_KEY secret is not set!"
+            exit 1
+          fi
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
+      - name: Run Multi-User Shopping & GA4 Simulation
+        env:
+          NODE_ENV: development
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
+          FIREBASE_PROJECT_ID: 'mart-ke'
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-RTDRRL0F9B' }}
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-RTDRRL0F9B' }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
+          SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
+        run: npm run sim:shopping
+
+      - name: Clean up sensitive files
+        if: always()
+        run: rm -f serviceAccountKey.json
+

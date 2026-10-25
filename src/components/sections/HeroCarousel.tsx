@@ -8,6 +8,7 @@ import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { trackSelectPromotion, trackViewPromotion } from '@/lib/analytics';
 
 interface HeroSlide {
   title: string;
@@ -27,6 +28,27 @@ const HeroCarousel = () => {
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
   const [isPaused, setIsPaused] = useState(prefersReducedMotion.current);
+
+  useEffect(() => {
+    if (promos.length > 0 && promos[currentIndex]) {
+      const active = promos[currentIndex];
+      trackViewPromotion({
+        id: `hero_slide_${currentIndex}`,
+        name: active.title,
+        creative_name: active.imageUrl,
+        position: `slot_${currentIndex + 1}`,
+      });
+    }
+  }, [currentIndex, promos]);
+
+  const handlePromotionClick = (promo: HeroSlide, index: number) => {
+    trackSelectPromotion({
+      id: `hero_slide_${index}`,
+      name: promo.title,
+      creative_name: promo.imageUrl,
+      position: `slot_${index + 1}`,
+    });
+  };
 
   useEffect(() => {
     const fetchCmsData = async () => {
@@ -131,7 +153,12 @@ const HeroCarousel = () => {
           <p className="text-lg md:text-xl lg:text-2xl text-foreground/90 mb-8 max-w-2xl">
             {currentPromo.description}
           </p>
-          <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-lg px-8 py-3 glow-edge-primary animate-pulse-glow" asChild>
+          <Button 
+            size="lg" 
+            className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-lg px-8 py-3 glow-edge-primary animate-pulse-glow" 
+            asChild
+            onClick={() => handlePromotionClick(currentPromo, currentIndex)}
+          >
             <a href={currentPromo.link}>{currentPromo.buttonText}</a>
           </Button>
         </div>

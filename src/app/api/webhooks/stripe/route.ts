@@ -10,6 +10,7 @@ import { withRequestMetrics } from '@/lib/api-metrics';
 import { trackPaymentProcessed } from '@/lib/metrics';
 import { enqueuePayment } from '@/lib/queue-service';
 import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
+import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
 import admin from 'firebase-admin';
 
 /**
@@ -51,28 +52,19 @@ async function handlePaymentIntentSucceeded(event: Stripe.PaymentIntentSucceeded
     );
   }
 
-  // Validate status transition
-  validateStatusTransition(order.status, 'confirmed');
-
-  // Update order with payment confirmation
-  await orderDoc.ref.update({
-    status: 'confirmed',
-    paymentDetails: {
-      ...order.paymentDetails,
-      status: 'COMPLETED',
-      stripePaymentIntentId: paymentIntent.id,
-      stripeStatus: paymentIntent.status,
-      webhookVerified: true,
-      webhookReceivedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    statusHistory: admin.firestore.FieldValue.arrayUnion({
-      status: 'confirmed',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      note: 'Payment confirmed via Stripe webhook',
-    }),
+  // Transactional confirmation + Outbox record creation
+  await confirmOrderAndRecordPurchaseTransaction({
+    provider: 'stripe',
+    paymentId: paymentIntent.id,
+    orderId: orderDoc.id,
+    amount: orderAmount,
+    currency: (paymentIntent.currency || order.paymentDetails?.currency || 'USD').toUpperCase(),
+    providerReference: paymentIntent.id,
+    status: 'COMPLETED',
+    verifiedAt: new Date().toISOString(),
   });
 
-  console.log(`Stripe: Order ${orderDoc.id} payment confirmed`);
+  console.log(`Stripe: Order ${orderDoc.id} payment confirmed transactionally with outbox`);
   trackPaymentProcessed('stripe', 'success');
   await releaseReservations(orderDoc.id);
   enqueuePayment({

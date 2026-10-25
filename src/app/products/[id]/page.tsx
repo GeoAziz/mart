@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth, type CartItemClient } from '@/context/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { trackViewItem } from '@/lib/analytics';
 import { useToast } from '@/hooks/use-toast';
 import type { Product as ProductData, Review as ReviewType } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,14 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (product && !isLoadingProduct) {
+      trackViewItem({
+        item_id: product.id,
+        item_name: product.name,
+        price: product.price,
+        quantity: 1,
+        item_category: product.category,
+        vendor_id: product.vendorId,
+      });
       trackEvent('view_item', {
         productId: product.id,
         name: product.name,
