@@ -1,0 +1,45 @@
+schema_version: "1.0"
+
+defaults:
+  date_window:
+    type: completed_days
+    days: 28
+    lag_days: 2
+
+properties:
+  # ── Primary Active Store in this Repository ──
+  - key: mart_ke
+    ga4_property_id: "558077199"
+    timezone: "Africa/Nairobi"
+    enabled: true
+
+    reports:
+      - acquisition_overview
+      - commerce_overview
+      - commerce_transactions
+
+    rules:
+      max_session_drop_percent: 40.0
+      max_unassigned_share_percent: 20.0
+      min_session_volume_threshold: 50
+      reconciliation_grace_period_hours: 72
+      revenue_tolerance_kes: 1.0
+
+  # ── Secondary Reference Property (Disabled in this repo; tested via fixtures) ──
+  - key: techstore_ke
+    ga4_property_id: "559293834"
+    timezone: "Africa/Nairobi"
+    enabled: false
+
+    reports:
+      - acquisition_overview
+      - commerce_overview
+      - commerce_transactions
+
+    rules:
+      max_session_drop_percent: 40.0
+      max_unassigned_share_percent: 20.0
+      min_session_volume_threshold: 50
+      reconciliation_grace_period_hours: 72
+      revenue_tolerance_kes: 1.0
+
