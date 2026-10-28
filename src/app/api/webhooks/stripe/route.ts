@@ -10,7 +10,7 @@ import { withRequestMetrics } from '@/lib/api-metrics';
 import { trackPaymentProcessed } from '@/lib/metrics';
 import { enqueuePayment } from '@/lib/queue-service';
 import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
-import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
+import { confirmOrderAndRecordPurchaseTransaction, recordRefundTransaction } from '@/lib/analytics-outbox';
 import admin from 'firebase-admin';
 
 /**
@@ -171,6 +171,15 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent): Promise<
 
   console.log(`Stripe: Order ${orderDoc.id} refunded`);
   trackPaymentProcessed('stripe', 'refunded');
+
+  // Record refund in analytics outbox for GA4
+  const refundedVal = (typeof charge.refunded === 'number' ? charge.refunded : 0) / 100;
+  recordRefundTransaction({
+    orderId: orderDoc.id,
+    refundId: charge.id,
+    amount: refundedVal,
+    currency: order.paymentDetails?.currency || 'USD',
+  }).catch((err) => console.error('Failed to record Stripe refund in outbox:', err));
   enqueuePayment({
     type: 'payment.refunded',
     paymentId: charge.id,

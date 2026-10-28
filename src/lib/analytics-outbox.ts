@@ -75,8 +75,103 @@ export function buildOutboxRecord(
       shipping_county: order.shippingAddress?.city,
       items,
       attribution,
+      is_synthetic: (order as any).is_synthetic ? 1 : undefined,
+      traffic_type: (order as any).traffic_type || undefined,
     },
   };
+}
+
+/**
+ * Builds an Outbox record for a Refund transaction.
+ */
+export function buildRefundOutboxRecord(
+  orderId: string,
+  order: Order,
+  refundDetails: {
+    amount: number;
+    currency: string;
+    refundId: string;
+    items?: GA4Item[];
+    attribution?: AttributionContext;
+  }
+): AnalyticsOutboxRecord {
+  const attribution: AttributionContext | undefined =
+    refundDetails.attribution ||
+    (order as any).attributionContext ||
+    (order.paymentDetails as any)?.attributionContext;
+
+  const items: GA4Item[] = refundDetails.items || (order.items || []).map((item) => ({
+    item_id: item.productId,
+    item_name: item.name || 'Unknown Product',
+    price: Number(item.price),
+    quantity: Number(item.quantity),
+  }));
+
+  return {
+    id: `${orderId}_refund_${refundDetails.refundId}`,
+    orderId,
+    eventType: 'refund',
+    status: 'pending',
+    attemptCount: 0,
+    maxAttempts: 5,
+    nextAttemptAt: admin.firestore.Timestamp.now(),
+    lockedAt: null,
+    lockedBy: null,
+    leaseExpiresAt: null,
+    leaseId: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    payload: {
+      transaction_id: orderId,
+      value: Number(refundDetails.amount.toFixed(2)),
+      currency: refundDetails.currency,
+      shipping: 0,
+      tax: 0,
+      payment_method: order.paymentDetails?.provider || 'unknown',
+      shipping_county: order.shippingAddress?.city,
+      items,
+      attribution,
+      is_synthetic: (order as any).is_synthetic ? 1 : undefined,
+      traffic_type: (order as any).traffic_type || undefined,
+    },
+  };
+}
+
+/**
+ * Creates an idempotent outbox record for an approved/processed refund.
+ */
+export async function recordRefundTransaction(params: {
+  orderId: string;
+  refundId: string;
+  amount: number;
+  currency: string;
+  items?: GA4Item[];
+}): Promise<{ recorded: boolean; outboxId: string }> {
+  const { orderId, refundId, amount, currency, items } = params;
+  const outboxDocId = `${orderId}_refund_${refundId}`;
+  const outboxRef = db.collection('analytics_outbox').doc(outboxDocId);
+  const orderRef = db.collection('orders').doc(orderId);
+
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) {
+    throw new Error(`Order ${orderId} does not exist for refund recording`);
+  }
+
+  const order = orderSnap.data() as Order;
+  const existingOutbox = await outboxRef.get();
+  if (existingOutbox.exists) {
+    return { recorded: true, outboxId: outboxDocId };
+  }
+
+  const record = buildRefundOutboxRecord(orderId, order, {
+    amount,
+    currency,
+    refundId,
+    items,
+  });
+
+  await outboxRef.set(record);
+  return { recorded: true, outboxId: outboxDocId };
 }
 
 /**

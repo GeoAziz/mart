@@ -82,6 +82,8 @@ async function runSimulation() {
         },
       },
     },
+    is_synthetic: 1,
+    traffic_type: 'simulated',
     createdAt: new Date(),
     updatedAt: new Date(),
   };

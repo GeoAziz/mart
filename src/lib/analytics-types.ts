@@ -54,6 +54,29 @@ export interface GA4PurchasePayload {
         payment_method?: string; // e.g. "mpesa", "stripe", "paypal"
         shipping_county?: string;
         items: GA4Item[];
+        is_synthetic?: number;
+        traffic_type?: string;
+      };
+    }
+  ];
+}
+
+export interface GA4RefundPayload {
+  client_id: string; // Required for web Measurement Protocol
+  session_id?: number;
+  user_id?: string;
+  events: [
+    {
+      name: 'refund';
+      params: {
+        transaction_id: string; // Authoritative order.id
+        value: number; // Refunded amount
+        currency: string;
+        shipping?: number;
+        tax?: number;
+        items?: GA4Item[];
+        is_synthetic?: number;
+        traffic_type?: string;
       };
     }
   ];
@@ -104,6 +127,8 @@ export interface AnalyticsOutboxRecord {
     shipping_county?: string;
     items: GA4Item[];
     attribution?: AttributionContext;
+    is_synthetic?: number;
+    traffic_type?: string;
   };
 }
 

@@ -4,7 +4,7 @@
  * Features strict debug endpoint validation and non-2xx error classification.
  */
 
-import type { GA4PurchasePayload } from '@/lib/analytics-types';
+import type { GA4PurchasePayload, GA4RefundPayload } from '@/lib/analytics-types';
 
 export interface DispatchResult {
   accepted: boolean;
@@ -14,18 +14,16 @@ export interface DispatchResult {
   errorMessage?: string;
 }
 
-/**
- * Validates and dispatches a GA4 Purchase event.
- * In development or testing, can target the debug endpoint to inspect Google schema validation.
- */
-export async function dispatchGA4Purchase(
-  payload: GA4PurchasePayload,
-  options: {
-    useDebugEndpoint?: boolean;
-    timeoutMs?: number;
-    apiSecret?: string;
-    measurementId?: string;
-  } = {}
+export interface DispatchOptions {
+  useDebugEndpoint?: boolean;
+  timeoutMs?: number;
+  apiSecret?: string;
+  measurementId?: string;
+}
+
+async function dispatchGA4Event(
+  payload: GA4PurchasePayload | GA4RefundPayload,
+  options: DispatchOptions = {}
 ): Promise<DispatchResult> {
   const measurementId =
     options.measurementId ||
@@ -120,4 +118,26 @@ export async function dispatchGA4Purchase(
     };
   }
 }
+
+/**
+ * Validates and dispatches a GA4 Purchase event.
+ * In development or testing, can target the debug endpoint to inspect Google schema validation.
+ */
+export async function dispatchGA4Purchase(
+  payload: GA4PurchasePayload,
+  options: DispatchOptions = {}
+): Promise<DispatchResult> {
+  return dispatchGA4Event(payload, options);
+}
+
+/**
+ * Validates and dispatches a GA4 Refund event.
+ */
+export async function dispatchGA4Refund(
+  payload: GA4RefundPayload,
+  options: DispatchOptions = {}
+): Promise<DispatchResult> {
+  return dispatchGA4Event(payload, options);
+}
+
 

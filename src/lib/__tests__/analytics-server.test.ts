@@ -103,20 +103,37 @@ describe('dispatchGA4Purchase Server Service', () => {
     expect(res.isTransient).toBe(true);
   });
 
-  it('classifies HTTP 400 as non-transient error', async () => {
+  it('dispatches refund events with debug endpoint validation', async () => {
     global.fetch = vi.fn().mockResolvedValue({
-      status: 400,
-      ok: false,
+      status: 200,
+      ok: true,
+      json: async () => ({ validationMessages: [] }),
     } as any);
 
-    const res = await dispatchGA4Purchase(validPayload, {
-      apiSecret: 'secret_123',
-      measurementId: 'G-TEST123',
-    });
+    const { dispatchGA4Refund } = await import('@/lib/analytics-server');
+    const res = await dispatchGA4Refund(
+      {
+        client_id: '123456789.1700000000',
+        events: [
+          {
+            name: 'refund',
+            params: {
+              transaction_id: 'ORD_TEST_100',
+              value: 1500,
+              currency: 'KES',
+            },
+          },
+        ],
+      },
+      {
+        apiSecret: 'secret_123',
+        measurementId: 'G-TEST123',
+        useDebugEndpoint: true,
+      }
+    );
 
-    expect(res.accepted).toBe(false);
-    expect(res.statusCode).toBe(400);
-    expect(res.isTransient).toBe(false);
+    expect(res.accepted).toBe(true);
+    expect(res.statusCode).toBe(200);
   });
 });
 

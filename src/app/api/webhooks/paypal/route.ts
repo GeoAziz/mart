@@ -43,7 +43,7 @@ import { withRequestMetrics } from '@/lib/api-metrics';
 import { trackPaymentProcessed } from '@/lib/metrics';
 import { enqueuePayment } from '@/lib/queue-service';
 import { releaseReservations, restoreStockForOrder } from '@/lib/inventory';
-import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
+import { confirmOrderAndRecordPurchaseTransaction, recordRefundTransaction } from '@/lib/analytics-outbox';
 
 interface PayPalWebhookEvent {
   // WHAT PAYPAL SENDS US:
@@ -191,6 +191,14 @@ async function handleRefund(event: PayPalWebhookEvent): Promise<void> {
 
   console.log(`PayPal: Order ${orderDoc.id} refunded`);
   trackPaymentProcessed('paypal', 'refunded');
+
+  // Record refund in analytics outbox for GA4
+  await recordRefundTransaction({
+    orderId: orderDoc.id,
+    refundId,
+    amount: parseFloat(amount) || 0,
+    currency: order.paymentDetails?.currency || 'KES',
+  }).catch((err) => console.error('Failed to record PayPal refund in outbox:', err));
 }
 
 async function handleCapturedDenied(event: PayPalWebhookEvent): Promise<void> {

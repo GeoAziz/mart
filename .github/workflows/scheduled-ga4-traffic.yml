@@ -46,8 +46,8 @@ jobs:
           NODE_ENV: development
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
           FIREBASE_PROJECT_ID: 'mart-ke'
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-RTDRRL0F9B' }}
-          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-RTDRRL0F9B' }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
           SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
         run: npm run sim:shopping

@@ -1,12 +1,31 @@
 import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
-import { dispatchGA4Purchase } from '@/lib/analytics-server';
-import type { AnalyticsOutboxRecord, GA4PurchasePayload } from '@/lib/analytics-types';
+import { dispatchGA4Purchase, dispatchGA4Refund } from '@/lib/analytics-server';
+import type { AnalyticsOutboxRecord, GA4PurchasePayload, GA4RefundPayload } from '@/lib/analytics-types';
 
 export interface ProcessOutboxOptions {
   batchSize?: number;
   workerId?: string;
   leaseDurationMs?: number;
+}
+
+/**
+ * Checks whether the analytics outbox processor has been paused via emergency kill-switch.
+ * Controlled via environment variable ANALYTICS_WORKER_PAUSED or Firestore config.
+ */
+export async function isOutboxProcessingPaused(): Promise<boolean> {
+  if (process.env.ANALYTICS_WORKER_PAUSED === 'true') {
+    return true;
+  }
+  try {
+    const configDoc = await db.collection('system_config').doc('analytics_settings').get();
+    if (configDoc.exists && configDoc.data()?.isPaused === true) {
+      return true;
+    }
+  } catch (err) {
+    // If config fetch fails, fail open and proceed with normal processing
+  }
+  return false;
 }
 
 /**
@@ -16,6 +35,12 @@ export interface ProcessOutboxOptions {
 export async function processOutboxBatch(
   options: ProcessOutboxOptions = {}
 ): Promise<{ processed: number; sent: number; failed: number; deadLetter: number }> {
+  // Emergency Kill-Switch Check
+  if (await isOutboxProcessingPaused()) {
+    console.warn('[AnalyticsWorker] Processing cycle paused by emergency stop switch');
+    return { processed: 0, sent: 0, failed: 0, deadLetter: 0 };
+  }
+
   const batchSize = options.batchSize ?? 10;
   const workerId = options.workerId ?? `worker_${process.pid}_${Math.random().toString(36).substring(2, 7)}`;
   const leaseDurationMs = options.leaseDurationMs ?? 60000; // 60 seconds lease
@@ -113,28 +138,52 @@ export async function processOutboxBatch(
     // ── Phase 3: Increment Attempt Count & Dispatch ──
     const nextAttemptCount = (claimed.attemptCount || 0) + 1;
 
-    const ga4Payload: GA4PurchasePayload = {
-      client_id: clientId,
-      session_id: payload.attribution?.sessionId ?? undefined,
-      user_id: claimed.payload.attribution?.consentSnapshot?.source ? undefined : undefined,
-      events: [
-        {
-          name: 'purchase',
-          params: {
-            transaction_id: payload.transaction_id,
-            value: payload.value,
-            currency: payload.currency,
-            shipping: payload.shipping,
-            tax: payload.tax,
-            payment_method: payload.payment_method,
-            shipping_county: payload.shipping_county,
-            items: payload.items,
+    let result;
+    if (claimed.eventType === 'refund') {
+      const ga4RefundPayload: GA4RefundPayload = {
+        client_id: clientId,
+        session_id: payload.attribution?.sessionId ?? undefined,
+        events: [
+          {
+            name: 'refund',
+            params: {
+              transaction_id: payload.transaction_id,
+              value: payload.value,
+              currency: payload.currency,
+              shipping: payload.shipping,
+              tax: payload.tax,
+              items: payload.items,
+              is_synthetic: payload.is_synthetic,
+              traffic_type: payload.traffic_type,
+            },
           },
-        },
-      ],
-    };
-
-    const result = await dispatchGA4Purchase(ga4Payload);
+        ],
+      };
+      result = await dispatchGA4Refund(ga4RefundPayload);
+    } else {
+      const ga4Payload: GA4PurchasePayload = {
+        client_id: clientId,
+        session_id: payload.attribution?.sessionId ?? undefined,
+        events: [
+          {
+            name: 'purchase',
+            params: {
+              transaction_id: payload.transaction_id,
+              value: payload.value,
+              currency: payload.currency,
+              shipping: payload.shipping,
+              tax: payload.tax,
+              payment_method: payload.payment_method,
+              shipping_county: payload.shipping_county,
+              items: payload.items,
+              is_synthetic: payload.is_synthetic,
+              traffic_type: payload.traffic_type,
+            },
+          },
+        ],
+      };
+      result = await dispatchGA4Purchase(ga4Payload);
+    }
 
     // ── Phase 4: Atomic Fenced Resolution ──
     await db.runTransaction(async (transaction) => {
