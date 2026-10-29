@@ -65,6 +65,11 @@ jobs:
 
       - name: Deploy Nextn to kind
         run: |
+          kubectl create secret generic nextn-secrets -n app \
+            --from-literal=NEXT_PUBLIC_FIREBASE_API_KEY=test \
+            --from-literal=FIREBASE_PROJECT_ID=zilacart-local || true
+          kubectl create configmap nextn-config -n app \
+            --from-literal=NODE_ENV=production || true
           helm upgrade --install nextn chart/nextn \
             --namespace app \
             --create-namespace \
@@ -73,6 +78,10 @@ jobs:
             --set image.pullPolicy=Never \
             --values - <<EOF
           replicaCount: 2
+          env:
+            NODE_ENV: production
+            FIRESTORE_EMULATOR_HOST: localhost:8080
+            FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
           resources:
             requests:
               cpu: 100m
@@ -177,9 +186,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.9.8
 
       - name: Configure TF env
         run: |
