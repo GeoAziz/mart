@@ -208,8 +208,9 @@ resource "aws_instance" "k3s_master" {
   }
 
   user_data = base64encode(templatefile("${path.module}/k3s-master-init.sh", {
-    k3s_version = var.k3s_version
-    environment = var.environment
+    k3s_version    = var.k3s_version
+    environment    = var.environment
+    admin_password = "admin"
   }))
 
   tags = {
