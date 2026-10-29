@@ -54,9 +54,3 @@ variable "enable_eks" {
   type        = bool
   default     = true
 }
-
-variable "enable_k3s_staging" {
-  description = "Enable k3s staging cluster"
-  type        = bool
-  default     = false
-}
