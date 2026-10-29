@@ -36,16 +36,10 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:latest
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@v1.15.1
         with:
           cluster_name: nextn-chaos
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-              - role: control-plane
-              - role: worker
-              - role: worker
+          config: .github/kind-chaos-config.yaml
 
       - name: Load image into kind
         run: |
