@@ -57,8 +57,9 @@ jobs:
 
       - name: Deploy Helm chart
         run: |
+          LOWER_REPO=$(echo "${{ github.repository_owner }}/${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
           helm upgrade --install nextn chart/nextn -n "${KUBE_NAMESPACE}" --create-namespace \
-            --set image.repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} \
+            --set image.repository=ghcr.io/${LOWER_REPO} \
             --set image.tag=latest \
             --set ingress.host="${STAGING_HOST}" \
             --set ingress.tls.issuer="${CERT_MANAGER_ISSUER}"

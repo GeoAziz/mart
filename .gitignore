@@ -85,4 +85,5 @@ mlops.log
 .localstack-compose.log
 .localstack-host.log
 fix_layout.ps1
+synthetic-ecommerce-dataset/
 .env*
