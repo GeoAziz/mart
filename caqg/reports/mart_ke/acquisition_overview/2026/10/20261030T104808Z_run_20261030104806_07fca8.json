@@ -1,0 +1,66 @@
+{
+  "schema_version": "2.0",
+  "run_id": "run_20261030104806_07fca8",
+  "property_key": "mart_ke",
+  "property_id": "558077199",
+  "report_profile": "acquisition_overview",
+  "date_range": {
+    "start_date": "2026-09-30",
+    "end_date": "2026-10-28",
+    "timezone": "Africa/Nairobi",
+    "is_inclusive": true
+  },
+  "generated_at": "2026-10-30T10:48:08Z",
+  "status": "complete",
+  "pagination": {
+    "requested_offset": 0,
+    "requested_limit": 10000,
+    "expected_total_rows": 3,
+    "accumulated_rows": 3,
+    "is_pagination_complete": true
+  },
+  "quota": {
+    "tokens_consumed": 1.0,
+    "tokens_remaining": 199999.0,
+    "quota_exhausted": false
+  },
+  "provenance": {
+    "config_version": "1.0",
+    "config_hash": "6b05d3e7888bf8f5c1ca32d8d95d8a57f0feedce6eccf9bacf6f8be418384bf8",
+    "ruleset_version": "1.0",
+    "application_version": "0.3.0",
+    "code_revision": null
+  },
+  "headers": [
+    "sessionDefaultChannelGroup",
+    "sessions",
+    "engagedSessions",
+    "engagementRate",
+    "averageSessionDuration"
+  ],
+  "rows": [
+    {
+      "sessionDefaultChannelGroup": "Direct",
+      "sessions": 21,
+      "engagedSessions": 12,
+      "engagementRate": 0.5714285714285714,
+      "averageSessionDuration": 1231.0588305238095
+    },
+    {
+      "sessionDefaultChannelGroup": "Unassigned",
+      "sessions": 4,
+      "engagedSessions": 0,
+      "engagementRate": 0,
+      "averageSessionDuration": 1449.611003
+    },
+    {
+      "sessionDefaultChannelGroup": "Organic Social",
+      "sessions": 1,
+      "engagedSessions": 0,
+      "engagementRate": 0,
+      "averageSessionDuration": 0
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}
