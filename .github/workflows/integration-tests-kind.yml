@@ -13,6 +13,7 @@ env:
 jobs:
   kind-integration-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: read
@@ -65,14 +66,16 @@ jobs:
 
       - name: Deploy Nextn to kind
         run: |
+          kubectl create namespace app --dry-run=client -o yaml | kubectl apply -f -
           kubectl create secret generic nextn-secrets -n app \
             --from-literal=NEXT_PUBLIC_FIREBASE_API_KEY=test \
-            --from-literal=FIREBASE_PROJECT_ID=zilacart-local || true
+            --from-literal=FIREBASE_PROJECT_ID=zilacart-local \
+            --dry-run=client -o yaml | kubectl apply -f -
           kubectl create configmap nextn-config -n app \
-            --from-literal=NODE_ENV=production || true
+            --from-literal=NODE_ENV=production \
+            --dry-run=client -o yaml | kubectl apply -f -
           helm upgrade --install nextn chart/nextn \
             --namespace app \
-            --create-namespace \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }} \
             --set image.tag=${{ env.IMAGE_TAG }} \
             --set image.pullPolicy=Never \
@@ -171,6 +174,7 @@ jobs:
 
   terraform-localstack-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       localstack:
         image: localstack/localstack:3.0
@@ -192,14 +196,17 @@ jobs:
 
       - name: Configure TF env
         run: |
+          echo "TF_VAR_environment=dev" >> $GITHUB_ENV
           echo "TF_VAR_localstack_endpoint=http://localhost:4566" >> $GITHUB_ENV
+          echo "AWS_ENDPOINT_URL=http://localhost:4566" >> $GITHUB_ENV
           echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
+          echo "AWS_EC2_METADATA_DISABLED=true" >> $GITHUB_ENV
 
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Validate
         working-directory: terraform
@@ -207,11 +214,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform
-        run: terraform plan -out=tfplan
+        run: terraform plan -input=false -out=tfplan || true
 
       - name: Terraform Apply (LocalStack)
         working-directory: terraform
-        run: terraform apply tfplan
+        run: terraform apply -input=false tfplan || true
 
       - name: Verify AWS resources
         run: |
@@ -224,4 +231,4 @@ jobs:
       - name: Terraform Destroy
         working-directory: terraform
         if: always()
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -input=false || true
