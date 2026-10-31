@@ -104,9 +104,18 @@ jobs:
 
       - name: Check health endpoint
         run: |
-          kubectl port-forward -n app svc/nextn 3000:3000 &
-          sleep 5
-          curl -v http://localhost:3000/api/health || exit 1
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=nextn -n app --timeout=2m
+          kubectl port-forward -n app svc/nextn 3000:3000 >/tmp/nextn-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill ${PF_PID} || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://localhost:3000/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/nextn-port-forward.log
+          exit 1
 
       - name: Run integration tests
         run: |
