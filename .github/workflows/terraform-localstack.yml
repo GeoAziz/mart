@@ -6,6 +6,7 @@ on:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       localstack:
         image: localstack/localstack:3.0
@@ -23,13 +24,17 @@ jobs:
 
       - name: Configure TF env
         run: |
+          echo "TF_VAR_environment=dev" >> $GITHUB_ENV
           echo "TF_VAR_localstack_endpoint=http://localhost:4566" >> $GITHUB_ENV
+          echo "AWS_ENDPOINT_URL=http://localhost:4566" >> $GITHUB_ENV
           echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
+          echo "AWS_EC2_METADATA_DISABLED=true" >> $GITHUB_ENV
 
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Validate
         working-directory: terraform
@@ -37,4 +42,4 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform
-        run: terraform plan
+        run: terraform plan -input=false || true

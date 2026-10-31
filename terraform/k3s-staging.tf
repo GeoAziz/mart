@@ -27,6 +27,7 @@ variable "k3s_instance_type" {
 
 # Latest Ubuntu 22.04 LTS AMI
 data "aws_ami" "ubuntu" {
+  count       = var.enable_k3s_staging ? 1 : 0
   most_recent = true
   owners      = ["099720109477"] # Canonical
 
@@ -195,7 +196,7 @@ resource "aws_security_group" "k3s_alb" {
 resource "aws_instance" "k3s_master" {
   count = var.enable_k3s_staging ? 1 : 0
 
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = data.aws_ami.ubuntu[0].id
   instance_type          = var.k3s_instance_type
   subnet_id              = aws_subnet.private[0].id
   iam_instance_profile   = aws_iam_instance_profile.k3s_node_profile[0].name
@@ -226,7 +227,7 @@ resource "aws_instance" "k3s_master" {
 resource "aws_instance" "k3s_worker" {
   count = var.enable_k3s_staging ? var.k3s_node_count - 1 : 0
 
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = data.aws_ami.ubuntu[0].id
   instance_type          = var.k3s_instance_type
   subnet_id              = aws_subnet.private[count.index % 2].id
   iam_instance_profile   = aws_iam_instance_profile.k3s_node_profile[0].name
