@@ -105,13 +105,18 @@ jobs:
       - name: Check health endpoint
         run: |
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=nextn -n app --timeout=2m
-          kubectl port-forward -n app svc/nextn 3000:3000 >/tmp/nextn-port-forward.log 2>&1 &
-          PF_PID=$!
-          trap 'kill ${PF_PID} || true' EXIT
+          POD_NAME=$(kubectl get pods -n app -l app.kubernetes.io/instance=nextn \
+            -o jsonpath='{.items[0].metadata.name}')
           for attempt in {1..30}; do
+            kubectl port-forward -n app pod/${POD_NAME} 3000:3000 \
+              >/tmp/nextn-port-forward.log 2>&1 &
+            PF_PID=$!
+            sleep 1
             if curl -fsS http://localhost:3000/api/health; then
+              kill ${PF_PID} || true
               exit 0
             fi
+            kill ${PF_PID} || true
             sleep 2
           done
           cat /tmp/nextn-port-forward.log
