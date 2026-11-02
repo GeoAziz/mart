@@ -8,11 +8,11 @@ This runbook documents operational procedures for Google Analytics 4 (GA4) track
 
 * **Production / Primary Store**: `mart_ke`
 * **GA4 Property ID**: `558077199`
-* **Measurement ID**: `G-09S1NJ6W15` (Web Stream / Firebase App `mart-ke`)
+* **Measurement ID**: `G-LGGM0XDZJ9` (Web Stream `mart-ke`)
 * **Secret Parameter**: `GA4_API_SECRET`
 * **Reporting Timezone**: `Africa/Nairobi`
 
-All client-side tracking (`GoogleAnalytics.tsx`), background outbox dispatches (`analytics-worker.ts`), and synthetic journey simulations (`simulate-multiuser-journey.ts`) MUST direct events to `G-09S1NJ6W15`.
+All client-side tracking (`GoogleAnalytics.tsx`), background outbox dispatches (`analytics-worker.ts`), and synthetic journey simulations (`simulate-multiuser-journey.ts`) MUST direct events to `G-LGGM0XDZJ9`.
 
 ---
 
