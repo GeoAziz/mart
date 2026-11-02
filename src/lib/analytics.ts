@@ -4,8 +4,6 @@
  * with in-memory deduplication and privacy safeguards.
  */
 
-import { analytics } from '@/lib/firebase-client';
-import { logEvent as firebaseLogEvent } from 'firebase/analytics';
 import type { AttributionContext, ConsentSnapshot, GA4Item } from '@/lib/analytics-types';
 
 declare global {
@@ -93,8 +91,11 @@ export function getAttributionContext(): AttributionContext {
     };
   }
 
-  // 1. Extract client_id from _ga cookie (format: GA1.1.123456789.1700000000)
+  // 1. Prefer gtag get API if available
   let clientId: string | null = null;
+  let sessionId: number | null = null;
+
+  // Primary extract: client_id from _ga cookie (format: GA1.1.123456789.1700000000)
   const match = document.cookie.match(/(?:^|; )_ga=([^;]*)/);
   if (match && match[1]) {
     const parts = match[1].split('.');
@@ -105,8 +106,7 @@ export function getAttributionContext(): AttributionContext {
     }
   }
 
-  // 2. Extract numeric session_id from _ga_<CONTAINER_ID> (format: GS1.1.1710000000.1.1...)
-  let sessionId: number | null = null;
+  // Primary extract: numeric session_id from _ga_<CONTAINER_ID> (format: GS1.1.1710000000.1.1...)
   const sessionMatch = document.cookie.match(/(?:^|; )_ga_[A-Z0-9]+=([^;]*)/);
   if (sessionMatch && sessionMatch[1]) {
     const parts = sessionMatch[1].split('.');
@@ -133,7 +133,8 @@ export function getAttributionContext(): AttributionContext {
 const recentEvents = new Set<string>();
 
 /**
- * Dispatches a client-side event to gtag & Firebase with deduplication.
+ * Dispatches a client-side event to gtag with deduplication.
+ * Standardized exclusively on gtag to prevent dual-logging with Firebase SDK.
  */
 export function trackClientEvent(
   eventName: string,
@@ -155,16 +156,9 @@ export function trackClientEvent(
     setTimeout(() => recentEvents.delete(dedupKey), 3000);
   }
 
-  // Dispatch to gtag
+  // Dispatch exclusively to window.gtag
   if (typeof window.gtag === 'function') {
     window.gtag('event', eventName, eventParams);
-  }
-
-  // Dispatch to Firebase SDK if initialized
-  if (analytics) {
-    try {
-      firebaseLogEvent(analytics, eventName, eventParams);
-    } catch (err) {}
   }
 }
 

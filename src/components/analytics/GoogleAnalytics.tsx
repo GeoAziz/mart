@@ -26,7 +26,7 @@ function PageViewTracker({ gaId }: { gaId: string }) {
     const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
 
     if (typeof window.gtag === 'function') {
-      window.gtag('event', 'page_view', {
+      window.gtag('config', gaId, {
         page_location: window.location.href,
         page_path: url,
         page_title: document.title,
@@ -72,6 +72,5 @@ export default function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps)
     </>
   );
 }
-
 
 

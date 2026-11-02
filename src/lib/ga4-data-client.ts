@@ -47,7 +47,7 @@ export interface GA4ReportQuery {
  * Runs a report against the GA4 Data API v1beta
  */
 export async function runGA4Report(query: GA4ReportQuery): Promise<any> {
-  const propertyId = query.propertyId || process.env.GA_PROPERTY_ID || '559293834';
+  const propertyId = query.propertyId || process.env.GA_PROPERTY_ID || '558077199';
   const client = await getAuthClient();
 
   const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
@@ -133,4 +133,3 @@ export async function getVendorGA4Metrics(vendorId: string, days = 7) {
     };
   }
 }
-

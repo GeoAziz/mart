@@ -45,6 +45,7 @@ jobs:
         env:
           NODE_ENV: development
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
           FIREBASE_PROJECT_ID: 'mart-ke'
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
           NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
@@ -55,4 +56,3 @@ jobs:
       - name: Clean up sensitive files
         if: always()
         run: rm -f serviceAccountKey.json
-
