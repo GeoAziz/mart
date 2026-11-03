@@ -66,7 +66,7 @@ jobs:
         run: npm run sim:cost-data
 
       - name: Archive Cost Data Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ga4-cost-data-csv
           path: data/ga4_cost_data.csv
