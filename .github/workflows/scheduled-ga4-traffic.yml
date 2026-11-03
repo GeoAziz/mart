@@ -55,6 +55,23 @@ jobs:
           SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
         run: npm run sim:shopping
 
+      - name: Dispatch Offline Conversions (Measurement Protocol)
+        env:
+          ALLOW_PRODUCTION_SIMULATION: 'true'
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET || 'UmmBmlwgRVa-GjjiCy8miw' }}
+        run: npm run sim:offline-conversions
+
+      - name: Generate Non-Google Ad Cost Data (Simulation Unlocker)
+        run: npm run sim:cost-data
+
+      - name: Archive Cost Data Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ga4-cost-data-csv
+          path: data/ga4_cost_data.csv
+          retention-days: 7
+
       - name: Clean up sensitive files
         if: always()
         run: rm -f serviceAccountKey.json

@@ -59,6 +59,9 @@ export interface GA4PurchasePayload {
         items: GA4Item[];
         is_synthetic?: number;
         traffic_type?: string;
+        campaign?: string;
+        source?: string;
+        medium?: string;
       };
     }
   ];
@@ -83,6 +86,9 @@ export interface GA4RefundPayload {
         items?: GA4Item[];
         is_synthetic?: number;
         traffic_type?: string;
+        campaign?: string;
+        source?: string;
+        medium?: string;
       };
     }
   ];
@@ -147,6 +153,9 @@ export interface AnalyticsOutboxRecord {
     attribution?: AttributionContext;
     is_synthetic?: number;
     traffic_type?: string;
+    campaign?: string;
+    source?: string;
+    medium?: string;
   };
 }
 

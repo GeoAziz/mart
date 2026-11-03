@@ -27,6 +27,8 @@
     "worker:reservation-expiry": "tsx src/scripts/workers/reservation-expiry.ts",
     "worker:analytics": "tsx -e \"import { startAnalyticsOutboxWorker } from '@/lib/analytics-worker'; startAnalyticsOutboxWorker()\"",
     "sim:shopping": "tsx src/scripts/simulate-multiuser-journey.ts",
+    "sim:cost-data": "tsx src/scripts/generate-mock-cost-data.ts",
+    "sim:offline-conversions": "tsx src/scripts/feed-offline-conversions.ts",
     "queue:orders": "tsx -e \"import { startOrderWorker } from '@/lib/queue-service'; startOrderWorker()\"",
     "queue:products": "tsx -e \"import { startProductWorker } from '@/lib/queue-service'; startProductWorker()\"",
     "queue:payments": "tsx -e \"import { startPaymentWorker } from '@/lib/queue-service'; startPaymentWorker()\"",

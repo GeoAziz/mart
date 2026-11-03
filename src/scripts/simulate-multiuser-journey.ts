@@ -22,8 +22,26 @@ import type { VerifiedPaymentResult } from '@/lib/analytics-types';
 
 const COUNTIES = ['Nairobi', 'Mombasa', 'Kiambu', 'Kisumu', 'Nakuru'];
 
+// Paid non-Google channels aligned with GA4 cost data import schema
+export const CAMPAIGN_TRAFFIC_MIX = [
+  { source: 'facebook', medium: 'cpc', campaign: 'nairobi_electronics_promo', weight: 0.35 },
+  { source: 'linkedin', medium: 'cpc', campaign: 'b2b_tech_kenya', weight: 0.20 },
+  { source: 'tiktok', medium: 'paid_social', campaign: 'viral_audio_gear', weight: 0.25 },
+  { source: 'direct', medium: 'none', campaign: 'direct_organic', weight: 0.20 },
+];
+
 function getRandomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getWeightedCampaign() {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const item of CAMPAIGN_TRAFFIC_MIX) {
+    cumulative += item.weight;
+    if (rand <= cumulative) return item;
+  }
+  return CAMPAIGN_TRAFFIC_MIX[0];
 }
 
 async function runMultiUserSimulation() {
@@ -77,6 +95,7 @@ async function runMultiUserSimulation() {
     const clientId = `100${i}.${Math.floor(Date.now() / 1000) + i}`;
     const sessionId = Math.floor(Date.now() / 1000) + i;
     const county = getRandomItem(COUNTIES);
+    const campaignInfo = getWeightedCampaign();
 
     // Pick 1-3 random products
     const selectedProducts = [getRandomItem(catalog)];
@@ -107,11 +126,14 @@ async function runMultiUserSimulation() {
               items: gaItems,
               is_synthetic: 1,
               traffic_type: 'simulated',
+              campaign: campaignInfo.campaign,
+              source: campaignInfo.source,
+              medium: campaignInfo.medium,
             },
           },
         ],
       }).catch((err) => console.warn(`[Browser GA4 Error] ${err.message}`));
-      console.log(`👤 [Browser] ${customer.email || customerId} viewed ${selectedProducts.map((p) => p.name).join(', ')}`);
+      console.log(`👤 [Browser] ${customer.email || customerId} (${campaignInfo.source}/${campaignInfo.medium}) viewed ${selectedProducts.map((p) => p.name).join(', ')}`);
     } else if (rand < 0.60) {
       // ── Persona 2: Cart Abandoner ──
       cartAbandonCount++;
@@ -135,6 +157,9 @@ async function runMultiUserSimulation() {
               items: [cartItem],
               is_synthetic: 1,
               traffic_type: 'simulated',
+              campaign: campaignInfo.campaign,
+              source: campaignInfo.source,
+              medium: campaignInfo.medium,
             },
           },
           {
@@ -147,11 +172,14 @@ async function runMultiUserSimulation() {
               items: [cartItem],
               is_synthetic: 1,
               traffic_type: 'simulated',
+              campaign: campaignInfo.campaign,
+              source: campaignInfo.source,
+              medium: campaignInfo.medium,
             },
           },
         ],
       }).catch((err) => console.warn(`[CartAbandon GA4 Error] ${err.message}`));
-      console.log(`🛒 [Cart Abandoner] ${customer.email || customerId} added ${selectedProducts[0].name} to cart and left`);
+      console.log(`🛒 [Cart Abandoner] ${customer.email || customerId} (${campaignInfo.source}/${campaignInfo.medium}) added ${selectedProducts[0].name} to cart and left`);
     } else if (rand < 0.75) {
       // ── Persona 3: Checkout Abandoner ──
       checkoutAbandonCount++;
@@ -176,11 +204,14 @@ async function runMultiUserSimulation() {
               items: checkoutItems,
               is_synthetic: 1,
               traffic_type: 'simulated',
+              campaign: campaignInfo.campaign,
+              source: campaignInfo.source,
+              medium: campaignInfo.medium,
             },
           },
         ],
       }).catch((err) => console.warn(`[CheckoutAbandon GA4 Error] ${err.message}`));
-      console.log(`📋 [Checkout Abandoner] ${customer.email || customerId} reached Checkout (${county}) and dropped`);
+      console.log(`📋 [Checkout Abandoner] ${customer.email || customerId} (${campaignInfo.source}/${campaignInfo.medium}) reached Checkout (${county}) and dropped`);
     } else {
       // ── Persona 4: Confirmed Purchaser ──
       purchaseCount++;
@@ -233,6 +264,9 @@ async function runMultiUserSimulation() {
             clientId,
             sessionId,
             capturedAt: new Date().toISOString(),
+            campaign: campaignInfo.campaign,
+            source: campaignInfo.source,
+            medium: campaignInfo.medium,
             consentSnapshot: {
               analyticsStorage: 'granted',
               consentTimestamp: new Date().toISOString(),

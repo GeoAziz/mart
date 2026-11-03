@@ -96,6 +96,9 @@ export function buildOutboxRecord(
       attribution,
       is_synthetic: (order as any).is_synthetic ? 1 : undefined,
       traffic_type: (order as any).traffic_type || undefined,
+      campaign: (order as any).campaign || (attribution as any)?.campaign || undefined,
+      source: (order as any).source || (attribution as any)?.source || undefined,
+      medium: (order as any).medium || (attribution as any)?.medium || undefined,
     },
   };
 }
@@ -152,6 +155,9 @@ export function buildRefundOutboxRecord(
       attribution,
       is_synthetic: (order as any).is_synthetic ? 1 : undefined,
       traffic_type: (order as any).traffic_type || undefined,
+      campaign: (order as any).campaign || (attribution as any)?.campaign || undefined,
+      source: (order as any).source || (attribution as any)?.source || undefined,
+      medium: (order as any).medium || (attribution as any)?.medium || undefined,
     },
   };
 }
