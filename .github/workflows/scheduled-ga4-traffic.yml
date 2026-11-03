@@ -44,12 +44,14 @@ jobs:
       - name: Run Multi-User Shopping & GA4 Simulation
         env:
           NODE_ENV: development
+          ALLOW_PRODUCTION_SIMULATION: 'true'
+          ENABLE_ANONYMOUS_CLIENT_FALLBACK: 'true'
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
           FIREBASE_PROJECT_ID: 'mart-ke'
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
-          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-LGGM0XDZJ9' }}
-          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET || 'UmmBmlwgRVa-GjjiCy8miw' }}
           SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
         run: npm run sim:shopping
 

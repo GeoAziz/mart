@@ -1,6 +1,8 @@
 import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 import { dispatchGA4Purchase, dispatchGA4Refund } from '@/lib/analytics-server';
+import { getClock } from '@/lib/clock';
+import { trackAnalyticsDispatched, trackAnalyticsFailure } from '@/lib/metrics';
 import type { AnalyticsOutboxRecord, GA4PurchasePayload, GA4RefundPayload } from '@/lib/analytics-types';
 
 export interface ProcessOutboxOptions {
@@ -42,9 +44,10 @@ export async function processOutboxBatch(
   }
 
   const batchSize = options.batchSize ?? 10;
+  const clock = getClock();
   const workerId = options.workerId ?? `worker_${process.pid}_${Math.random().toString(36).substring(2, 7)}`;
   const leaseDurationMs = options.leaseDurationMs ?? 60000; // 60 seconds lease
-  const now = admin.firestore.Timestamp.now();
+  const now = admin.firestore.Timestamp.fromMillis(clock.now());
 
   const outboxCol = db.collection('analytics_outbox');
 
@@ -83,7 +86,8 @@ export async function processOutboxBatch(
   let deadLetter = 0;
 
   for (const doc of candidateDocs) {
-    const leaseId = `lease_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const nowEpoch = clock.now();
+    const leaseId = `lease_${nowEpoch}_${Math.random().toString(36).substring(2, 7)}`;
     const recordRef = doc.ref;
 
     // ── Phase 1: Atomic Claim with Lease Fencing ──
@@ -95,11 +99,11 @@ export async function processOutboxBatch(
       // Ensure still claimable
       const isClaimable =
         rec.status === 'pending' ||
-        (rec.status === 'processing' && rec.leaseExpiresAt && rec.leaseExpiresAt.toMillis() <= Date.now());
+        (rec.status === 'processing' && rec.leaseExpiresAt && rec.leaseExpiresAt.toMillis() <= nowEpoch);
 
       if (!isClaimable) return null;
 
-      const leaseExpiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + leaseDurationMs);
+      const leaseExpiresAt = admin.firestore.Timestamp.fromMillis(nowEpoch + leaseDurationMs);
 
       transaction.update(recordRef, {
         status: 'processing',
@@ -139,14 +143,20 @@ export async function processOutboxBatch(
     const nextAttemptCount = (claimed.attemptCount || 0) + 1;
 
     let result;
+    const sessionId = payload.attribution?.sessionId ?? undefined;
+    const debugMode = process.env.GA4_DEBUG_MODE === 'true' ? 1 : undefined;
+
     if (claimed.eventType === 'refund') {
       const ga4RefundPayload: GA4RefundPayload = {
         client_id: clientId,
-        session_id: payload.attribution?.sessionId ?? undefined,
+        session_id: sessionId,
         events: [
           {
             name: 'refund',
             params: {
+              session_id: sessionId,
+              engagement_time_msec: 1000,
+              debug_mode: debugMode,
               transaction_id: payload.transaction_id,
               value: payload.value,
               currency: payload.currency,
@@ -163,11 +173,14 @@ export async function processOutboxBatch(
     } else {
       const ga4Payload: GA4PurchasePayload = {
         client_id: clientId,
-        session_id: payload.attribution?.sessionId ?? undefined,
+        session_id: sessionId,
         events: [
           {
             name: 'purchase',
             params: {
+              session_id: sessionId,
+              engagement_time_msec: 1000,
+              debug_mode: debugMode,
               transaction_id: payload.transaction_id,
               value: payload.value,
               currency: payload.currency,
@@ -199,6 +212,7 @@ export async function processOutboxBatch(
 
       if (result.accepted) {
         sent++;
+        trackAnalyticsDispatched(claimed.eventType);
         transaction.update(recordRef, {
           status: 'sent',
           sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -213,6 +227,7 @@ export async function processOutboxBatch(
         const isExhausted = nextAttemptCount >= (claimed.maxAttempts || 5);
         if (isExhausted || !result.isTransient) {
           deadLetter++;
+          trackAnalyticsFailure(claimed.eventType, 'dead_letter');
           transaction.update(recordRef, {
             status: 'dead_letter',
             attemptCount: nextAttemptCount,
@@ -226,9 +241,10 @@ export async function processOutboxBatch(
           });
         } else {
           failed++;
+          trackAnalyticsFailure(claimed.eventType, 'retry');
           // Exponential backoff with jitter: 2^attempt * 1000ms + random(0, 1000ms)
           const backoffMs = Math.pow(2, nextAttemptCount) * 1000 + Math.floor(Math.random() * 1000);
-          const nextAttemptAt = admin.firestore.Timestamp.fromMillis(Date.now() + backoffMs);
+          const nextAttemptAt = admin.firestore.Timestamp.fromMillis(clock.now() + backoffMs);
 
           transaction.update(recordRef, {
             status: 'pending',

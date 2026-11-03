@@ -133,3 +133,24 @@ export function trackExternalApiCall(
 export function updateQueueDepth(queueName: string, depth: number) {
   queueDepth.labels(queueName).set(depth);
 }
+
+// Analytics outbox and Measurement Protocol metrics
+export const analyticsEventsDispatched = new client.Counter({
+  name: 'analytics_events_dispatched_total',
+  help: 'Total events successfully dispatched to GA4 Measurement Protocol',
+  labelNames: ['event_type'],
+});
+
+export const analyticsOutboxFailures = new client.Counter({
+  name: 'analytics_outbox_failures_total',
+  help: 'Total analytics outbox failures and dead-letter records',
+  labelNames: ['event_type', 'status'], // status: 'retry' | 'dead_letter'
+});
+
+export function trackAnalyticsDispatched(eventType: string) {
+  analyticsEventsDispatched.labels(eventType).inc();
+}
+
+export function trackAnalyticsFailure(eventType: string, status: 'retry' | 'dead_letter') {
+  analyticsOutboxFailures.labels(eventType, status).inc();
+}

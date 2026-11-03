@@ -24,12 +24,14 @@ function PageViewTracker({ gaId }: { gaId: string }) {
     }
 
     const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
+    const isDebug = process.env.NEXT_PUBLIC_GA_DEBUG_MODE === 'true';
 
     if (typeof window.gtag === 'function') {
       window.gtag('config', gaId, {
         page_location: window.location.href,
         page_path: url,
         page_title: document.title,
+        ...(isDebug ? { debug_mode: true } : {}),
       });
     }
   }, [pathname, searchParams, gaId]);
@@ -44,6 +46,8 @@ export default function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps)
     process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
 
   if (!gaId) return null;
+
+  const isDebug = process.env.NEXT_PUBLIC_GA_DEBUG_MODE === 'true';
 
   return (
     <>
@@ -64,7 +68,7 @@ export default function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps)
             gtag('js', new Date());
             gtag('config', '${gaId}', {
               page_path: window.location.pathname,
-              send_page_view: true
+              send_page_view: true${isDebug ? ',\n              debug_mode: true' : ''}
             });
           `,
         }}

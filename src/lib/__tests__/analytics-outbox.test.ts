@@ -115,6 +115,7 @@ describe('buildOutboxRecord & Valuation Rules', () => {
   });
 
   it('sets status to suppressed with missing_client_id when clientId is absent', () => {
+    delete process.env.ENABLE_ANONYMOUS_CLIENT_FALLBACK;
     const orderWithNoClient: Order = {
       ...baseOrder,
       paymentDetails: {
@@ -136,5 +137,32 @@ describe('buildOutboxRecord & Valuation Rules', () => {
 
     expect(record.status).toBe('suppressed');
     expect(record.suppressionReason).toBe('missing_client_id');
+  });
+
+  it('generates fallback client ID when ENABLE_ANONYMOUS_CLIENT_FALLBACK is true', () => {
+    process.env.ENABLE_ANONYMOUS_CLIENT_FALLBACK = 'true';
+    const orderWithNoClient: Order = {
+      ...baseOrder,
+      paymentDetails: {
+        attribution: {
+          clientId: null,
+          sessionId: null,
+          capturedAt: new Date().toISOString(),
+          consentSnapshot: {
+            analyticsStorage: 'granted',
+            consentTimestamp: new Date().toISOString(),
+            policyVersion: '2026.1',
+            source: 'cookie_banner',
+          },
+        },
+      },
+    };
+
+    const record = buildOutboxRecord('ORD_999', orderWithNoClient, basePayment);
+
+    expect(record.status).toBe('pending');
+    expect(record.suppressionReason).toBeUndefined();
+    expect(record.payload.attribution?.clientId).toMatch(/^anon_/);
+    delete process.env.ENABLE_ANONYMOUS_CLIENT_FALLBACK;
   });
 });

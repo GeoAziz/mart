@@ -53,6 +53,9 @@ export interface GA4PurchasePayload {
         tax?: number;
         payment_method?: string; // e.g. "mpesa", "stripe", "paypal"
         shipping_county?: string;
+        session_id?: number;
+        engagement_time_msec?: number;
+        debug_mode?: number;
         items: GA4Item[];
         is_synthetic?: number;
         traffic_type?: string;
@@ -74,6 +77,9 @@ export interface GA4RefundPayload {
         currency: string;
         shipping?: number;
         tax?: number;
+        session_id?: number;
+        engagement_time_msec?: number;
+        debug_mode?: number;
         items?: GA4Item[];
         is_synthetic?: number;
         traffic_type?: string;
@@ -85,6 +91,18 @@ export interface GA4RefundPayload {
 // ────────────────────────────────────────────────────────────
 // Transactional Outbox Schema (Firestore: analytics_outbox)
 // ────────────────────────────────────────────────────────────
+
+export interface GA4GenericEvent {
+  name: string;
+  params: Record<string, any>;
+}
+
+export interface GA4EventStreamPayload {
+  client_id: string;
+  session_id?: number;
+  user_id?: string;
+  events: GA4GenericEvent[];
+}
 
 export type OutboxStatus =
   | 'pending'

@@ -153,6 +153,9 @@ export interface Order {
   actualDeliveryDate?: Date;
   trackingNumber?: string;
   courierName?: string;
+  reservationExpiresAt?: Timestamp | Date;
+  is_synthetic?: number;
+  traffic_type?: string;
 }
 
 // Per-vendor split of a parent Order. One document per vendor that contributed

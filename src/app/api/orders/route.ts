@@ -14,6 +14,8 @@ import { computeVendorOrderSplits, groupItemsByVendor, type VendorSplitContext }
 import { enqueueOrder } from '@/lib/queue-service';
 import { publishWSEvent } from '@/lib/ws-events';
 import { trackOrderCreated, trackDbQuery } from '@/lib/metrics';
+import { getClock } from '@/lib/clock';
+import { RESERVATION_TTL_MS } from '@/lib/transaction-service';
 
 function mapOrderDocument(doc: FirebaseFirestore.DocumentSnapshot): Order {
   const data = doc.data() as Omit<Order, 'id'>;
@@ -161,6 +163,10 @@ async function createOrderHandler(req: AuthenticatedRequest) {
       const shippingCost = subtotalAfterDiscount > 5000 ? 0 : 500;
       const totalAmount = subtotalAfterDiscount + calculatedTaxAmount + shippingCost;
 
+      const clock = getClock();
+      const currentNow = new Date(clock.now());
+      const reservationExpiresAt = admin.firestore.Timestamp.fromMillis(clock.now() + RESERVATION_TTL_MS);
+
       const newOrderData: Omit<Order, 'id'> = {
         userId: authenticatedUser.uid,
         userFullName: authenticatedUser.fullName,
@@ -169,9 +175,10 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         shippingAddress: validated.shippingAddress as ShippingAddress,
         paymentMethod: validated.paymentMethod,
         status: 'pending',
+        reservationExpiresAt,
         statusHistory: [{
           status: 'pending',
-          timestamp: new Date(),
+          timestamp: currentNow,
           note: 'Order created',
           updatedBy: authenticatedUser.uid
         }],
@@ -181,10 +188,10 @@ async function createOrderHandler(req: AuthenticatedRequest) {
         totalAmount,
         promotionCode: validated.promotionCode,
         discountAmount,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: currentNow,
+        updatedAt: currentNow,
         vendorIds: Array.from(orderVendorIdsSet),
-        estimatedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        estimatedDeliveryDate: new Date(clock.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       };
 
       // Remove undefined fields to avoid Firestore errors

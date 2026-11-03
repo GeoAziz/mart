@@ -4,7 +4,7 @@
  * Features strict debug endpoint validation and non-2xx error classification.
  */
 
-import type { GA4PurchasePayload, GA4RefundPayload } from '@/lib/analytics-types';
+import type { GA4PurchasePayload, GA4RefundPayload, GA4EventStreamPayload } from '@/lib/analytics-types';
 
 export interface DispatchResult {
   accepted: boolean;
@@ -22,7 +22,7 @@ export interface DispatchOptions {
 }
 
 async function dispatchGA4Event(
-  payload: GA4PurchasePayload | GA4RefundPayload,
+  payload: GA4PurchasePayload | GA4RefundPayload | GA4EventStreamPayload,
   options: DispatchOptions = {}
 ): Promise<DispatchResult> {
   const measurementId =
@@ -133,11 +133,25 @@ export async function dispatchGA4Purchase(
 /**
  * Validates and dispatches a GA4 Refund event.
  */
+/**
+ * Validates and dispatches a GA4 Refund event.
+ */
 export async function dispatchGA4Refund(
   payload: GA4RefundPayload,
   options: DispatchOptions = {}
 ): Promise<DispatchResult> {
   return dispatchGA4Event(payload, options);
 }
+
+/**
+ * Validates and dispatches a batch of events or generic GA4 stream payload via Measurement Protocol.
+ */
+export async function dispatchGA4EventBatch(
+  payload: GA4EventStreamPayload,
+  options: DispatchOptions = {}
+): Promise<DispatchResult> {
+  return dispatchGA4Event(payload, options);
+}
+
 
 

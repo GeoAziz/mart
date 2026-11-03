@@ -3,6 +3,9 @@ import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import { ApiError, ErrorCodes } from '@/lib/api-errors';
 import type { Order, OrderItem, LedgerEntry, Promotion } from '@/lib/types';
 import { computeVendorOrderSplits, groupItemsByVendor, type VendorSplitContext } from '@/lib/vendor-order-split';
+import { getClock } from '@/lib/clock';
+
+export const RESERVATION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 interface OrderTransactionData {
   order: Omit<Order, 'id'>;
@@ -29,6 +32,8 @@ export async function createOrderTransaction(
   return new Promise((resolve, reject) => {
     const batch = db.batch();
     const orderId = db.collection('orders').doc().id;
+    const clock = getClock();
+    const reservationExpiresAt = admin.firestore.Timestamp.fromMillis(clock.now() + RESERVATION_TTL_MS);
 
     try {
       // 1. Add order document
@@ -36,6 +41,7 @@ export async function createOrderTransaction(
       batch.set(orderRef, {
         ...transactionData.order,
         id: orderId,
+        reservationExpiresAt,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -299,3 +305,63 @@ export async function reconcilePayouts(vendorId: string): Promise<void> {
     );
   }
 }
+
+/**
+ * Checks an order for expired inventory reservation.
+ * If expired and still pending/payment_pending, transitions status to 'cancelled'
+ * and restores product stock while decrementing reserved inventory.
+ */
+export async function releaseExpiredOrderReservation(orderId: string): Promise<{ released: boolean; reason?: string }> {
+  return db.runTransaction(async (transaction) => {
+    const orderRef = db.collection('orders').doc(orderId);
+    const orderSnap = await transaction.get(orderRef);
+
+    if (!orderSnap.exists) {
+      return { released: false, reason: 'order_not_found' };
+    }
+
+    const order = orderSnap.data() as Order;
+    const now = getClock().now();
+
+    if (order.status !== 'pending' && order.status !== 'payment_pending') {
+      return { released: false, reason: 'order_not_in_reservable_state' };
+    }
+
+    let expiresAtMs = 0;
+    if (order.reservationExpiresAt) {
+      if (typeof (order.reservationExpiresAt as any).toMillis === 'function') {
+        expiresAtMs = (order.reservationExpiresAt as any).toMillis();
+      } else if (order.reservationExpiresAt instanceof Date) {
+        expiresAtMs = order.reservationExpiresAt.getTime();
+      }
+    }
+
+    if (!expiresAtMs || now < expiresAtMs) {
+      return { released: false, reason: 'reservation_not_expired' };
+    }
+
+    // Reservation is expired! Cancel order and restore product stock
+    transaction.update(orderRef, {
+      status: 'cancelled',
+      cancellationReason: 'reservation_expired',
+      statusHistory: admin.firestore.FieldValue.arrayUnion({
+        status: 'cancelled',
+        timestamp: admin.firestore.Timestamp.fromMillis(now),
+        note: 'Order reservation expired before payment confirmation',
+      }),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    for (const item of order.items || []) {
+      const productRef = db.collection('products').doc(item.productId);
+      transaction.update(productRef, {
+        stock: admin.firestore.FieldValue.increment(item.quantity),
+        reserved: admin.firestore.FieldValue.increment(-item.quantity),
+        lastInventoryUpdate: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    return { released: true };
+  });
+}
+

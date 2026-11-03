@@ -14,8 +14,16 @@ async function getAuthClient() {
 
   // Resolve credentials file path
   const explicitPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  const defaultPath = path.resolve(process.cwd(), 'mart-ke-512403-780e42763b1b.json');
-  const credPath = explicitPath && fs.existsSync(explicitPath) ? explicitPath : (fs.existsSync(defaultPath) ? defaultPath : null);
+  const legacyPath = path.resolve(process.cwd(), 'mart-ke-512403-780e42763b1b.json');
+  const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
+  const credPath =
+    explicitPath && fs.existsSync(explicitPath)
+      ? explicitPath
+      : fs.existsSync(serviceAccountPath)
+        ? serviceAccountPath
+        : fs.existsSync(legacyPath)
+          ? legacyPath
+          : null;
 
   if (credPath) {
     const auth = new GoogleAuth({

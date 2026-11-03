@@ -18,13 +18,13 @@ from bs4 import BeautifulSoup
 class TestGA4VerificationHarness(unittest.TestCase):
 
     def test_measurement_id_contract(self):
-        """Validates that environment files and configs standardize on G-LGGM0XDZJ9."""
+        """Validates that environment files and configs standardize on G-09S1NJ6W15."""
         with open('.env', 'r') as f:
             env_content = f.read()
 
-        self.assertIn('NEXT_PUBLIC_GA_MEASUREMENT_ID=G-LGGM0XDZJ9', env_content)
-        self.assertIn('GA4_MEASUREMENT_ID=G-LGGM0XDZJ9', env_content)
-        self.assertIn('NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-LGGM0XDZJ9', env_content)
+        self.assertIn('NEXT_PUBLIC_GA_MEASUREMENT_ID=G-09S1NJ6W15', env_content)
+        self.assertIn('GA4_MEASUREMENT_ID=G-09S1NJ6W15', env_content)
+        self.assertIn('NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-09S1NJ6W15', env_content)
 
     def test_client_id_regex_extractor(self):
         """Validates GA4 client_id and session_id parsing rules matching getAttributionContext()."""
@@ -44,7 +44,7 @@ class TestGA4VerificationHarness(unittest.TestCase):
 
     def test_measurement_protocol_debug_endpoint(self):
         """Validates that the GA4 debug endpoint accepts the unified payload with zero validation errors."""
-        url = "https://www.google-analytics.com/debug/mp/collect?measurement_id=G-LGGM0XDZJ9&api_secret=Clo7FqE6RAKzmIA8ZnQjYQ"
+        url = "https://www.google-analytics.com/debug/mp/collect?measurement_id=G-09S1NJ6W15&api_secret=UmmBmlwgRVa-GjjiCy8miw"
         payload = {
             "client_id": "123456789.1762080000",
             "events": [

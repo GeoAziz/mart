@@ -16,9 +16,9 @@ dotenv.config();
 
 import { confirmOrderAndRecordPurchaseTransaction } from '@/lib/analytics-outbox';
 import { processOutboxBatch } from '@/lib/analytics-worker';
-import { dispatchGA4Purchase } from '@/lib/analytics-server';
+import { dispatchGA4EventBatch } from '@/lib/analytics-server';
 import type { Order, OrderItem } from '@/lib/types';
-import type { VerifiedPaymentResult, GA4PurchasePayload } from '@/lib/analytics-types';
+import type { VerifiedPaymentResult } from '@/lib/analytics-types';
 
 const COUNTIES = ['Nairobi', 'Mombasa', 'Kiambu', 'Kisumu', 'Nakuru'];
 
@@ -88,14 +88,98 @@ async function runMultiUserSimulation() {
     if (rand < 0.30) {
       // ── Persona 1: Casual Browser ──
       browsersCount++;
+      const gaItems = selectedProducts.map((p) => ({
+        item_id: p.id,
+        item_name: p.name,
+        price: Number(p.price) || 1500,
+        quantity: 1,
+      }));
+      await dispatchGA4EventBatch({
+        client_id: clientId,
+        events: [
+          {
+            name: 'view_item',
+            params: {
+              session_id: sessionId,
+              engagement_time_msec: 1500,
+              currency: 'KES',
+              value: gaItems.reduce((acc, it) => acc + it.price, 0),
+              items: gaItems,
+              is_synthetic: 1,
+              traffic_type: 'simulated',
+            },
+          },
+        ],
+      }).catch((err) => console.warn(`[Browser GA4 Error] ${err.message}`));
       console.log(`👤 [Browser] ${customer.email || customerId} viewed ${selectedProducts.map((p) => p.name).join(', ')}`);
     } else if (rand < 0.60) {
       // ── Persona 2: Cart Abandoner ──
       cartAbandonCount++;
+      const firstProduct = selectedProducts[0];
+      const cartItem = {
+        item_id: firstProduct.id,
+        item_name: firstProduct.name,
+        price: Number(firstProduct.price) || 1500,
+        quantity: 1,
+      };
+      await dispatchGA4EventBatch({
+        client_id: clientId,
+        events: [
+          {
+            name: 'view_item',
+            params: {
+              session_id: sessionId,
+              engagement_time_msec: 1000,
+              currency: 'KES',
+              value: cartItem.price,
+              items: [cartItem],
+              is_synthetic: 1,
+              traffic_type: 'simulated',
+            },
+          },
+          {
+            name: 'add_to_cart',
+            params: {
+              session_id: sessionId,
+              engagement_time_msec: 1200,
+              currency: 'KES',
+              value: cartItem.price,
+              items: [cartItem],
+              is_synthetic: 1,
+              traffic_type: 'simulated',
+            },
+          },
+        ],
+      }).catch((err) => console.warn(`[CartAbandon GA4 Error] ${err.message}`));
       console.log(`🛒 [Cart Abandoner] ${customer.email || customerId} added ${selectedProducts[0].name} to cart and left`);
     } else if (rand < 0.75) {
       // ── Persona 3: Checkout Abandoner ──
       checkoutAbandonCount++;
+      const checkoutItems = selectedProducts.map((p) => ({
+        item_id: p.id,
+        item_name: p.name,
+        price: Number(p.price) || 1500,
+        quantity: 1,
+      }));
+      const checkoutVal = checkoutItems.reduce((sum, item) => sum + item.price, 0);
+      await dispatchGA4EventBatch({
+        client_id: clientId,
+        events: [
+          {
+            name: 'begin_checkout',
+            params: {
+              session_id: sessionId,
+              engagement_time_msec: 2000,
+              currency: 'KES',
+              value: checkoutVal,
+              shipping_county: county,
+              items: checkoutItems,
+              is_synthetic: 1,
+              traffic_type: 'simulated',
+            },
+          },
+        ],
+      }).catch((err) => console.warn(`[CheckoutAbandon GA4 Error] ${err.message}`));
       console.log(`📋 [Checkout Abandoner] ${customer.email || customerId} reached Checkout (${county}) and dropped`);
     } else {
       // ── Persona 4: Confirmed Purchaser ──
