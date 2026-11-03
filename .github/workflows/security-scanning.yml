@@ -3,7 +3,11 @@ name: Image & Dependency Scanning
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+    - cron: '0 3 * * 0'  # Weekly on Sunday at 3 AM UTC (reduced for Free Tier quota)
+
+concurrency:
+  group: security-scanning-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scan:

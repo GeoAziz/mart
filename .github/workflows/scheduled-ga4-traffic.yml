@@ -2,14 +2,18 @@ name: Scheduled GA4 Synthetic Traffic
 
 on:
   schedule:
-    # Runs twice a day at 06:00 and 18:00 UTC
-    - cron: '0 6,18 * * *'
+    # Runs daily at 06:00 UTC (reduced from twice daily to conserve free-tier quota)
+    - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
       user_count:
         description: 'Number of synthetic users to simulate (optional)'
         required: false
         default: '45'
+
+concurrency:
+  group: scheduled-ga4-traffic-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   simulate-analytics:
@@ -47,19 +51,19 @@ jobs:
           ALLOW_PRODUCTION_SIMULATION: 'true'
           ENABLE_ANONYMOUS_CLIENT_FALLBACK: 'true'
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           FIREBASE_PROJECT_ID: 'mart-ke'
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
-          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
-          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET || 'UmmBmlwgRVa-GjjiCy8miw' }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
           SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
         run: npm run sim:shopping
 
       - name: Dispatch Offline Conversions (Measurement Protocol)
         env:
           ALLOW_PRODUCTION_SIMULATION: 'true'
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID || 'G-09S1NJ6W15' }}
-          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET || 'UmmBmlwgRVa-GjjiCy8miw' }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
         run: npm run sim:offline-conversions
 
       - name: Generate Non-Google Ad Cost Data (Simulation Unlocker)

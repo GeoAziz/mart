@@ -6,7 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC (reduced for Free Tier quota)
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
