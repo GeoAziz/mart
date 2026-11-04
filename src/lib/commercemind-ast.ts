@@ -32,7 +32,7 @@ export const ALLOWLISTED_AST_OPERATORS = new Set([
 export interface RawASTClause {
   field: string;
   operator: string;
-  value: any;
+  value: unknown;
 }
 
 export interface ValidatedASTClause {
@@ -54,7 +54,12 @@ export function validateAndCompileFilterAST(clauses: RawASTClause[]): ValidatedA
     if (!clause.field || typeof clause.field !== 'string') {
       throw new ASTSecurityViolationError('Missing or non-string AST field identifier');
     }
-    const cleanField = clause.field.trim();
+    // Reject fields containing whitespace, newlines, control characters, or prototype pollution attempts
+    if (/[\s\r\n\t\0]/.test(clause.field) || clause.field.includes('__proto__') || clause.field.includes('constructor')) {
+      throw new ASTSecurityViolationError(`Malformed or dangerous field identifier: "${clause.field}"`);
+    }
+    // Strict exact case match - uppercase/mixed-case like 'PRICE' is rejected
+    const cleanField = clause.field;
     if (!ALLOWLISTED_AST_FIELDS.has(cleanField)) {
       throw new ASTSecurityViolationError(`Disallowed or unknown AST field: "${cleanField}"`);
     }
@@ -63,7 +68,7 @@ export function validateAndCompileFilterAST(clauses: RawASTClause[]): ValidatedA
     if (!clause.operator || typeof clause.operator !== 'string') {
       throw new ASTSecurityViolationError('Missing or non-string AST operator');
     }
-    const cleanOp = clause.operator.trim().toLowerCase();
+    const cleanOp = clause.operator.trim();
     if (!ALLOWLISTED_AST_OPERATORS.has(cleanOp)) {
       throw new ASTSecurityViolationError(`Disallowed AST operator: "${cleanOp}"`);
     }
@@ -74,13 +79,30 @@ export function validateAndCompileFilterAST(clauses: RawASTClause[]): ValidatedA
       throw new ASTSecurityViolationError(`AST clause for field "${cleanField}" cannot have null/undefined value`);
     }
 
+    // Reject non-finite numbers (Infinity, -Infinity, NaN)
+    if (typeof val === 'number' && !Number.isFinite(val)) {
+      throw new ASTSecurityViolationError(`Numeric value for field "${cleanField}" must be a finite number`);
+    }
+
+    // Ensure numeric fields only receive numeric comparisons
+    if (cleanField === 'price' && !['in', 'nin'].includes(cleanOp) && typeof val !== 'number') {
+      throw new ASTSecurityViolationError(`Field "price" requires numeric value, received: ${typeof val}`);
+    }
+
     if (['in', 'nin'].includes(cleanOp)) {
       if (!Array.isArray(val) || val.length === 0) {
         throw new ASTSecurityViolationError(`Operator "${cleanOp}" requires a non-empty array value`);
       }
+      // Array bomb protection: maximum 100 elements
+      if (val.length > 100) {
+        throw new ASTSecurityViolationError(`Array size exceeds maximum limit of 100 items (got ${val.length})`);
+      }
       for (const item of val) {
         if (typeof item !== 'string' && typeof item !== 'number') {
           throw new ASTSecurityViolationError(`Array elements for "${cleanOp}" must be string or number`);
+        }
+        if (typeof item === 'number' && !Number.isFinite(item)) {
+          throw new ASTSecurityViolationError(`Array element for "${cleanOp}" must be finite number`);
         }
       }
     } else {
@@ -91,8 +113,8 @@ export function validateAndCompileFilterAST(clauses: RawASTClause[]): ValidatedA
 
     validated.push({
       field: cleanField,
-      operator: cleanOp as any,
-      value: val,
+      operator: cleanOp as ValidatedASTClause['operator'],
+      value: val as ValidatedASTClause['value'],
     });
   }
 

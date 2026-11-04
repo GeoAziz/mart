@@ -11,8 +11,15 @@ const INFERENCE_TIMEOUT_MS = 3500; // Hard 3.5s timeout requirement
 // Circuit Breaker State
 let failureCount = 0;
 let lastFailureTimestamp = 0;
+let isCanaryProbing = false;
 const FAILURE_THRESHOLD = 3;
 const RESET_TIMEOUT_MS = 30000; // 30s open window
+
+export function resetCircuitBreaker() {
+  failureCount = 0;
+  lastFailureTimestamp = 0;
+  isCanaryProbing = false;
+}
 
 export function getCircuitBreakerState(): 'CLOSED' | 'OPEN' | 'HALF_OPEN' {
   const now = Date.now();
@@ -27,11 +34,20 @@ export function getCircuitBreakerState(): 'CLOSED' | 'OPEN' | 'HALF_OPEN' {
 
 export function recordSuccess() {
   failureCount = 0;
+  isCanaryProbing = false;
 }
 
 export function recordFailure() {
   failureCount++;
   lastFailureTimestamp = Date.now();
+  isCanaryProbing = false;
+}
+
+export function acquireCanaryProbe(): boolean {
+  if (getCircuitBreakerState() !== 'HALF_OPEN') return false;
+  if (isCanaryProbing) return false;
+  isCanaryProbing = true;
+  return true;
 }
 
 /**
@@ -68,7 +84,7 @@ export function generateDeterministicCatalogFallback(text: string, categoryHint?
   }
 
   // Heuristic size extraction
-  let detectedSize: any = 'Standard';
+  let detectedSize: string | string[] = 'Standard';
   let sizeState: 'exact' | 'unresolved' = 'exact';
   if (clean.includes('m/l') || clean.includes('l/xl')) {
     detectedSize = clean.includes('m/l') ? ['M', 'L'] : ['L', 'XL'];
@@ -112,7 +128,7 @@ export function generateDeterministicCatalogFallback(text: string, categoryHint?
     ambiguities_detected: sizeState === 'unresolved' ? [{
       field: 'size',
       raw_token: 'compound',
-      possible_values: detectedSize,
+      possible_values: Array.isArray(detectedSize) ? detectedSize : [detectedSize],
       action_taken: 'retained_all',
     }] : [],
     missing_specifications: ['material', 'care_instructions'],
@@ -172,6 +188,11 @@ export async function enrichProductCatalog(payload: {
     return generateDeterministicCatalogFallback(payload.vendorText, payload.category);
   }
 
+  // In HALF_OPEN state, only allow exactly 1 canary probe through; others immediately degrade
+  if (state === 'HALF_OPEN' && !acquireCanaryProbe()) {
+    return generateDeterministicCatalogFallback(payload.vendorText, payload.category);
+  }
+
   try {
     const res = await fetchWithTimeout(`${COMMERCEMIND_API_URL}/v1/catalog/enrich`, {
       method: 'POST',
@@ -200,9 +221,10 @@ export async function enrichProductCatalog(payload: {
     });
 
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     recordFailure();
-    console.warn(`[CommerceMind Provider Call Failed: ${err.message}] Using deterministic fallback`);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`[CommerceMind Provider Call Failed: ${errMsg}] Using deterministic fallback`);
     return generateDeterministicCatalogFallback(payload.vendorText, payload.category);
   }
 }
@@ -242,9 +264,10 @@ export async function interpretShoppingQuery(payload: {
     }
 
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     recordFailure();
-    console.warn(`[CommerceMind Shopping Call Failed: ${err.message}] Using fallback AST`);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`[CommerceMind Shopping Call Failed: ${errMsg}] Using fallback AST`);
     return generateDeterministicShoppingFallback(payload.query);
   }
 }
