@@ -48,6 +48,76 @@ export interface Category {
   updatedAt: Timestamp | Date;
 }
 
+// CommerceMind AI - Structured Attributes & Intelligence Types
+export type AttributeProvenance = 'explicitly_supplied' | 'normalized' | 'inferred' | 'unknown';
+export type NormalizationState = 'exact' | 'approximate' | 'unresolved' | 'not_applicable';
+
+export interface CommerceMindAttribute {
+  value: string | number | boolean | Array<string | number> | null;
+  provenance: AttributeProvenance;
+  normalization_state: NormalizationState;
+  raw_source?: string | null;
+}
+
+export interface CommerceMindAmbiguity {
+  field: string;
+  raw_token: string;
+  possible_values: string[];
+  action_taken: 'retained_all' | 'flagged_for_review';
+}
+
+export interface CommerceMindListingQuality {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'Incomplete';
+  breakdown: {
+    title_clarity: number;
+    attribute_completeness: number;
+    description_depth: number;
+    tag_coverage: number;
+  };
+}
+
+export interface CommerceMindCatalogEnrichment {
+  task: 'catalog_enrichment';
+  status: 'success' | 'needs_clarification' | 'low_confidence' | 'validation_failed';
+  category: string;
+  subcategory: string;
+  product_type: string;
+  attributes: Record<string, CommerceMindAttribute>;
+  ambiguities_detected: CommerceMindAmbiguity[];
+  missing_specifications: string[];
+  normalized_tags: string[];
+  suggested_description: {
+    text: string;
+    style: 'professional' | 'technical' | 'casual';
+    grounded_on_facts_only: boolean;
+  };
+  listing_quality: CommerceMindListingQuality;
+}
+
+export interface CommerceMindShoppingInterpretation {
+  task: 'shopping_intent';
+  status: 'success' | 'needs_clarification' | 'low_confidence' | 'unsupported_task';
+  intent: 'product_search' | 'product_comparison' | 'compatibility_query' | 'store_policy' | 'chitchat';
+  detected_language: 'en' | 'sw' | 'sheng' | 'mixed';
+  budget_constraint: {
+    currency: 'KES' | 'USD';
+    min_limit: { amount: number; boundary: 'inclusive' | 'exclusive' } | null;
+    max_limit: { amount: number; boundary: 'inclusive' | 'exclusive' } | null;
+  };
+  filter_ast: {
+    category: string | null;
+    subcategory: string | null;
+    clauses: Array<{
+      field: string;
+      operator: 'eq' | 'neq' | 'in' | 'nin' | 'contains' | 'gte' | 'gt' | 'lte' | 'lt';
+      value: string | number | boolean | Array<string | number>;
+    }>;
+  };
+  semantic_search_tokens: string[];
+  clarification_prompt?: string | null;
+}
+
 // From products/route.ts
 export type ProductStatus = 'pending_approval' | 'active' | 'rejected' | 'draft';
 export interface Product {
@@ -68,6 +138,16 @@ export interface Product {
   status: ProductStatus;
   sku?: string;
   rating?: number;
+  // CommerceMind Enriched Fields
+  commercemind?: {
+    enrichedAt: string;
+    subcategory?: string;
+    productType?: string;
+    attributes?: Record<string, CommerceMindAttribute>;
+    normalizedTags?: string[];
+    qualityScore?: number;
+    qualityGrade?: string;
+  };
 }
 
 // A storefront-facing view of a product pulled from a vendor's catalog.
