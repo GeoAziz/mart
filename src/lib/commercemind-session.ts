@@ -10,6 +10,7 @@ import {
 export interface AccumulatedConstraints {
   category: string | null;
   subcategory: string | null;
+  brand: string | null;
   min_price: number | null;
   max_price: number | null;
   currency: 'KES' | 'USD';
@@ -41,6 +42,7 @@ export function getSessionConstraints(sessionId: string): AccumulatedConstraints
   return {
     category: null,
     subcategory: null,
+    brand: null,
     min_price: null,
     max_price: null,
     currency: 'KES',
@@ -103,7 +105,9 @@ export function mergeSessionConstraints(
 
   // 3. Attribute clauses (e.g. size, color, brand)
   for (const clause of interpretation.filter_ast.clauses || []) {
-    if (clause.operator === 'nin' && clause.field === 'attributes.material') {
+    if (clause.field === 'brand' && typeof clause.value === 'string') {
+      updated.brand = clause.value;
+    } else if (clause.operator === 'nin' && clause.field === 'attributes.material') {
       if (Array.isArray(clause.value)) {
         for (const item of clause.value) {
           const s = String(item).toLowerCase();
@@ -133,6 +137,10 @@ export function compileSessionToAST(constraints: AccumulatedConstraints): Valida
 
   if (constraints.subcategory) {
     rawClauses.push({ field: 'subcategory', operator: 'eq', value: constraints.subcategory });
+  }
+
+  if (constraints.brand) {
+    rawClauses.push({ field: 'brand', operator: 'eq', value: constraints.brand });
   }
 
   if (constraints.max_price !== null) {

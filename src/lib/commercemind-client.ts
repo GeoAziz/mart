@@ -6,7 +6,9 @@ import { calculateListingQuality } from '@/lib/commercemind-quality';
 import { validateAndCompileFilterAST } from '@/lib/commercemind-ast';
 
 const COMMERCEMIND_API_URL = process.env.COMMERCEMIND_INFERENCE_URL || 'http://localhost:8001';
-const INFERENCE_TIMEOUT_MS = 3500; // Hard 3.5s timeout requirement
+const INFERENCE_TIMEOUT_MS = process.env.COMMERCEMIND_TIMEOUT_MS
+  ? parseInt(process.env.COMMERCEMIND_TIMEOUT_MS, 10)
+  : 3500; // Configurable timeout ceiling (default 3500ms in unit tests, higher in production)
 
 // Circuit Breaker State
 let failureCount = 0;
@@ -148,12 +150,81 @@ export function generateDeterministicCatalogFallback(text: string, categoryHint?
 export function generateDeterministicShoppingFallback(query: string): CommerceMindShoppingInterpretation {
   const clean = query.toLowerCase();
 
-  // Extract simple budget
+  // 1. Budget extraction (Range & Single boundary)
+  let minAmount: number | null = null;
   let maxAmount: number | null = null;
-  const numMatch = clean.match(/\b(\d{3,6})\b/);
-  if (numMatch) {
-    maxAmount = parseFloat(numMatch[1]);
+
+  const rangeMatch = clean.match(/(?:between|from)?\s*(?:kes|ksh)?\s*([\d,]+)\s*(?:and|to|-)\s*(?:kes|ksh)?\s*([\d,]+)/);
+  if (rangeMatch) {
+    const v1 = parseFloat(rangeMatch[1].replace(/,/g, ''));
+    const v2 = parseFloat(rangeMatch[2].replace(/,/g, ''));
+    minAmount = Math.min(v1, v2);
+    maxAmount = Math.max(v1, v2);
+  } else {
+    const underMatch = clean.match(/(?:under|below|chini ya|less than|max|up to|not exceeding)\s*(?:kes|ksh)?\s*([\d,]+)/);
+    if (underMatch) {
+      maxAmount = parseFloat(underMatch[1].replace(/,/g, ''));
+    }
+    const aboveMatch = clean.match(/(?:above|over|more than|at least|min|zaidi ya|from)\s*(?:kes|ksh)?\s*([\d,]+)/);
+    if (aboveMatch) {
+      minAmount = parseFloat(aboveMatch[1].replace(/,/g, ''));
+    }
   }
+
+  // 2. Demographic
+  let gender: string | null = null;
+  if (/\b(women|woman|ladies|female)\b/.test(clean)) gender = 'women';
+  else if (/\b(men|man|gentlemen|male)\b/.test(clean)) gender = 'men';
+  else if (/\b(kids|children|boys|girls)\b/.test(clean)) gender = 'kids';
+
+  // 3. Category & Subcategory
+  let category: string | null = null;
+  let subcategory: string | null = null;
+  if (/\b(shoe|shoes|sneaker|sneakers|boot|boots|sandals|loafers)\b/.test(clean)) {
+    category = 'Footwear';
+    if (gender === 'women') subcategory = "Women's Footwear";
+    else if (gender === 'men') subcategory = "Men's Footwear";
+    else if (gender === 'kids') subcategory = "Kids' Footwear";
+    else if (clean.includes('sneaker')) subcategory = 'Sneakers';
+    else if (clean.includes('boot')) subcategory = 'Boots';
+    else subcategory = 'Shoes';
+  } else if (/\b(laptop|laptops|computer|computers|macbook)\b/.test(clean)) {
+    category = 'Electronics';
+    subcategory = 'Computers & Laptops';
+  } else if (/\b(phone|phones|smartphone|smartphones|iphone)\b/.test(clean)) {
+    category = 'Electronics';
+    subcategory = 'Mobile Phones';
+  } else if (/\b(chair|chairs|desk|desks|office)\b/.test(clean)) {
+    category = 'Home & Living';
+    subcategory = 'Office Furniture';
+  } else if (/\b(dress|shirt|jacket|hoodie|jeans|pants|suit)\b/.test(clean)) {
+    category = 'Fashion';
+    subcategory = gender === 'women' ? "Women's Clothing" : gender === 'men' ? "Men's Clothing" : 'Clothing';
+  }
+
+  // 4. Brand
+  let brand: string | null = null;
+  const knownBrands = ['nike', 'adidas', 'puma', 'samsung', 'apple', 'hp', 'dell', 'lenovo', 'tecno', 'infinix', 'xiaomi', 'oppo', 'sony'];
+  for (const b of knownBrands) {
+    if (clean.includes(b)) {
+      brand = b === 'hp' || b === 'lg' ? b.toUpperCase() : b.charAt(0).toUpperCase() + b.slice(1);
+      break;
+    }
+  }
+
+  // 5. Clauses
+  const clauses: Array<{ field: string; operator: 'eq'; value: string | number | boolean }> = [];
+  if (category) clauses.push({ field: 'category', operator: 'eq', value: category });
+  if (subcategory) clauses.push({ field: 'subcategory', operator: 'eq', value: subcategory });
+  if (brand) clauses.push({ field: 'brand', operator: 'eq', value: brand });
+  if (gender) clauses.push({ field: 'attributes.gender', operator: 'eq', value: gender });
+
+  // 6. Tokens
+  const stopWords = new Set(['under', 'below', 'between', 'and', 'for', 'with', 'in', 'of', 'to', 'at', 'from', 'the', 'a', 'an', 'is', 'kes', 'ksh']);
+  const tokens = clean
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\w]/g, ''))
+    .filter((w) => w && !stopWords.has(w) && isNaN(Number(w)) && w.length > 1);
 
   return {
     task: 'shopping_intent',
@@ -162,15 +233,15 @@ export function generateDeterministicShoppingFallback(query: string): CommerceMi
     detected_language: 'en',
     budget_constraint: {
       currency: 'KES',
-      min_limit: null,
+      min_limit: minAmount ? { amount: minAmount, boundary: 'inclusive' } : null,
       max_limit: maxAmount ? { amount: maxAmount, boundary: 'inclusive' } : null,
     },
     filter_ast: {
-      category: null,
-      subcategory: null,
-      clauses: [],
+      category,
+      subcategory,
+      clauses,
     },
-    semantic_search_tokens: clean.split(/\s+/).filter((w) => w.length > 2),
+    semantic_search_tokens: tokens,
     clarification_prompt: null,
   };
 }

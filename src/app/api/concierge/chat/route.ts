@@ -92,12 +92,54 @@ export async function POST(req: NextRequest) {
       productRef = productRef.where('price', '>=', accumulated.min_price);
     }
 
-    const snapshot = await productRef.limit(12).get();
-    let matchingProducts: Product[] = [];
+    let snapshot = await productRef.limit(20).get();
 
+    // If exact category match returned 0, try broader search (e.g. Footwear items in Fashion)
+    if (snapshot.empty && accumulated.category === 'Footwear') {
+      let altRef: FirebaseFirestore.Query = db
+        .collection('products')
+        .where('status', '==', 'active')
+        .where('stock', '>', 0)
+        .where('category', '==', 'Fashion');
+
+      if (accumulated.max_price !== null) altRef = altRef.where('price', '<=', accumulated.max_price);
+      if (accumulated.min_price !== null) altRef = altRef.where('price', '>=', accumulated.min_price);
+      snapshot = await altRef.limit(20).get();
+    }
+
+    let candidateProducts: Product[] = [];
     snapshot.forEach((doc) => {
-      const data = doc.data() as Product;
-      matchingProducts.push({ id: doc.id, ...data });
+      candidateProducts.push({ id: doc.id, ...doc.data() } as Product);
+    });
+
+    // Determine query tokens for semantic relevance filtering
+    const tokens = accumulated.semantic_tokens.length > 0
+      ? accumulated.semantic_tokens
+      : query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+
+    // Filter candidate products to guarantee semantic relevance (never return groceries for shoes)
+    let matchingProducts = candidateProducts.filter((p) => {
+      const pText = `${p.name || ''} ${p.description || ''} ${p.category || ''} ${p.brand || ''}`.toLowerCase();
+
+      // Brand filter: if brand is requested, product must match brand
+      if (accumulated.brand) {
+        const b = accumulated.brand.toLowerCase();
+        const pBrand = (p.brand || '').toLowerCase();
+        const pName = (p.name || '').toLowerCase();
+        if (!pBrand.includes(b) && !pName.includes(b)) {
+          return false;
+        }
+      }
+
+      // Keyword / token filter: product must match at least one relevant search token
+      if (tokens.length > 0) {
+        const hasTokenMatch = tokens.some((t) => pText.includes(t.toLowerCase()));
+        if (!hasTokenMatch && !accumulated.category) {
+          return false;
+        }
+      }
+
+      return true;
     });
 
     // In-memory AST negative filtering (e.g. materials or attributes rejected by user)
@@ -115,30 +157,28 @@ export async function POST(req: NextRequest) {
     let isFallback = false;
     if (matchingProducts.length === 0) {
       isFallback = true;
-      const tokens = accumulated.semantic_tokens.length > 0
-        ? accumulated.semantic_tokens
-        : query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-
       const fallbackSnap = await db
         .collection('products')
         .where('status', '==', 'active')
         .where('stock', '>', 0)
-        .limit(20)
+        .limit(50)
         .get();
 
-      const candidateList: Product[] = [];
+      const fallbackList: Product[] = [];
       fallbackSnap.forEach((doc) => {
-        candidateList.push({ id: doc.id, ...doc.data() } as Product);
+        fallbackList.push({ id: doc.id, ...doc.data() } as Product);
       });
 
-      // Rank by token overlaps
-      matchingProducts = candidateList
+      // Filter and rank strictly by token overlaps (only items mentioning query keywords)
+      matchingProducts = fallbackList
         .filter((p) => {
-          const text = `${p.name} ${p.description} ${p.category}`.toLowerCase();
+          const text = `${p.name || ''} ${p.description || ''} ${p.category || ''} ${p.brand || ''}`.toLowerCase();
           return tokens.some((t) => text.includes(t.toLowerCase()));
         })
         .slice(0, 6);
     }
+
+    matchingProducts = matchingProducts.slice(0, 12);
 
     // Step 6: Clarification generation for ambiguous queries
     const clarificationOptions: string[] = [];
@@ -156,15 +196,19 @@ export async function POST(req: NextRequest) {
     let explanation = '';
     if (matchingProducts.length > 0) {
       explanation = `Found ${matchingProducts.length} verified item(s) in stock.`;
-      if (accumulated.max_price !== null) {
-        explanation += ` All within your budget of KES ${accumulated.max_price}.`;
+      if (accumulated.min_price !== null && accumulated.max_price !== null) {
+        explanation += ` All within your budget between KES ${accumulated.min_price.toLocaleString()} and KES ${accumulated.max_price.toLocaleString()}.`;
+      } else if (accumulated.max_price !== null) {
+        explanation += ` All within your budget of KES ${accumulated.max_price.toLocaleString()}.`;
+      } else if (accumulated.min_price !== null) {
+        explanation += ` Starting from KES ${accumulated.min_price.toLocaleString()}.`;
       }
       if (accumulated.negative_materials.length > 0) {
         explanation += ` Filtered out items made of ${accumulated.negative_materials.join(', ')}.`;
       }
     } else {
       explanation =
-        "We couldn't find in-stock items matching all your criteria. Would you like to expand your search budget or try a different category?";
+        `We couldn't find in-stock items matching "${query}". Would you like to expand your search budget or try a different category?`;
     }
 
     return NextResponse.json({

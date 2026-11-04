@@ -131,6 +131,7 @@ describe('Phase 3 — Conversational Concierge & Shopper Experience Tests', () =
       const constraints: AccumulatedConstraints = {
         category: 'Footwear',
         subcategory: "Men's Shoes",
+        brand: null,
         min_price: 1500,
         max_price: 4500,
         currency: 'KES',
