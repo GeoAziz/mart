@@ -202,3 +202,4 @@ describe('CommerceMind AI — Colab Inference Regression Suite (The 7 Customer Q
     expect(payload.clarification_prompt).toContain('running shoes');
   });
 });
+
