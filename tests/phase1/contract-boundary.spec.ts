@@ -116,3 +116,4 @@ describe('S2 — Contract Boundary Suite (12 Cases)', () => {
     expect(payload.subcategory).toBe('Shoes');
   });
 });
+

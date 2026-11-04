@@ -28,3 +28,4 @@ export const MALICIOUS_VALID_SHAPE = {
   operator: 'eq',
   value: "'; DROP TABLE products; --", // Value is treated as data, safe when parameterized
 } as const;
+

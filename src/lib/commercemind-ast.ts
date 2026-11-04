@@ -6,8 +6,11 @@ export class ASTSecurityViolationError extends Error {
 }
 
 export const ALLOWLISTED_AST_FIELDS = new Set([
+  'name',
   'category',
   'subcategory',
+  'brand',
+  'in_stock',
   'price',
   'attributes.size',
   'attributes.color',
