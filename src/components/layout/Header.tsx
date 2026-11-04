@@ -28,6 +28,7 @@ import {
 import CartDrawerContent from '@/components/ecommerce/CartDrawerContent'; 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext'; 
+import { CommerceMindConcierge } from '@/components/chat/CommerceMindConcierge'; 
 
 const Header = () => {
   const { currentUser, userProfile, logOut, loading: authLoading, cart, isCartLoading } = useAuth(); 
@@ -138,6 +139,7 @@ const Header = () => {
 
         {/* DESKTOP ACTIONS (>= 1024px) */}
         <div className="hidden lg:flex items-center gap-2 lg:gap-3">
+          <CommerceMindConcierge />
           <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} />
           
           <TooltipButton 
@@ -248,6 +250,7 @@ const Header = () => {
 
         {/* MOBILE & TABLET RIGHT ACTIONS (< 1024px) */}
         <div className="flex items-center gap-1 sm:gap-2 lg:hidden">
+          <CommerceMindConcierge />
           {/* Cart Icon */}
           {showCart && cartTriggerButton}
 
