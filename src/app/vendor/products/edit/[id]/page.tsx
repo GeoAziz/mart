@@ -14,6 +14,8 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import NextImage from 'next/image';
 import { generateProductDescription } from '@/ai/flows/content-generation';
+import { CommerceMindEnricher, type EnrichedProductOutput } from '@/components/vendor/CommerceMindEnricher';
+import type { CommerceMindProductMetadata } from '@/lib/types';
 
 const productCategories = ["Electronics", "Fashion", "Home Goods", "Books", "Toys", "Sports", "Automotive", "Beauty & Personal Care", "Cybernetics", "Gadgets", "Apparel", "Neurotech"];
 const MAX_IMAGES = 5;
@@ -50,8 +52,24 @@ export default function EditProductPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [commercemindData, setCommercemindData] = useState<CommerceMindProductMetadata | null>(null);
   const [productFound, setProductFound] = useState(true);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleApplyEnrichment = (output: EnrichedProductOutput) => {
+    setFormData((prev) => ({
+      ...prev,
+      name: output.name || prev.name,
+      description: output.description || prev.description,
+      category: output.category && productCategories.includes(output.category) ? output.category : prev.category,
+      dataAiHint: output.tags?.[0] || prev.dataAiHint,
+    }));
+    setCommercemindData(output.commercemind);
+    toast({
+      title: 'CommerceMind Enrichment Applied',
+      description: `Listing updated with Grade ${output.commercemind.qualityGrade || 'A'} metadata.`,
+    });
+  };
 
   useEffect(() => {
     const fetchProductDetails = async (id: string) => {
@@ -90,6 +108,10 @@ export default function EditProductPage() {
           sku: product.sku || '',
           dataAiHint: product.dataAiHint,
         });
+
+        if (product.commercemind) {
+          setCommercemindData(product.commercemind);
+        }
         
         const initialImages: ImageObject[] = [];
         if (product.imageUrl) {
@@ -263,6 +285,7 @@ export default function EditProductPage() {
       imageUrl: primaryImageUrl,
       additionalImageUrls: additionalImages,
       dataAiHint: formData.dataAiHint || formData.category.toLowerCase().split(' ')[0] || "product",
+      commercemind: commercemindData || undefined,
     };
 
     try {
@@ -359,6 +382,14 @@ export default function EditProductPage() {
               </div>
               <Textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={5} className="bg-input border-primary focus:ring-accent" disabled={isSubmitting}/>
             </div>
+
+            {/* CommerceMind AI Catalog Enricher & Quality Scorer */}
+            <CommerceMindEnricher
+              currentTitle={formData.name}
+              currentCategory={formData.category}
+              currentDescription={formData.description}
+              onApplyEnrichment={handleApplyEnrichment}
+            />
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1.5"> <Label htmlFor="price" className="text-base">Price (KSh) <span className="text-destructive">*</span></Label> <div className="relative"> <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> <Input id="price" name="price" type="number" value={formData.price} onChange={handleInputChange} required className="pl-10 bg-input border-primary focus:ring-accent" min="0" step="0.01" disabled={isSubmitting}/> </div> </div>
               <div className="space-y-1.5"> <Label htmlFor="stock" className="text-base">Stock Quantity <span className="text-destructive">*</span></Label> <div className="relative"> <ListOrdered className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> <Input id="stock" name="stock" type="number" value={formData.stock} onChange={handleInputChange} required className="pl-10 bg-input border-primary focus:ring-accent" min="0" disabled={isSubmitting}/> </div> </div>

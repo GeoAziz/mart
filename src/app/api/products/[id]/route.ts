@@ -74,7 +74,8 @@ async function getProductHandler(
       vendorId: data.vendorId,
       status: data.status || 'pending_approval',
       sku: data.sku || '',
-      rating: data.rating
+      rating: data.rating,
+      commercemind: data.commercemind || undefined,
     };
     return NextResponse.json(product);
 

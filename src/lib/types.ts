@@ -95,6 +95,35 @@ export interface CommerceMindCatalogEnrichment {
   listing_quality: CommerceMindListingQuality;
 }
 
+export interface CommerceMindProvenanceHistoryItem {
+  field: string;
+  action: 'accept' | 'reject' | 'manual_edit';
+  old_value: unknown;
+  new_value: unknown;
+  updated_at: string;
+}
+
+export interface CommerceMindProductMetadata {
+  version: string;
+  enrichedAt: string;
+  raw_vendor_input?: string;
+  subcategory?: string;
+  productType?: string;
+  attributes?: Record<string, CommerceMindAttribute>;
+  accepted_attributes?: Record<string, CommerceMindAttribute>;
+  rejected_attributes?: string[];
+  normalizedTags?: string[];
+  qualityScore?: number;
+  qualityGrade?: string;
+  qualityBreakdown?: {
+    title_clarity: number;
+    attribute_completeness: number;
+    description_depth: number;
+    tag_coverage: number;
+  };
+  provenance_history?: CommerceMindProvenanceHistoryItem[];
+}
+
 export interface CommerceMindShoppingInterpretation {
   task: 'shopping_intent';
   status: 'success' | 'needs_clarification' | 'low_confidence' | 'unsupported_task';
@@ -139,15 +168,7 @@ export interface Product {
   sku?: string;
   rating?: number;
   // CommerceMind Enriched Fields
-  commercemind?: {
-    enrichedAt: string;
-    subcategory?: string;
-    productType?: string;
-    attributes?: Record<string, CommerceMindAttribute>;
-    normalizedTags?: string[];
-    qualityScore?: number;
-    qualityGrade?: string;
-  };
+  commercemind?: CommerceMindProductMetadata;
 }
 
 // A storefront-facing view of a product pulled from a vendor's catalog.

@@ -41,6 +41,7 @@ function mapProductDocument(doc: FirebaseFirestore.DocumentSnapshot): Product {
     status: data.status || 'pending_approval',
     sku: data.sku || '',
     rating: data.rating,
+    commercemind: data.commercemind || undefined,
   };
 }
 
@@ -209,7 +210,8 @@ async function createProductHandler(req: AuthenticatedRequest) {
       dataAiHint: newProductData.dataAiHint || newProductData.category?.toLowerCase().split(' ')[0] || "product",
       sku: newProductData.sku || '',
       status: authenticatedUser.role === 'admin' ? (newProductData.status || 'active') : 'pending_approval',
-      dateAdded: new Date(), 
+      dateAdded: new Date(),
+      commercemind: newProductData.commercemind || undefined,
     };
 
     if (isNaN(productToCreate.price) || isNaN(productToCreate.stock!)) {

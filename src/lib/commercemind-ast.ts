@@ -32,7 +32,7 @@ export const ALLOWLISTED_AST_OPERATORS = new Set([
 export interface RawASTClause {
   field: string;
   operator: string;
-  value: unknown;
+  value: any;
 }
 
 export interface ValidatedASTClause {
@@ -91,8 +91,8 @@ export function validateAndCompileFilterAST(clauses: RawASTClause[]): ValidatedA
 
     validated.push({
       field: cleanField,
-      operator: cleanOp as ValidatedASTClause['operator'],
-      value: val as ValidatedASTClause['value'],
+      operator: cleanOp as any,
+      value: val,
     });
   }
 

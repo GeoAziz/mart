@@ -68,7 +68,7 @@ export function generateDeterministicCatalogFallback(text: string, categoryHint?
   }
 
   // Heuristic size extraction
-  let detectedSize: string | string[] = 'Standard';
+  let detectedSize: any = 'Standard';
   let sizeState: 'exact' | 'unresolved' = 'exact';
   if (clean.includes('m/l') || clean.includes('l/xl')) {
     detectedSize = clean.includes('m/l') ? ['M', 'L'] : ['L', 'XL'];
@@ -200,10 +200,9 @@ export async function enrichProductCatalog(payload: {
     });
 
     return data;
-  } catch (err: unknown) {
+  } catch (err: any) {
     recordFailure();
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`[CommerceMind Provider Call Failed: ${errMsg}] Using deterministic fallback`);
+    console.warn(`[CommerceMind Provider Call Failed: ${err.message}] Using deterministic fallback`);
     return generateDeterministicCatalogFallback(payload.vendorText, payload.category);
   }
 }
@@ -243,10 +242,9 @@ export async function interpretShoppingQuery(payload: {
     }
 
     return data;
-  } catch (err: unknown) {
+  } catch (err: any) {
     recordFailure();
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`[CommerceMind Shopping Call Failed: ${errMsg}] Using fallback AST`);
+    console.warn(`[CommerceMind Shopping Call Failed: ${err.message}] Using fallback AST`);
     return generateDeterministicShoppingFallback(payload.query);
   }
 }

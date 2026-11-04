@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { generateProductDescription } from '@/ai/flows/content-generation';
+import { CommerceMindEnricher, type EnrichedProductOutput } from '@/components/vendor/CommerceMindEnricher';
+import type { CommerceMindProductMetadata } from '@/lib/types';
 
 const productCategories = ["Electronics", "Fashion", "Home Goods", "Books", "Toys", "Sports", "Automotive", "Beauty & Personal Care", "Cybernetics", "Gadgets", "Apparel", "Neurotech"];
 const MAX_IMAGES = 5;
@@ -43,8 +45,24 @@ export default function AddProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [commercemindData, setCommercemindData] = useState<CommerceMindProductMetadata | null>(null);
   const { toast } = useToast();
   const { currentUser } = useAuth();
+
+  const handleApplyEnrichment = (output: EnrichedProductOutput) => {
+    setFormData((prev) => ({
+      ...prev,
+      name: output.name || prev.name,
+      description: output.description || prev.description,
+      category: output.category && productCategories.includes(output.category) ? output.category : prev.category,
+      dataAiHint: output.tags?.[0] || prev.dataAiHint,
+    }));
+    setCommercemindData(output.commercemind);
+    toast({
+      title: 'CommerceMind Enrichment Applied',
+      description: `Listing updated with Grade ${output.commercemind.qualityGrade || 'A'} metadata.`,
+    });
+  };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -174,6 +192,7 @@ export default function AddProductPage() {
       imageUrl: primaryImageUrl,
       additionalImageUrls: additionalImages,
       dataAiHint: formData.dataAiHint || formData.category.toLowerCase().split(' ')[0] || "product",
+      commercemind: commercemindData || undefined,
     };
 
     try {
@@ -236,6 +255,14 @@ export default function AddProductPage() {
               </div>
               <Textarea id="description" name="description" placeholder="Detailed description of your futuristic product..." value={formData.description} onChange={handleInputChange} rows={5} className="bg-input border-primary focus:ring-accent" disabled={isSubmitting}/>
             </div>
+
+            {/* CommerceMind AI Catalog Enricher & Quality Scorer */}
+            <CommerceMindEnricher
+              currentTitle={formData.name}
+              currentCategory={formData.category}
+              currentDescription={formData.description}
+              onApplyEnrichment={handleApplyEnrichment}
+            />
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <Label htmlFor="price" className="text-base">Price (KSh) <span className="text-destructive">*</span></Label>
