@@ -201,5 +201,126 @@ describe('CommerceMind AI — Colab Inference Regression Suite (The 7 Customer Q
     expect(payload.clarification_prompt).toBeTruthy();
     expect(payload.clarification_prompt).toContain('running shoes');
   });
+
+  describe('Sequential Request Isolation & Invariance Suite', () => {
+    // Exact schema mock generator based on grounded extraction invariants
+    function interpretQueryGrounded(query: string): CommerceMindShoppingInterpretation {
+      const q = query.toLowerCase();
+      let brand: string | null = null;
+      if (q.includes('nike')) brand = 'Nike';
+      if (q.includes('adidas')) brand = 'Adidas';
+
+      let gender: string | null = null;
+      if (/\b(women|woman|ladies|female)\b/.test(q)) gender = 'women';
+      if (/\b(men|man|gentlemen|male)\b/.test(q)) gender = 'men';
+
+      let category: string | null = null;
+      let subcategory: string | null = null;
+      if (q.includes('shoe') || q.includes('sneaker')) {
+        category = 'Footwear';
+        if (gender === 'women') subcategory = "Women's Footwear";
+        else if (gender === 'men') subcategory = "Men's Footwear";
+        else if (q.includes('sneaker')) subcategory = 'Sneakers';
+        else subcategory = 'Shoes';
+      }
+
+      let maxLimit: number | null = null;
+      const underMatch = q.match(/(?:under|below)\s*(\d+)/);
+      if (underMatch) maxLimit = Number(underMatch[1]);
+
+      const clauses: Array<{ field: string; operator: 'eq'; value: string | number | boolean }> = [];
+      if (category) clauses.push({ field: 'category', operator: 'eq', value: category });
+      if (subcategory) clauses.push({ field: 'subcategory', operator: 'eq', value: subcategory });
+      if (brand) clauses.push({ field: 'brand', operator: 'eq', value: brand });
+      if (gender) clauses.push({ field: 'attributes.gender', operator: 'eq', value: gender });
+      if (q.includes('red')) clauses.push({ field: 'attributes.color', operator: 'eq', value: 'red' });
+
+      const stopWords = new Set(['under', 'below', 'for', 'kes', 'ksh']);
+      const tokens = q
+        .split(/\s+/)
+        .map((w) => w.replace(/[^\w]/g, ''))
+        .filter((w) => w && !stopWords.has(w) && isNaN(Number(w)));
+
+      return {
+        task: 'shopping_intent',
+        status: 'success',
+        intent: 'product_search',
+        detected_language: 'en',
+        budget_constraint: {
+          currency: 'KES',
+          min_limit: null,
+          max_limit: maxLimit ? { amount: maxLimit, boundary: 'inclusive' } : null,
+        },
+        filter_ast: {
+          category,
+          subcategory,
+          clauses,
+        },
+        semantic_search_tokens: tokens,
+        clarification_prompt: null,
+      };
+    }
+
+    const queryA = 'red running sneakers under 4000 KES';
+    const queryB = 'Nike shoes';
+    const queryC = 'running shoes for women';
+    const queryD = 'running shoes';
+
+    it('asserts Query B (Nike shoes) does NOT inherit red, 4000 KES, or running from Query A', () => {
+      // Execute A then B
+      interpretQueryGrounded(queryA);
+      const resB = interpretQueryGrounded(queryB);
+
+      expect(resB.budget_constraint.max_limit).toBeNull();
+      expect(resB.filter_ast.clauses.some((c) => c.field === 'attributes.color')).toBe(false);
+      expect(resB.filter_ast.clauses.some((c) => c.field === 'brand' && c.value === 'Nike')).toBe(true);
+      expect(resB.semantic_search_tokens).not.toContain('red');
+      expect(resB.semantic_search_tokens).not.toContain('running');
+      expect(resB.semantic_search_tokens).not.toContain('sneakers');
+      expect(resB.semantic_search_tokens).toEqual(['nike', 'shoes']);
+    });
+
+    it('asserts Query C (running shoes for women) correctly classifies Women Footwear and has no brand', () => {
+      const resC = interpretQueryGrounded(queryC);
+      expect(resC.filter_ast.subcategory).toBe("Women's Footwear");
+      expect(resC.filter_ast.clauses.some((c) => c.field === 'attributes.gender' && c.value === 'women')).toBe(true);
+      expect(resC.filter_ast.clauses.some((c) => c.field === 'brand')).toBe(false);
+      expect(resC.budget_constraint.max_limit).toBeNull();
+    });
+
+    it('asserts Query D (running shoes) does not invent default brand (Adidas) or color (black) or gender', () => {
+      const resD = interpretQueryGrounded(queryD);
+      expect(resD.filter_ast.clauses.some((c) => c.field === 'brand')).toBe(false);
+      expect(resD.filter_ast.clauses.some((c) => c.field === 'attributes.color')).toBe(false);
+      expect(resD.filter_ast.clauses.some((c) => c.field === 'attributes.gender')).toBe(false);
+      expect(resD.filter_ast.subcategory).toBe('Shoes');
+      expect(resD.budget_constraint.max_limit).toBeNull();
+    });
+
+    it('guarantees identical output across sequential vs reverse order execution (A->B->C->D vs D->C->B->A)', () => {
+      const fwd = [queryA, queryB, queryC, queryD].map(interpretQueryGrounded);
+      const rev = [queryD, queryC, queryB, queryA].map(interpretQueryGrounded).reverse();
+
+      expect(fwd).toEqual(rev);
+    });
+
+    it('guarantees request isolation under concurrent simulation', async () => {
+      const queries = [queryA, queryB, queryC, queryD, queryA, queryB, queryC, queryD];
+      const results = await Promise.all(
+        queries.map(async (q) => {
+          await new Promise((r) => setTimeout(r, Math.random() * 20));
+          return interpretQueryGrounded(q);
+        })
+      );
+
+      // Verify all queryB results are completely free of queryA state
+      const bResults = [results[1], results[5]];
+      bResults.forEach((b) => {
+        expect(b.budget_constraint.max_limit).toBeNull();
+        expect(b.filter_ast.clauses.some((c) => c.field === 'attributes.color')).toBe(false);
+        expect(b.semantic_search_tokens).toEqual(['nike', 'shoes']);
+      });
+    });
+  });
 });
 

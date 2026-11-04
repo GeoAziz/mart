@@ -5,6 +5,8 @@ and tunnels to a public HTTPS URL via localtunnel or pyngrok.
 """
 
 import os
+os.environ["HF_HUB_DISABLE_COLAB_SECRETS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 import sys
 import json
 import re
@@ -15,7 +17,7 @@ from typing import Optional, Dict, Any, List, Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 
 app = FastAPI(
@@ -118,18 +120,19 @@ def generate_json_response(instruction: str, user_input: str) -> Dict[str, Any]:
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(prompt, return_tensors="pt").to("cuda" if torch.cuda.is_available() else "cpu")
 
+    t0 = time.time()
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
-            max_new_tokens=768,
-            temperature=0.1,
-            top_p=0.95,
+            max_new_tokens=256,
             do_sample=False,
-            pad_token_id=tokenizer.eos_token_id
+            eos_token_id=[tokenizer.eos_token_id, 151645, 151643] if tokenizer.eos_token_id else [151645, 151643],
+            pad_token_id=tokenizer.eos_token_id or 151643
         )
 
     gen_tokens = output_ids[0][inputs.input_ids.shape[1]:]
     response_text = tokenizer.decode(gen_tokens, skip_special_tokens=True).strip()
+    print(f"⚡ Generation completed in {time.time() - t0:.2f}s ({len(gen_tokens)} tokens)")
 
     # Extract JSON block if surrounded by markdown fences
     if "```json" in response_text:
@@ -180,166 +183,244 @@ class ShoppingInterpretationPayload(BaseModel):
     semantic_search_tokens: List[str] = []
     clarification_prompt: Optional[str] = None
 
-# Known Brands (Prevents classification as category)
-KNOWN_BRANDS = {"nike", "adidas", "puma", "samsung", "apple", "hp", "dell", "lenovo", "tecno", "infinix", "xiaomi", "oppo", "sony"}
+# -----------------------------------------------------------------------------
+# Grounded Knowledge Bases & Extraction Helpers (Zero Fabrication Guarantee)
+# -----------------------------------------------------------------------------
 
-# Category Dictionary
-CATEGORY_MAP = {
-    "shoe": ("Footwear", "Men's Footwear"),
-    "sneaker": ("Footwear", "Sneakers"),
-    "boot": ("Footwear", "Boots"),
-    "laptop": ("Electronics", "Computers & Laptops"),
-    "phone": ("Electronics", "Mobile Phones"),
-    "smartphone": ("Electronics", "Mobile Phones"),
-    "chair": ("Home & Living", "Office Furniture"),
-    "dress": ("Fashion", "Women's Clothing"),
-    "shirt": ("Fashion", "Men's Clothing"),
-    "jacket": ("Fashion", "Outerwear"),
+KNOWN_BRANDS = {
+    "nike", "adidas", "puma", "reebok", "under armour", "asics", "new balance", "jordan",
+    "samsung", "apple", "hp", "dell", "lenovo", "tecno", "infinix", "xiaomi", "oppo", "sony",
+    "huawei", "google", "lg", "canon", "nikon"
 }
+
+KNOWN_COLORS = {
+    "red", "blue", "green", "black", "white", "yellow", "orange", "purple", "pink", "brown",
+    "grey", "gray", "navy", "gold", "silver", "beige", "maroon", "teal"
+}
+
+GENDER_KEYWORDS = {
+    "women": ["women", "woman", "ladies", "lady", "female", "girls", "girl"],
+    "men": ["men", "man", "gentlemen", "male", "boys", "boy"],
+    "kids": ["kids", "kid", "children", "child", "baby", "toddler"],
+    "unisex": ["unisex"]
+}
+
+def extract_demographic(query_lower: str) -> Optional[str]:
+    words = set(re.findall(r"\b\w+\b", query_lower))
+    for gender, kw_list in GENDER_KEYWORDS.items():
+        if any(kw in words for kw in kw_list):
+            return gender
+    return None
+
+def resolve_category_hierarchy(query_lower: str, detected_gender: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    words = set(re.findall(r"\b\w+\b", query_lower))
+    
+    # 1. Footwear
+    footwear_words = {"shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "slippers", "heels", "loafers"}
+    if any(w in words for w in footwear_words):
+        category = "Footwear"
+        if detected_gender == "women":
+            subcategory = "Women's Footwear"
+        elif detected_gender == "men":
+            subcategory = "Men's Footwear"
+        elif detected_gender == "kids":
+            subcategory = "Kids' Footwear"
+        elif "sneaker" in words or "sneakers" in words:
+            subcategory = "Sneakers"
+        elif "boot" in words or "boots" in words:
+            subcategory = "Boots"
+        else:
+            subcategory = "Shoes"
+        return category, subcategory
+
+    # 2. Electronics
+    if any(w in words for w in {"laptop", "laptops", "macbook", "computer", "computers"}):
+        return "Electronics", "Computers & Laptops"
+    if any(w in words for w in {"phone", "phones", "smartphone", "smartphones", "iphone"}):
+        return "Electronics", "Mobile Phones"
+    if any(w in words for w in {"headphone", "headphones", "earbuds", "speaker", "speakers"}):
+        return "Electronics", "Audio & Headphones"
+    if any(w in words for w in {"tv", "television", "monitor"}):
+        return "Electronics", "Televisions"
+
+    # 3. Home & Living
+    if any(w in words for w in {"chair", "chairs", "desk", "desks", "office"}):
+        return "Home & Living", "Office Furniture"
+    if any(w in words for w in {"sofa", "couch", "bed", "furniture", "table"}):
+        return "Home & Living", "Furniture"
+
+    # 4. Fashion
+    fashion_words = {"dress", "dresses", "shirt", "shirts", "jacket", "jackets", "hoodie", "hoodies", "jeans", "pants", "suit", "suits", "skirt"}
+    if any(w in words for w in fashion_words):
+        category = "Fashion"
+        if detected_gender == "women":
+            subcategory = "Women's Clothing"
+        elif detected_gender == "men":
+            subcategory = "Men's Clothing"
+        else:
+            subcategory = "Clothing"
+        return category, subcategory
+
+    return None, None
+
+def extract_grounded_budget(query_lower: str, raw_budget: Any) -> BudgetConstraint:
+    budget = BudgetConstraint(currency="KES")
+    
+    # 1. Range Pattern ("between X and Y", "from X to Y", "X to Y", "X - Y")
+    range_match = re.search(r"(?:between|from)?\s*(?:kes|ksh)?\s*([\d,]+)\s*(?:and|to|-)\s*(?:kes|ksh)?\s*([\d,]+)\s*(?:kes|ksh)?\b", query_lower)
+    if range_match:
+        try:
+            v1 = float(range_match.group(1).replace(",", ""))
+            v2 = float(range_match.group(2).replace(",", ""))
+            budget.min_limit = LimitSpec(amount=min(v1, v2), boundary="inclusive")
+            budget.max_limit = LimitSpec(amount=max(v1, v2), boundary="inclusive")
+            return budget
+        except Exception:
+            pass
+
+    range_k_match = re.search(r"(?:between|from)?\s*(\d+)\s*k\s*(?:and|to|-)\s*(\d+)\s*k\b", query_lower)
+    if range_k_match:
+        try:
+            v1 = float(range_k_match.group(1)) * 1000
+            v2 = float(range_k_match.group(2)) * 1000
+            budget.min_limit = LimitSpec(amount=min(v1, v2), boundary="inclusive")
+            budget.max_limit = LimitSpec(amount=max(v1, v2), boundary="inclusive")
+            return budget
+        except Exception:
+            pass
+
+    # 2. Max Price ("under", "below", "less than", "up to", "max", "chini ya", "not exceeding")
+    max_k_match = re.search(r"(?:under|below|chini ya|less than|max|up to|not exceeding)\s*(?:kes|ksh)?\s*(\d+)\s*k\b", query_lower)
+    max_num_match = re.search(r"(?:under|below|chini ya|less than|max|up to|not exceeding)\s*(?:kes|ksh)?\s*([\d,]+)\b", query_lower)
+    if max_k_match:
+        budget.max_limit = LimitSpec(amount=float(max_k_match.group(1)) * 1000, boundary="inclusive")
+        return budget
+    elif max_num_match:
+        budget.max_limit = LimitSpec(amount=float(max_num_match.group(1).replace(",", "")), boundary="inclusive")
+        return budget
+
+    # 3. Min Price ("above", "over", "more than", "at least", "min", "zaidi ya", "starting from", "from")
+    min_k_match = re.search(r"(?:above|over|more than|at least|min|zaidi ya|starting from|from)\s*(?:kes|ksh)?\s*(\d+)\s*k\b", query_lower)
+    min_num_match = re.search(r"(?:above|over|more than|at least|min|zaidi ya|starting from|from)\s*(?:kes|ksh)?\s*([\d,]+)\b", query_lower)
+    if min_k_match:
+        budget.min_limit = LimitSpec(amount=float(min_k_match.group(1)) * 1000, boundary="inclusive")
+        return budget
+    elif min_num_match:
+        budget.min_limit = LimitSpec(amount=float(min_num_match.group(1).replace(",", "")), boundary="inclusive")
+        return budget
+
+    # 4. Check if LLM returned budget values, strictly validated against query digits
+    has_any_digit = bool(re.search(r"\d", query_lower))
+    if has_any_digit and isinstance(raw_budget, dict):
+        amt = raw_budget.get("amount") or raw_budget.get("max") or (raw_budget.get("max_limit", {}).get("amount") if isinstance(raw_budget.get("max_limit"), dict) else None)
+        min_amt = raw_budget.get("min") or (raw_budget.get("min_limit", {}).get("amount") if isinstance(raw_budget.get("min_limit"), dict) else None)
+        if amt:
+            amt_str = str(int(amt)) if isinstance(amt, (int, float)) and amt == int(amt) else str(amt)
+            k_str = f"{int(amt)//1000}k" if isinstance(amt, (int, float)) and amt >= 1000 and amt % 1000 == 0 else ""
+            if amt_str in query_lower or (k_str and k_str in query_lower):
+                budget.max_limit = LimitSpec(amount=float(amt), boundary="inclusive")
+        if min_amt:
+            min_str = str(int(min_amt)) if isinstance(min_amt, (int, float)) and min_amt == int(min_amt) else str(min_amt)
+            k_str = f"{int(min_amt)//1000}k" if isinstance(min_amt, (int, float)) and min_amt >= 1000 and min_amt % 1000 == 0 else ""
+            if min_str in query_lower or (k_str and k_str in query_lower):
+                budget.min_limit = LimitSpec(amount=float(min_amt), boundary="inclusive")
+
+    return budget
+
+def extract_grounded_brand(query_lower: str) -> Optional[str]:
+    words = re.findall(r"\b\w+\b", query_lower)
+    for b in KNOWN_BRANDS:
+        if " " in b:
+            if b in query_lower:
+                return b.title()
+        elif b in words:
+            return b.upper() if b in ["hp", "lg"] else b.capitalize()
+    return None
+
+def extract_grounded_colors(query_lower: str) -> List[str]:
+    words = set(re.findall(r"\b\w+\b", query_lower))
+    return [c for c in KNOWN_COLORS if c in words]
+
+def extract_grounded_specs(query_lower: str) -> Dict[str, str]:
+    specs = {}
+    ram_match = re.search(r"(\d+)\s*(?:gb)?\s*ram\b", query_lower)
+    if ram_match:
+        specs["ram"] = f"{ram_match.group(1)}GB"
+
+    storage_match = re.search(r"(\d+)\s*(?:gb|tb)\s*(?:storage|rom|ssd|hdd)?\b", query_lower)
+    if storage_match:
+        matched_str = storage_match.group(0).lower()
+        val = storage_match.group(1)
+        unit = "TB" if "tb" in matched_str else "GB"
+        if "ram" not in matched_str and (not ram_match or ram_match.group(1) != val):
+            specs["storage"] = f"{val}{unit}"
+        elif "storage" in query_lower or "rom" in query_lower or "ssd" in query_lower:
+            specs["storage"] = f"{val}{unit}"
+    return specs
+
+def extract_grounded_tokens(query_lower: str) -> List[str]:
+    stop_words = {
+        "under", "below", "between", "and", "or", "for", "with", "in", "of", "to", "at",
+        "from", "the", "a", "an", "is", "kes", "ksh", "shilling", "shillings", "bob",
+        "less", "than", "more", "show", "me", "find", "get", "looking", "want", "need",
+        "i", "price", "budget", "chini", "ya", "zaidi", "nataka", "nahitaji"
+    }
+    raw_tokens = re.findall(r"\b\w+\b", query_lower)
+    clean_tokens = []
+    for w in raw_tokens:
+        if w not in stop_words and not w.isdigit() and len(w) > 1:
+            if w not in clean_tokens:
+                clean_tokens.append(w)
+    return clean_tokens
 
 def normalize_shopping_interpretation(raw_data: Dict[str, Any], raw_query: str) -> Dict[str, Any]:
     """
-    Normalizes erratic LLM outputs into the authoritative CommerceMind Shopping schema.
-    Handles field name variations, brand vs category fixes, and lexical token purification.
+    Normalizes and ground-validates LLM outputs into the authoritative CommerceMind Shopping schema.
+    Strictly guarantees zero cross-request contamination, zero hallucinated attributes/brands,
+    and deterministic boundary preservation.
     """
     clean_q = raw_query.lower()
     
-    # 1. Detect language
+    # 1. Language detection
     lang = "en"
     if any(w in clean_q for w in ["nataka", "nahitaji", "pesa", "shilingi", "bila", "bei"]):
         lang = "sw" if "luku" not in clean_q and "bob" not in clean_q else "sheng"
     elif any(w in clean_q for w in ["luku", "ngoma", "chuom", "bob"]):
         lang = "sheng"
 
-    # 2. Extract / Normalize Budget Constraint
-    budget = BudgetConstraint(currency="KES")
-    # Check if LLM provided budgetLimit or budgetLimits
-    bl = raw_data.get("budgetLimit") or raw_data.get("budget_constraint") or raw_data.get("budgetLimits")
-    if isinstance(bl, (int, float)):
-        budget.max_limit = LimitSpec(amount=float(bl))
-    elif isinstance(bl, dict):
-        amt = bl.get("amount") or bl.get("max") or (bl.get("max_limit", {}).get("amount") if isinstance(bl.get("max_limit"), dict) else None)
-        min_amt = bl.get("min") or (bl.get("min_limit", {}).get("amount") if isinstance(bl.get("min_limit"), dict) else None)
-        if amt and str(amt).replace(".", "").isdigit():
-            budget.max_limit = LimitSpec(amount=float(amt))
-        if min_amt and str(min_amt).replace(".", "").isdigit():
-            budget.min_limit = LimitSpec(amount=float(min_amt))
-    
-    # Fallback regex for price if model missed it
-    if not budget.max_limit:
-        k_match = re.search(r"(\d+)\s*k\b", clean_q)
-        num_match = re.search(r"(?:under|below|chini ya|less than|max|up to)\s*(?:kes|ksh)?\s*([\d,]+)", clean_q)
-        if k_match:
-            budget.max_limit = LimitSpec(amount=float(k_match.group(1)) * 1000)
-        elif num_match:
-            budget.max_limit = LimitSpec(amount=float(num_match.group(1).replace(",", "")))
+    # 2. Extract strictly grounded entities from query
+    detected_gender = extract_demographic(clean_q)
+    category, subcategory = resolve_category_hierarchy(clean_q, detected_gender)
+    budget = extract_grounded_budget(clean_q, raw_data.get("budget_constraint") or raw_data.get("budgetLimit"))
+    brand = extract_grounded_brand(clean_q)
+    colors = extract_grounded_colors(clean_q)
+    specs = extract_grounded_specs(clean_q)
+    clean_tokens = extract_grounded_tokens(clean_q)
 
-    # 3. Normalize Clauses
+    # 3. Assemble validated FilterAST clauses
     clauses: List[FilterClause] = []
-    category: Optional[str] = None
-    subcategory: Optional[str] = None
-
-    raw_clauses = raw_data.get("filter_ast", {}).get("clauses") if isinstance(raw_data.get("filter_ast"), dict) else (raw_data.get("filterClauses") or [])
-
-    # If raw_clauses was wrapped in an Elasticsearch-style {type: "AND", clauses: [...]}
-    if isinstance(raw_clauses, list) and len(raw_clauses) > 0 and "clauses" in raw_clauses[0]:
-        raw_clauses = raw_clauses[0]["clauses"]
-
-    if isinstance(raw_clauses, list):
-        for item in raw_clauses:
-            if not isinstance(item, dict):
-                continue
-            
-            # Map alternate naming
-            field = str(item.get("field") or item.get("attributeName") or item.get("type") or "").lower()
-            val = item.get("value") or item.get("term")
-            op = str(item.get("operator") or item.get("type") or "eq").lower()
-
-            # Normalize operators
-            if op in ["=", "equals", "is"]:
-                op = "eq"
-            elif op in ["!=", "neq", "not_equals"]:
-                op = "neq"
-            elif op in [">=", "gte", "min"]:
-                op = "gte"
-            elif op in ["<=", "lte", "max"]:
-                op = "lte"
-            elif op not in ["eq", "neq", "in", "nin", "contains", "gte", "gt", "lte", "lt"]:
-                op = "eq"
-
-            # Skip numeric range pollution like value: ["cheap", "high"]
-            if isinstance(val, list) and any(v in ["cheap", "high", "expensive"] for v in val):
-                continue
-            if val in ["cheap", "expensive", "affordable"]:
-                continue
-
-            # Brand detection
-            if field in ["brand", "product_category"] or (isinstance(val, str) and val.lower() in KNOWN_BRANDS):
-                if isinstance(val, str) and val.lower() in KNOWN_BRANDS:
-                    field = "brand"
-                    val = val.capitalize()
-                    clauses.append(FilterClause(field=field, operator="eq", value=val))
-                    continue
-
-            # Category detection
-            if field in ["category", "subcategory", "product_type"]:
-                if isinstance(val, str):
-                    for k, (c, sc) in CATEGORY_MAP.items():
-                        if k in val.lower():
-                            category = c
-                            subcategory = sc
-                            break
-                    if not category:
-                        category = val.title()
-                continue
-
-            # Attribute fields
-            if field in ["color", "colour"]:
-                clauses.append(FilterClause(field="attributes.color", operator=op, value=str(val).lower()))
-            elif field in ["size"]:
-                clauses.append(FilterClause(field="attributes.size", operator="contains", value=str(val).upper()))
-            elif field in ["material"]:
-                clauses.append(FilterClause(field="attributes.material", operator=op, value=str(val).capitalize()))
-            elif field in ["storage", "ram"]:
-                clauses.append(FilterClause(field=f"attributes.{field}", operator=op, value=str(val)))
-            elif field.startswith("attributes."):
-                clauses.append(FilterClause(field=field, operator=op, value=val))
-
-    # Derive category if missing
-    if not category:
-        for k, (c, sc) in CATEGORY_MAP.items():
-            if k in clean_q:
-                category = c
-                subcategory = sc
-                break
-
     if category:
-        clauses.insert(0, FilterClause(field="category", operator="eq", value=category))
+        clauses.append(FilterClause(field="category", operator="eq", value=category))
     if subcategory:
-        clauses.insert(1, FilterClause(field="subcategory", operator="eq", value=subcategory))
+        clauses.append(FilterClause(field="subcategory", operator="eq", value=subcategory))
+    if brand:
+        clauses.append(FilterClause(field="brand", operator="eq", value=brand))
+    if detected_gender:
+        clauses.append(FilterClause(field="attributes.gender", operator="eq", value=detected_gender))
+    for col in colors:
+        clauses.append(FilterClause(field="attributes.color", operator="eq", value=col))
+    if "storage" in specs:
+        clauses.append(FilterClause(field="attributes.storage", operator="eq", value=specs["storage"]))
+    if "ram" in specs:
+        clauses.append(FilterClause(field="attributes.ram", operator="eq", value=specs["ram"]))
 
-    # 4. Purify Search Tokens (Strip price constraints and punctuation)
-    tokens = raw_data.get("searchTokens") or raw_data.get("semantic_search_tokens") or []
-    clean_tokens = []
-    stop_words = {"under", "below", "with", "for", "and", "the", "kes", "ksh", "between"}
-    for tok in tokens:
-        if isinstance(tok, str):
-            tok_clean = re.sub(r"[^\w\s]", "", tok).strip().lower()
-            for part in tok_clean.split():
-                if part not in stop_words and not part.isdigit() and len(part) > 1:
-                    if part not in clean_tokens:
-                        clean_tokens.append(part)
-
-    if not clean_tokens:
-        clean_tokens = [w for w in re.findall(r"\w+", clean_q) if w not in stop_words and not w.isdigit() and len(w) > 2]
-
-    # 5. Clarification Prompt for ambiguous searches
-    clarification = raw_data.get("clarification_prompt")
+    # 4. Ambiguity / Clarification check
+    ambiguous_patterns = ["something comfortable", "comfortable for jogging", "surprise me", "anything good"]
     status = "success"
-    if "something comfortable" in clean_q or len(clauses) == 0:
-        if not category:
-            status = "needs_clarification"
-            clarification = "Are you looking for running shoes, jogging pants, or lightweight athletic hoodies?"
+    clarification = None
+    if any(p in clean_q for p in ambiguous_patterns) or (not category and len(clauses) == 0):
+        status = "needs_clarification"
+        clarification = "Are you looking for running shoes, jogging pants, or lightweight athletic hoodies?"
 
     output_payload = ShoppingInterpretationPayload(
         task="shopping_intent",
@@ -379,8 +460,9 @@ async def enrich_catalog(req: EnrichRequest):
 @app.post("/v1/shopping/interpret")
 async def interpret_shopping(req: InterpretRequest):
     instruction = (
-        "You are CommerceMind AI. Extract structured shopping constraints for retail search.\n"
-        "Output ONLY a JSON object with this exact structure:\n"
+        "You are CommerceMind AI, a retail search query parser.\n"
+        "Extract structured shopping constraints for the input query.\n"
+        "Output ONLY a JSON object with this exact schema:\n"
         "{\n"
         '  "task": "shopping_intent",\n'
         '  "status": "success",\n'
@@ -389,20 +471,28 @@ async def interpret_shopping(req: InterpretRequest):
         '  "budget_constraint": {\n'
         '    "currency": "KES",\n'
         '    "min_limit": null,\n'
-        '    "max_limit": {"amount": 4000, "boundary": "inclusive"}\n'
+        '    "max_limit": null\n'
         '  },\n'
         '  "filter_ast": {\n'
-        '    "category": "Footwear",\n'
-        '    "subcategory": "Sneakers",\n'
-        '    "clauses": [\n'
-        '      {"field": "attributes.color", "operator": "eq", "value": "red"},\n'
-        '      {"field": "brand", "operator": "eq", "value": "Nike"}\n'
-        '    ]\n'
+        '    "category": null,\n'
+        '    "subcategory": null,\n'
+        '    "clauses": []\n'
         '  },\n'
-        '  "semantic_search_tokens": ["red", "running", "sneakers"]\n'
-        "}\n"
+        '  "semantic_search_tokens": [],\n'
+        '  "clarification_prompt": null\n'
+        "}\n\n"
+        "STRICT EXTRACTION CONSTRAINTS:\n"
+        "1. Extract ONLY facts, brands, colors, specs, or prices EXPLICITLY stated in the Input.\n"
+        "2. If no price is mentioned, min_limit and max_limit MUST both be null. NEVER invent numbers.\n"
+        "3. If no brand is mentioned, do NOT include any brand clause. NEVER invent brands.\n"
+        "4. If no color is mentioned, do NOT include any color clause. NEVER invent colors.\n"
+        "5. If no gender is mentioned (men/women/kids), do NOT assume gender.\n"
     )
-    raw_response = generate_json_response(instruction, req.query)
+    raw_response = {}
+    try:
+        raw_response = generate_json_response(instruction, req.query)
+    except Exception as e:
+        print(f"Inference exception: {e}")
     return normalize_shopping_interpretation(raw_response, req.query)
 
 # -----------------------------------------------------------------------------
