@@ -66,3 +66,4 @@ fi
 echo ""
 echo "Curl Suite Completed: ${PASSED} passed, ${FAILED} failed."
 [ "$FAILED" -eq 0 ]
+
