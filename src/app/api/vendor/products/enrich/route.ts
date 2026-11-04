@@ -41,3 +41,4 @@ async function handler(req: NextRequest) {
 }
 
 export const POST = withAuth(handler, ['vendor', 'admin']);
+

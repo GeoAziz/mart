@@ -62,3 +62,4 @@ export async function interpretShoppingQuery(
   const data: CommerceMindShoppingInterpretation = await res.json();
   return data;
 }
+
