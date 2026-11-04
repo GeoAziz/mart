@@ -27,8 +27,9 @@ export async function POST(req: NextRequest) {
     let interpretation;
     try {
       interpretation = await interpretShoppingQuery({ query, sessionId });
-    } catch (modelErr: any) {
-      console.warn('[CommerceMind Model Fallback]:', modelErr.message);
+    } catch (modelErr: unknown) {
+      const errMsg = modelErr instanceof Error ? modelErr.message : String(modelErr);
+      console.warn('[CommerceMind Model Fallback]:', errMsg);
       // Fallback: rule-based intent parsing
       interpretation = {
         task: 'shopping_intent' as const,
@@ -100,10 +101,11 @@ export async function POST(req: NextRequest) {
       explanation,
       products: matchingProducts,
     });
-  } catch (err: any) {
-    console.error('[Concierge Chat Error]:', err.message);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : 'Internal error processing shopping request';
+    console.error('[Concierge Chat Error]:', errMsg);
     return NextResponse.json(
-      { success: false, error: err.message || 'Internal error processing shopping request' },
+      { success: false, error: errMsg },
       { status: 500 }
     );
   }

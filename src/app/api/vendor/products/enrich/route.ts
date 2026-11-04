@@ -28,12 +28,13 @@ async function handler(req: NextRequest) {
       success: true,
       data: enrichment,
     });
-  } catch (err: any) {
-    console.error('[CommerceMind Enrich API Error]:', err.message);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : 'Failed to enrich product catalog';
+    console.error('[CommerceMind Enrich API Error]:', errMsg);
     return NextResponse.json(
       {
         success: false,
-        error: err.message || 'Failed to enrich product catalog',
+        error: errMsg,
       },
       { status: 500 }
     );

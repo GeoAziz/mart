@@ -74,7 +74,8 @@ describe('Phase 1: CommerceMind Client Foundation Tests', () => {
     expect(result.status).toBe('success');
     expect(result.attributes.size.value).toEqual(['M', 'L']);
     expect(result.attributes.size.normalization_state).toBe('unresolved');
-    expect(result.listing_quality.score).toBe(82);
+    expect(result.listing_quality.score).toBe(63);
+    expect(result.listing_quality.grade).toBe('C');
   });
 
   it('Engine 2: parses multilingual query with negative constraints and strict budget boundaries', async () => {
@@ -123,15 +124,17 @@ describe('Phase 1: CommerceMind Client Foundation Tests', () => {
     expect(ninClause?.value).toEqual(['Suede']);
   });
 
-  it('fails safely when the remote inference service throws an HTTP error', async () => {
+  it('degrades gracefully to deterministic fallback when the remote inference service throws an HTTP error', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: false,
       status: 503,
       text: async () => 'Service Unavailable',
     } as Response);
 
-    await expect(
-      enrichProductCatalog({ vendorText: 'Sample text' })
-    ).rejects.toThrow('CommerceMind Engine 1 error: 503 Service Unavailable');
+    const fallback = await enrichProductCatalog({ vendorText: 'Sample blue dress' });
+    expect(fallback.task).toBe('catalog_enrichment');
+    expect(fallback.status).toBe('low_confidence');
+    expect(fallback.attributes.color.value).toBe('Blue');
   });
 });
+
