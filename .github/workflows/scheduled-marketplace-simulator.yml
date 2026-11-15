@@ -1,0 +1,104 @@
+name: Marketplace Activity Engine (MAE) Simulator
+
+# MAE Orchestrator: Scheduled Synthetic Marketplace Simulation
+# Strictly isolated in GitHub Environment: marketplace-simulation
+# Target Project: mart-ke-sim (or emulator)
+# Zero production credentials or mutations.
+
+on:
+  schedule:
+    # Daily at 03:00 UTC (06:00 EAT Africa/Nairobi)
+    - cron: '0 3 * * *'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Execution mode'
+        type: choice
+        options:
+          - dry-run
+          - execute
+        default: dry-run
+      date:
+        description: 'Reporting date (YYYY-MM-DD)'
+        required: false
+      customer_limit:
+        description: 'Max customers to schedule'
+        required: false
+        default: '5'
+      vendor_limit:
+        description: 'Max vendors to schedule'
+        required: false
+        default: '5'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: marketplace-simulator-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  simulate:
+    name: Execute Marketplace Simulation (mart-ke-sim)
+    runs-on: ubuntu-latest
+    environment: marketplace-simulation
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Simulation Service Account
+        run: |
+          if [ -n "$SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "$SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY" > serviceAccountKey.json
+          else
+            echo "::error::SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY secret is required for mart-ke-sim!"
+            exit 1
+          fi
+        env:
+          SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY }}
+
+      - name: Validate Simulation Environment Guard
+        run: npm run simulator:guard
+        env:
+          NODE_ENV: development
+          FIREBASE_PROJECT_ID: 'mart-ke-sim'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke-sim'
+          GA4_TEST_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          PAYMENT_PROVIDER_MODE: 'simulated'
+
+      - name: Execute Simulation Orchestrator
+        run: |
+          FLAGS=""
+          if [ "${{ inputs.mode }}" = "dry-run" ]; then
+            FLAGS="--dry-run"
+          fi
+          if [ -n "${{ inputs.date }}" ]; then
+            FLAGS="$FLAGS --date=${{ inputs.date }}"
+          fi
+          FLAGS="$FLAGS --customers=${{ inputs.customer_limit || '5' }} --vendors=${{ inputs.vendor_limit || '5' }}"
+          npm run simulator:run -- $FLAGS
+        env:
+          NODE_ENV: development
+          FIREBASE_PROJECT_ID: 'mart-ke-sim'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke-sim'
+          GA4_TEST_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          PAYMENT_PROVIDER_MODE: 'simulated'
+
+      - name: Clean up sensitive credentials
+        if: always()
+        run: rm -f serviceAccountKey.json

@@ -1,15 +1,18 @@
-name: Scheduled GA4 Synthetic Traffic
+name: Scheduled GA4 Synthetic Traffic (DEACTIVATED)
+
+# DEACTIVATED: Scheduled synthetic traffic to production is permanently disabled
+# to prevent GA4 cohort pollution and retention distortion.
+# See Marketplace Activity Engine (MAE) Architecture Spec v3.0.
 
 on:
-  schedule:
-    # Runs daily at 06:00 UTC (reduced from twice daily to conserve free-tier quota)
-    - cron: '0 6 * * *'
+  # schedule:
+  #   - cron: '0 6 * * *' # DEACTIVATED
   workflow_dispatch:
     inputs:
       user_count:
-        description: 'Number of synthetic users to simulate (optional)'
+        description: 'Number of synthetic users to simulate (Requires emulator/sim project)'
         required: false
-        default: '45'
+        default: '5'
 
 concurrency:
   group: scheduled-ga4-traffic-${{ github.ref }}
@@ -48,7 +51,6 @@ jobs:
       - name: Run Multi-User Shopping & GA4 Simulation
         env:
           NODE_ENV: development
-          ALLOW_PRODUCTION_SIMULATION: 'true'
           ENABLE_ANONYMOUS_CLIENT_FALLBACK: 'true'
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
@@ -61,7 +63,6 @@ jobs:
 
       - name: Dispatch Offline Conversions (Measurement Protocol)
         env:
-          ALLOW_PRODUCTION_SIMULATION: 'true'
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
         run: npm run sim:offline-conversions
