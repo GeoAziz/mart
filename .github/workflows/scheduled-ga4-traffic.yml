@@ -1,16 +1,13 @@
-name: Scheduled GA4 Synthetic Traffic (DEACTIVATED)
-
-# DEACTIVATED: Scheduled synthetic traffic to production is permanently disabled
-# to prevent GA4 cohort pollution and retention distortion.
-# See Marketplace Activity Engine (MAE) Architecture Spec v3.0.
+name: Scheduled GA4 Synthetic Traffic
 
 on:
-  # schedule:
-  #   - cron: '0 6 * * *' # DEACTIVATED
+  schedule:
+    # Runs daily at 06:00 UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
       user_count:
-        description: 'Number of synthetic users to simulate (Requires emulator/sim project)'
+        description: 'Number of synthetic users to simulate'
         required: false
         default: '5'
 
@@ -51,6 +48,7 @@ jobs:
       - name: Run Multi-User Shopping & GA4 Simulation
         env:
           NODE_ENV: development
+          ALLOW_MART_KE_SIMULATION: 'true'
           ENABLE_ANONYMOUS_CLIENT_FALLBACK: 'true'
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
@@ -58,13 +56,18 @@ jobs:
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
-          SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '45' }}
+          PAYMENT_PROVIDER_MODE: 'simulated'
+          SIMULATION_USER_COUNT: ${{ github.event.inputs.user_count || '5' }}
         run: npm run sim:shopping
 
       - name: Dispatch Offline Conversions (Measurement Protocol)
         env:
+          ALLOW_MART_KE_SIMULATION: 'true'
+          FIREBASE_PROJECT_ID: 'mart-ke'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
+          PAYMENT_PROVIDER_MODE: 'simulated'
         run: npm run sim:offline-conversions
 
       - name: Generate Non-Google Ad Cost Data (Simulation Unlocker)
