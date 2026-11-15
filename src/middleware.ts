@@ -28,6 +28,21 @@ export function middleware(request: NextRequest) {
   // Clone the request to continue processing
   const response = NextResponse.next();
 
+  if (
+    pathname.startsWith('/admin/') ||
+    pathname.startsWith('/vendor/') ||
+    pathname.startsWith('/account/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/cart') ||
+    pathname.startsWith('/checkout') ||
+    pathname.startsWith('/invoice/') ||
+    pathname.startsWith('/track-order') ||
+    pathname.startsWith('/messaging/') ||
+    pathname.startsWith('/paypal-debug')
+  ) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
+
   // Store metadata for later tracking
   response.headers.set('x-request-method', method);
   response.headers.set('x-request-route', normalizedRoute);

@@ -9,6 +9,14 @@ import {
   PhoneCall
 } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { createPageMetadata } from '@/lib/site-metadata';
+
+export const metadata: Metadata = createPageMetadata({
+  title: 'Shipping Information',
+  description: 'Learn about ZilaCart delivery options and nationwide shipping across Kenya.',
+  path: '/shipping',
+});
 
 export default function ShippingPage() {
   const deliveryZones = [

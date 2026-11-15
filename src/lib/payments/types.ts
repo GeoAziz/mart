@@ -1,4 +1,4 @@
-export type PaymentProvider = 'stripe' | 'paypal' | 'mpesa';
+export type PaymentProvider = 'stripe' | 'paypal' | 'mpesa' | 'simulated';
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed';
 

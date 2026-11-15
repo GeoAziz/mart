@@ -18,6 +18,14 @@ export const ALLOWLISTED_AST_FIELDS = new Set([
   'attributes.style',
   'attributes.fit',
   'attributes.occasion',
+  'attributes.gender',
+  'attributes.storage',
+  'attributes.ram',
+  'attributes.screen_size',
+  'attributes.battery',
+  'attributes.weight',
+  'attributes.connectivity',
+  'attributes.warranty',
 ]);
 
 export const ALLOWLISTED_AST_OPERATORS = new Set([

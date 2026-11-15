@@ -5,23 +5,57 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ProductWithVendor, UserProfile } from '@/lib/types';
 import type { PublicVendorSettings } from '@/app/api/vendors/[vendorId]/settings/route';
+import type { Metadata } from 'next';
+import { firestoreAdmin } from '@/lib/firebase-admin';
+import { absoluteImageUrl, absoluteUrl, cleanDescription } from '@/lib/site-metadata';
 
 // Fetch vendor profile, products, and public settings from API
 async function getVendorData(vendorId: string) {
-  const [profileRes, productsRes, settingsRes] = await Promise.all([
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/users/${vendorId}`),
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/vendors/${vendorId}/products`),
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/vendors/${vendorId}/settings`),
+  const [profileDoc, settingsDoc, productsSnapshot] = await Promise.all([
+    firestoreAdmin.collection('users').doc(vendorId).get(),
+    firestoreAdmin.collection('vendorSettings').doc(vendorId).get(),
+    firestoreAdmin.collection('products').where('vendorId', '==', vendorId).where('status', '==', 'active').orderBy('dateAdded', 'desc').get(),
   ]);
-
-  const settings: PublicVendorSettings | null = settingsRes.ok ? await settingsRes.json() : null;
-
-  if (!profileRes.ok || !productsRes.ok) {
-    return { profile: null as UserProfile | null, products: [] as ProductWithVendor[], settings };
-  }
-
-  const profile: UserProfile = await profileRes.json();
-  const products: ProductWithVendor[] = await productsRes.json();
+  if (!profileDoc.exists) return { profile: null as UserProfile | null, products: [] as ProductWithVendor[], settings: null };
+  const profileData = profileDoc.data() || {};
+  const profile: UserProfile = {
+    uid: profileDoc.id,
+    email: profileData.email || null,
+    fullName: profileData.fullName || null,
+    role: profileData.role || 'customer',
+    status: profileData.status || 'active',
+    createdAt: profileData.createdAt?.toDate?.() || new Date(),
+    updatedAt: profileData.updatedAt?.toDate?.(),
+  };
+  const settingsData = settingsDoc.data() || {};
+  const settings: PublicVendorSettings = {
+    storeName: settingsData.storeName || '',
+    storeDescription: settingsData.storeDescription || '',
+    contactEmail: settingsData.contactEmail || '',
+    contactPhone: settingsData.contactPhone || '',
+    logoUrl: settingsData.logoUrl || 'https://placehold.co/150x150/7777FF/FFFFFF?text=Logo',
+    bannerUrl: settingsData.bannerUrl || 'https://placehold.co/600x200/77DDFF/FFFFFF?text=Banner',
+    socialFacebook: settingsData.socialFacebook || '',
+    socialTwitter: settingsData.socialTwitter || '',
+    socialInstagram: settingsData.socialInstagram || '',
+  };
+  const products: ProductWithVendor[] = productsSnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      name: data.name || 'Unnamed Product',
+      description: data.description || '',
+      price: Number(data.price || 0),
+      category: data.category || 'Uncategorized',
+      stock: data.stock ?? 0,
+      imageUrl: data.imageUrl,
+      additionalImageUrls: data.additionalImageUrls || [],
+      brand: data.brand,
+      vendorId,
+      status: 'active',
+      rating: data.rating,
+    };
+  });
 
   // Guard: ensure the profile actually belongs to a vendor, otherwise treat as not found
   if (!profile || profile.role !== 'vendor') {
@@ -29,6 +63,37 @@ async function getVendorData(vendorId: string) {
   }
 
   return { profile, products, settings };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ vendorId: string }>;
+}): Promise<Metadata> {
+  const { vendorId } = await params;
+  const { profile, settings } = await getVendorData(vendorId);
+  if (!profile) {
+    return { title: 'Store Not Found', robots: { index: false, follow: false } };
+  }
+  const storeName = settings?.storeName || profile.fullName || 'Vendor Store';
+  const description = cleanDescription(settings?.storeDescription, `Shop trusted products from ${storeName} on ZilaCart.`);
+  const image = absoluteImageUrl(settings?.bannerUrl || settings?.logoUrl);
+  const url = absoluteUrl(`/store/${vendorId}`);
+  return {
+    title: `${storeName} Store`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${storeName} Store`,
+      description,
+      url,
+      siteName: 'ZilaCart',
+      locale: 'en_KE',
+      type: 'website',
+      images: [{ url: image, width: 1200, height: 630, alt: `${storeName} storefront` }],
+    },
+    twitter: { card: 'summary_large_image', title: `${storeName} Store`, description, images: [image] },
+  };
 }
 
 export default async function VendorStorefrontPage({

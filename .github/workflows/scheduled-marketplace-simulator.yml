@@ -1,9 +1,8 @@
 name: Marketplace Activity Engine (MAE) Simulator
 
 # MAE Orchestrator: Scheduled Synthetic Marketplace Simulation
-# Strictly isolated in GitHub Environment: marketplace-simulation
-# Target Project: mart-ke-sim (or emulator)
-# Zero production credentials or mutations.
+# Runs daily on mart-ke with strict synthetic isolation and simulated payments.
+# Populates both Firestore (is_synthetic: true) and GA4 (Drive Sales & Generate Leads).
 
 on:
   schedule:
@@ -16,9 +15,9 @@ on:
         description: 'Execution mode'
         type: choice
         options:
-          - dry-run
           - execute
-        default: dry-run
+          - dry-run
+        default: execute
       date:
         description: 'Reporting date (YYYY-MM-DD)'
         required: false
@@ -41,9 +40,8 @@ concurrency:
 
 jobs:
   simulate:
-    name: Execute Marketplace Simulation (mart-ke-sim)
+    name: Execute Marketplace Simulation (mart-ke)
     runs-on: ubuntu-latest
-    environment: marketplace-simulation
     timeout-minutes: 20
 
     steps:
@@ -59,28 +57,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Simulation Service Account
+      - name: Configure Firebase Service Account
         run: |
-          if [ -n "$SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
-            echo "$SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY" > serviceAccountKey.json
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "$FIREBASE_SERVICE_ACCOUNT_KEY" > serviceAccountKey.json
+            chmod 600 serviceAccountKey.json
           else
-            echo "::error::SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY secret is required for mart-ke-sim!"
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_KEY secret is required!"
             exit 1
           fi
         env:
-          SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.SIMULATION_FIREBASE_SERVICE_ACCOUNT_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
 
       - name: Validate Simulation Environment Guard
         run: npm run simulator:guard
         env:
           NODE_ENV: development
-          FIREBASE_PROJECT_ID: 'mart-ke-sim'
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke-sim'
-          GA4_TEST_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          ALLOW_MART_KE_SIMULATION: 'true'
+          FIREBASE_PROJECT_ID: 'mart-ke'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           PAYMENT_PROVIDER_MODE: 'simulated'
 
-      - name: Execute Simulation Orchestrator
+      - name: Execute Marketplace Activity Engine (MAE)
         run: |
           FLAGS=""
           if [ "${{ inputs.mode }}" = "dry-run" ]; then
@@ -93,10 +92,11 @@ jobs:
           npm run simulator:run -- $FLAGS
         env:
           NODE_ENV: development
-          FIREBASE_PROJECT_ID: 'mart-ke-sim'
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke-sim'
-          GA4_TEST_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
-          GA4_MEASUREMENT_ID: ${{ secrets.GA4_TEST_MEASUREMENT_ID }}
+          ALLOW_MART_KE_SIMULATION: 'true'
+          FIREBASE_PROJECT_ID: 'mart-ke'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'mart-ke'
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
           PAYMENT_PROVIDER_MODE: 'simulated'
 
       - name: Clean up sensitive credentials

@@ -13,7 +13,13 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { authClient, db, isFirebaseConfigured } from '@/lib/firebase-client';
-import { trackAddToCart, trackRemoveFromCart } from '@/lib/analytics';
+import {
+  trackAddToCart,
+  trackRemoveFromCart,
+  bindAnalyticsUser,
+  clearAnalyticsUser,
+  handleAnalyticsAccountSwitch,
+} from '@/lib/analytics';
 import { useRouter, usePathname } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { WishlistItem as WishlistItemApiType } from '@/app/api/users/me/wishlist/route';
@@ -221,12 +227,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         setCurrentUser(user);
         if (user) {
-          // Set user properties in analytics
-          // (analytics integration is not configured)
-          // If you want to use analytics, import and initialize it above.
-
           const profile = await fetchAndSetUserProfile(user);
           let vendorSettings = null;
+
+          // Bind GA4 user_id with consent gating
+          bindAnalyticsUser(user.uid, { role: profile?.role || 'customer' });
           
           if (profile && profile.role === 'vendor') {
             try {
@@ -260,6 +265,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             window.location.href = '/vendor/onboarding';
           }
         } else {
+          clearAnalyticsUser();
           setUserProfile(null);
           setCart([]);
           setWishlistItems([]);
@@ -566,6 +572,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logOut = async () => {
     try {
+      clearAnalyticsUser();
       await signOut(authClient);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       router.push('/auth/login');

@@ -11,6 +11,14 @@ import {
   CheckCircle2,
   Store
 } from 'lucide-react';
+import type { Metadata } from 'next';
+import { createPageMetadata } from '@/lib/site-metadata';
+
+export const metadata: Metadata = createPageMetadata({
+  title: 'About ZilaCart',
+  description: 'Learn how ZilaCart empowers Kenyan vendors and shoppers through trusted digital commerce.',
+  path: '/about',
+});
 
 export default function AboutPage() {
   const stats = [

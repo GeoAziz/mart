@@ -61,7 +61,7 @@ class BudgetConstraint(BaseModel):
     max_limit: Optional[LimitSpec] = None
 
 class FilterClause(BaseModel):
-    field: str = Field(..., pattern="^(category|subcategory|price|attributes\\.size|attributes\\.color|attributes\\.material|attributes\\.style|attributes\\.fit|attributes\\.occasion)$")
+    field: str = Field(..., pattern="^(category|subcategory|brand|name|in_stock|price|attributes\\.size|attributes\\.color|attributes\\.material|attributes\\.style|attributes\\.fit|attributes\\.occasion|attributes\\.gender|attributes\\.storage|attributes\\.ram|attributes\\.screen_size|attributes\\.condition|attributes\\.weight_volume)$")
     operator: str = Field(..., pattern="^(eq|neq|in|nin|contains|gte|gt|lte|lt)$")
     value: Union[str, float, int, bool, List[Union[str, float, int]]]
 

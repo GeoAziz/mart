@@ -185,9 +185,10 @@ services:
     container_name: mart-firebase-emulator
     restart: unless-stopped
     working_dir: /app
-    command: ["firebase", "emulators:start", "--project", "zilacart-local"]
+    command: ["firebase", "emulators:start", "--project", "demo-zilacart"]
     volumes:
       - ./firebase.json:/app/firebase.json:ro
+      - ./firestore.rules:/app/firestore.rules:ro
     ports:
       - "4000:4000"
       - "8080:8080"

@@ -107,15 +107,30 @@ export async function POST(req: NextRequest) {
       snapshot = await altRef.limit(20).get();
     }
 
-    let candidateProducts: Product[] = [];
+    const candidateProducts: Product[] = [];
     snapshot.forEach((doc) => {
       candidateProducts.push({ id: doc.id, ...doc.data() } as Product);
     });
 
+    const STOP_WORDS = new Set([
+      'and', 'or', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+      'from', 'between', 'under', 'below', 'above', 'over', 'kes', 'ksh', 'shilling', 'shillings',
+      'bob', 'all', 'any', 'item', 'items', 'find', 'show', 'get', 'me', 'i', 'want',
+      'looking', 'need', 'please'
+    ]);
+
     // Determine query tokens for semantic relevance filtering
-    const tokens = accumulated.semantic_tokens.length > 0
+    const tokens = (accumulated.semantic_tokens.length > 0
       ? accumulated.semantic_tokens
-      : query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+      : query.toLowerCase().split(/\s+/)
+    )
+      .map((w) => w.replace(/[^\w]/g, '').toLowerCase())
+      .filter((w) => w.length > 1 && !STOP_WORDS.has(w) && isNaN(Number(w)));
+
+    const matchTokenWord = (text: string, token: string): boolean => {
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+    };
 
     // Filter candidate products to guarantee semantic relevance (never return groceries for shoes)
     let matchingProducts = candidateProducts.filter((p) => {
@@ -133,7 +148,7 @@ export async function POST(req: NextRequest) {
 
       // Keyword / token filter: product must match at least one relevant search token
       if (tokens.length > 0) {
-        const hasTokenMatch = tokens.some((t) => pText.includes(t.toLowerCase()));
+        const hasTokenMatch = tokens.some((t) => matchTokenWord(pText, t));
         if (!hasTokenMatch && !accumulated.category) {
           return false;
         }
@@ -157,23 +172,38 @@ export async function POST(req: NextRequest) {
     let isFallback = false;
     if (matchingProducts.length === 0) {
       isFallback = true;
-      const fallbackSnap = await db
+      let fallbackQuery: FirebaseFirestore.Query = db
         .collection('products')
         .where('status', '==', 'active')
-        .where('stock', '>', 0)
-        .limit(50)
-        .get();
+        .where('stock', '>', 0);
+
+      // Guard against domain pollution: if searching Footwear/Fashion, do not query Groceries/Electronics
+      if (accumulated.category === 'Footwear' || accumulated.category === 'Fashion') {
+        fallbackQuery = fallbackQuery.where('category', 'in', ['Fashion', 'Footwear', 'Sports & Outdoors']);
+      } else if (accumulated.category) {
+        fallbackQuery = fallbackQuery.where('category', '==', accumulated.category);
+      }
+
+      const fallbackSnap = await fallbackQuery.limit(50).get();
 
       const fallbackList: Product[] = [];
       fallbackSnap.forEach((doc) => {
         fallbackList.push({ id: doc.id, ...doc.data() } as Product);
       });
 
-      // Filter and rank strictly by token overlaps (only items mentioning query keywords)
+      // Filter and rank strictly by token overlaps (only items mentioning query keywords and brand)
       matchingProducts = fallbackList
         .filter((p) => {
+          if (accumulated.brand) {
+            const b = accumulated.brand.toLowerCase();
+            const pBrand = (p.brand || '').toLowerCase();
+            const pName = (p.name || '').toLowerCase();
+            if (!pBrand.includes(b) && !pName.includes(b)) {
+              return false;
+            }
+          }
           const text = `${p.name || ''} ${p.description || ''} ${p.category || ''} ${p.brand || ''}`.toLowerCase();
-          return tokens.some((t) => text.includes(t.toLowerCase()));
+          return tokens.length > 0 ? tokens.some((t) => matchTokenWord(text, t)) : true;
         })
         .slice(0, 6);
     }

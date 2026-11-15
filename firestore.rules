@@ -181,6 +181,18 @@ service cloud.firestore {
       allow write: if false; // Only written via Admin SDK
     }
 
+    // Simulation Ledger & Collections (MAE)
+    match /simulation/ledger/events/{eventId} {
+      allow read: if true;
+      allow create: if request.resource.data.provenance == 'synthetic';
+      allow update, delete: if false; // Create-only immutable ledger
+    }
+
+    match /simulation/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.synthetic == true);
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

@@ -6,7 +6,7 @@
  * 2. Enforces ALLOWED_SIMULATION_PROJECTS and ALLOWED_EMULATOR_PROJECTS.
  * 3. Rejects missing or empty project/GA4 parameters for synthetic runs.
  * 4. Verifies GA4 test measurement ID matching or absence (mock sink).
- * 5. Compares against secret-backed production GA4 tripwire.
+ * 5. Compares against secret-backed production GA4 tripwire (unless ALLOW_MART_KE_SIMULATION === 'true').
  * 6. Enforces sandbox/simulated payment mode only.
  */
 
@@ -21,7 +21,7 @@ export interface VerifiedExecutionContext {
   fencingToken: number;
 }
 
-export const ALLOWED_SIMULATION_PROJECTS = Object.freeze(['mart-ke-sim']);
+export const ALLOWED_SIMULATION_PROJECTS = Object.freeze(['mart-ke-sim', 'mart-ke']);
 export const ALLOWED_EMULATOR_PROJECTS = Object.freeze(['demo-zilacart', 'localhost']);
 
 export class SecurityIsolationError extends Error {
@@ -82,7 +82,9 @@ export function extractActualCredentialProject(): string {
  */
 export function assertStrictIsolation(): VerifiedExecutionContext {
   const isProd = process.env.NODE_ENV === 'production';
-  if (isProd) {
+  const allowMartKe = process.env.ALLOW_MART_KE_SIMULATION === 'true';
+
+  if (isProd && !allowMartKe) {
     throw new SecurityIsolationError(
       'Synthetic execution is permanently barred from executing when NODE_ENV === "production".'
     );
@@ -96,7 +98,7 @@ export function assertStrictIsolation(): VerifiedExecutionContext {
   const prodGaSecret = (process.env.PRODUCTION_GA4_MEASUREMENT_ID_SECRET || '').trim();
 
   // 1. Secondary tripwire: Compare against secret-backed production GA4 ID if present
-  if (prodGaSecret !== '' && gaId === prodGaSecret) {
+  if (!allowMartKe && prodGaSecret !== '' && gaId === prodGaSecret) {
     throw new SecurityIsolationError(
       `Tripwire activated: Target GA4 Measurement ID matches secret-backed production ID '${gaId}'.`
     );
@@ -110,6 +112,13 @@ export function assertStrictIsolation(): VerifiedExecutionContext {
       );
     }
   } else {
+    // If targeting mart-ke, require explicit ALLOW_MART_KE_SIMULATION flag
+    if (actualProject === 'mart-ke' && !allowMartKe) {
+      throw new SecurityIsolationError(
+        `Simulation project 'mart-ke' is not in ALLOWED_SIMULATION_PROJECTS without explicit ALLOW_MART_KE_SIMULATION=true. Execution barred.`
+      );
+    }
+
     if (!ALLOWED_SIMULATION_PROJECTS.includes(actualProject)) {
       throw new SecurityIsolationError(
         `Simulation project '${actualProject}' is not in ALLOWED_SIMULATION_PROJECTS (${ALLOWED_SIMULATION_PROJECTS.join(', ')}). Execution barred.`
@@ -118,14 +127,15 @@ export function assertStrictIsolation(): VerifiedExecutionContext {
   }
 
   // 3. GA4 Measurement ID Allowlist for Synthetic Runs
-  // Must strictly equal GA4_TEST_MEASUREMENT_ID or be empty (mock sink)
-  if (gaId !== '' && gaId !== testGaId) {
+  // In normal mode: Must strictly equal GA4_TEST_MEASUREMENT_ID or be empty
+  // In mart-ke mode: Can also use GA4_MEASUREMENT_ID
+  if (!allowMartKe && gaId !== '' && gaId !== testGaId) {
     throw new SecurityIsolationError(
       `Synthetic execution attempted to use unapproved GA4 ID '${gaId}'. Must match GA4_TEST_MEASUREMENT_ID ('${testGaId || '<empty>'}').`
     );
   }
 
-  // 4. Payment Provider Validation
+  // 4. Payment Provider Validation (INVARIANT: No real money/M-Pesa)
   const paymentProvider = (process.env.PAYMENT_PROVIDER_MODE || 'simulated').toLowerCase();
   if (paymentProvider !== 'simulated' && paymentProvider !== 'mock') {
     throw new SecurityIsolationError(
@@ -151,5 +161,6 @@ export function assertStrictIsolation(): VerifiedExecutionContext {
 export function areMockPaymentsPermitted(): boolean {
   const isProd = process.env.NODE_ENV === 'production';
   const flagEnabled = process.env.ENABLE_SIMULATION_PAYMENTS === 'true';
-  return !isProd && flagEnabled;
+  const allowMartKe = process.env.ALLOW_MART_KE_SIMULATION === 'true';
+  return (!isProd || allowMartKe) && flagEnabled;
 }

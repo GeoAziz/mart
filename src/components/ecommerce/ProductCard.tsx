@@ -36,6 +36,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
   } = useAuth();
   const router = useRouter();
 
+  const [imgSrc, setImgSrc] = useState(imageUrl || 'https://placehold.co/400x300?text=No+Image');
+
   const isInWishlist = useMemo(() => 
     wishlistItems.some(item => item.productId === id),
   [wishlistItems, id]);
@@ -90,12 +92,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl, ra
       <Link href={`/products/${id}`} passHref>
         <CardHeader className="p-0 relative">
           <Image
-            src={imageUrl || 'https://placehold.co/400x300?text=No+Image'}
+            src={imgSrc}
             alt={name}
             width={400}
             height={300}
             className="object-cover w-full h-48 group-hover:scale-105 transition-transform duration-300"
             data-ai-hint={dataAiHint || category}
+            onError={() => setImgSrc('https://placehold.co/400x300?text=No+Image')}
           />
           {/* Stock Badge (priority) - shows availability status */}
           {stock !== undefined && (

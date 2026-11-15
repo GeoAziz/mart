@@ -7,4 +7,4 @@ USER node
 EXPOSE 4000 8080 8085 9099
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \
   CMD curl -f http://localhost:4000 || exit 1
-CMD ["firebase", "emulators:start", "--project", "zilacart-local"]
+CMD ["firebase", "emulators:start", "--project", "demo-zilacart"]

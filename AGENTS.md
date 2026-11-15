@@ -15,6 +15,8 @@ npm run build         # Production build (typecheck + next build)
 npm run typecheck     # tsc --noEmit
 npm run lint          # next lint
 npm run test          # Vitest (JS unit/integration tests)
+npm run test:local-cloud # LCCP Cross-cloud integration test suite (Firestore+LocalStack SQS+S3+DDB)
+npm run cloud -- <cmd># Local Cloud Control Plane CLI (up, down, status, reset, seed, trace, inspect)
 npm run genkit:dev    # Genkit AI dev UI (test AI flows in isolation)
 npm run ws:start      # WebSocket server standalone on :3001
 
@@ -25,7 +27,26 @@ pytest tests/test_master.py -m e2e -v
 pytest tests/test_master.py -m integration -v
 ```
 
-**Verification order**: `npm run lint && npm run typecheck && npm run test`
+## Local Cloud Control Plane (LCCP)
+
+The repository uses a unified control plane (`./bin/cloud` or `npm run cloud -- <cmd>`) orchestrating Firebase Emulator Suite (`demo-zilacart`) and LocalStack Community (`:4566`):
+
+- **Strict Environment Guard**: Always enforced. Rejects remote GCP/AWS endpoints and requires dummy credentials (`AWS_ACCESS_KEY_ID=test`). Prevents unintended credential fallback via `AWS_SDK_LOAD_CONFIG=0`.
+- **Infrastructure Lifecycle**:
+  - `npm run cloud -- up`: Starts LocalStack, Firebase Emulator, and Redis with healthcheck polling.
+  - `npm run cloud -- down`: Stops infrastructure (`--clean` to wipe volumes).
+  - `npm run cloud -- status`: Displays container states, SQS FIFO queue depths, S3 buckets, and tables.
+  - `npm run cloud -- reset`: Safely purges Firestore collections, SQS queues/DLQs, S3 buckets, and DynamoDB tables without container re-creation.
+  - `npm run cloud -- seed`: Provisions deterministic test users, S3 buckets (`mart-uploads`, etc.), SQS FIFO queues & DLQs, and DynamoDB tables.
+  - `npm run cloud -- trace <orderId>`: Displays chronological cross-cloud lifecycle timeline:
+    `Firestore -> Outbox -> SQS -> Worker -> S3 Receipt -> Firestore Transition -> DynamoDB Idempotency Record`.
+  - `npm run cloud -- inspect [sqs|s3|dynamo|dlq]`: Deep diagnostic inspector.
+- **Cross-Cloud Event Delivery**:
+  - Transactional Outbox pattern implemented in Firestore (`outbox` collection).
+  - Outbox Dispatcher (`npm run cloud -- outbox:dispatch`) atomically claims events with leases and publishes to LocalStack SQS FIFO.
+  - Supervised Worker (`npm run cloud -- worker:start`) consumes FIFO messages, produces S3 receipts, bumps Firestore order version, and logs authoritative idempotency keys in DynamoDB.
+
+**Verification order**: `npm run lint && npm run typecheck && npm run test:local-cloud`
 
 ## Architecture Gotchas
 

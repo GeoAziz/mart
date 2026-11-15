@@ -24,8 +24,8 @@ function getServiceAccountFromEnv(): ServiceAccount {
   };
 }
 
-// Only initialize on server side
-if (typeof window === 'undefined' && !admin.apps.length) {
+// Initialize Firebase Admin (ensure executed in Node / server / test environments)
+if (!admin.apps.length) {
   try {
     // Emulator mode: FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST
     // are set (docker compose local stack), so no service account is required.
@@ -61,17 +61,23 @@ if (typeof window === 'undefined' && !admin.apps.length) {
       serviceAccount = getServiceAccountFromEnv();
     }
 
-    if (!serviceAccount && !emulatorMode) {
+    // In emulator / test mode, initialize cleanly with demo project ID even without credentials
+    if (!serviceAccount && (emulatorMode || process.env.NODE_ENV === 'test')) {
+      admin.initializeApp({
+        projectId: process.env.FIREBASE_PROJECT_ID || 'demo-zilacart',
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      });
+    } else if (serviceAccount) {
+      admin.initializeApp({
+        projectId: serviceAccount.projectId,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        credential: admin.credential.cert(serviceAccount),
+      });
+    } else {
       throw new Error(
         '[Firebase Admin] Missing Firebase credentials. Provide serviceAccountKey.json or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY, or run against emulators (FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST).',
       );
     }
-
-    admin.initializeApp({
-      projectId: serviceAccount?.projectId || process.env.FIREBASE_PROJECT_ID || 'zilacart-local',
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-      ...(serviceAccount ? { credential: admin.credential.cert(serviceAccount as ServiceAccount) } : {}),
-    });
 
     console.log(`✅ Firebase Admin initialized${emulatorMode ? ' (emulator mode)' : ''}`);
   } catch (error) {

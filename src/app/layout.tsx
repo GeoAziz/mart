@@ -8,6 +8,7 @@ import SetupInstructions from '@/components/layout/SetupInstructions';
 import ParticleBackground from '@/components/ParticleBackground';
 import ConditionalShell from '@/components/layout/ConditionalShell';
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
+import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, getSiteUrl } from '@/lib/site-metadata';
 
 /**
  * Root Layout
@@ -19,8 +20,33 @@ import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
  */
 
 export const metadata: Metadata = {
-  title: 'ZilaCart – Kenya’s Digital Marketplace',
-  description: 'Kenya’s Premier Digital Marketplace for all your needs.',
+  metadataBase: getSiteUrl(),
+  title: {
+    default: 'ZilaCart – Kenya’s Digital Marketplace',
+    template: '%s | ZilaCart',
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'ZilaCart – Kenya’s Digital Marketplace',
+    description: SITE_DESCRIPTION,
+    url: '/',
+    siteName: SITE_NAME,
+    locale: 'en_KE',
+    type: 'website',
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: 'ZilaCart marketplace' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ZilaCart – Kenya’s Digital Marketplace',
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
   manifest: '/manifest.json', // For PWA
 };
 

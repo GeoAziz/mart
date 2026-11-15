@@ -43,6 +43,8 @@ FINAL_ADAPTER = WORKSPACE_DIR / "final_adapter"
 # Default to 1.5B on CPU for fast sub-second inference and low RAM footprint (< 3GB); 3B on CUDA GPU
 import torch
 is_cuda = torch.cuda.is_available()
+if not is_cuda:
+    torch.set_num_threads(min(4, os.cpu_count() or 2))
 MODEL_ID = os.environ.get("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct" if is_cuda else "Qwen/Qwen2.5-1.5B-Instruct")
 
 print("="*60)
@@ -102,7 +104,7 @@ except Exception as e:
 # Inference Helpers
 # -----------------------------------------------------------------------------
 
-def generate_json_response(instruction: str, user_input: str) -> Dict[str, Any]:
+def generate_json_response(instruction: str, user_input: str, max_tokens: int = 120) -> Dict[str, Any]:
     if model is None or tokenizer is None:
         raise HTTPException(status_code=503, detail="Model engine not loaded")
 
@@ -124,7 +126,7 @@ def generate_json_response(instruction: str, user_input: str) -> Dict[str, Any]:
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
-            max_new_tokens=256,
+            max_new_tokens=max_tokens,
             do_sample=False,
             eos_token_id=[tokenizer.eos_token_id, 151645, 151643] if tokenizer.eos_token_id else [151645, 151643],
             pad_token_id=tokenizer.eos_token_id or 151643
@@ -490,7 +492,7 @@ async def interpret_shopping(req: InterpretRequest):
     )
     raw_response = {}
     try:
-        raw_response = generate_json_response(instruction, req.query)
+        raw_response = generate_json_response(instruction, req.query, max_tokens=90)
     except Exception as e:
         print(f"Inference exception: {e}")
     return normalize_shopping_interpretation(raw_response, req.query)
@@ -522,25 +524,22 @@ def start_server_and_tunnel():
                 shell=True,
                 check=False
             )
+            cf_log = open("/tmp/cloudflared.log", "w")
             cf_proc = subprocess.Popen(
-                "cloudflared tunnel --url http://localhost:8001",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                ["cloudflared", "tunnel", "--url", "http://localhost:8001"],
+                stdout=cf_log,
+                stderr=cf_log,
                 text=True
             )
-            for _ in range(30):
-                line = cf_proc.stderr.readline()
-                if "trycloudflare.com" in line:
-                    for part in line.split():
-                        if "trycloudflare.com" in part:
-                            public_url = part.strip()
-                            if not public_url.startswith("http"):
-                                public_url = f"https://{public_url}"
-                            break
-                    if public_url:
-                        break
+            for _ in range(60):
                 time.sleep(0.5)
+                if os.path.exists("/tmp/cloudflared.log"):
+                    with open("/tmp/cloudflared.log", "r") as f:
+                        content = f.read()
+                        match = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", content)
+                        if match:
+                            public_url = match.group(0)
+                            break
         except Exception as cf_err:
             print(f"ℹ️ cloudflared: {cf_err}")
 
@@ -553,6 +552,12 @@ def start_server_and_tunnel():
         print("🌐 Listening on http://localhost:8001 inside Colab")
         print("👉 You can forward this via SSH or connect directly")
     print("="*60 + "\n")
+
+    try:
+        import nest_asyncio
+        nest_asyncio.apply()
+    except Exception as e:
+        print(f"ℹ️ nest_asyncio: {e}")
 
     uvicorn.run(app, host="0.0.0.0", port=8001)
 

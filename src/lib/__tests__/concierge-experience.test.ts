@@ -200,5 +200,74 @@ describe('Phase 3 — Conversational Concierge & Shopper Experience Tests', () =
       expect(liveProduct.price).toBe(3200);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // 4. Domain Relevance & Anti-Grocery Isolation Invariant
+  // ---------------------------------------------------------------------------
+  describe('Domain Relevance & Anti-Grocery Isolation', () => {
+    it('strictly prevents grocery items from matching footwear queries due to stop word substrings', () => {
+      const STOP_WORDS = new Set([
+        'and', 'or', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+        'from', 'between', 'under', 'below', 'above', 'over', 'kes', 'ksh', 'shilling', 'shillings',
+        'bob', 'all', 'any', 'item', 'items', 'find', 'show', 'get', 'me', 'i', 'want',
+        'looking', 'need', 'please'
+      ]);
+
+      const query = 'Nike running shoes between 3000 and 6000 KES';
+      const tokens = query
+        .toLowerCase()
+        .split(/\s+/)
+        .map((w) => w.replace(/[^\w]/g, '').toLowerCase())
+        .filter((w) => w.length > 1 && !STOP_WORDS.has(w) && isNaN(Number(w)));
+
+      // Assert stop words and numbers are purged
+      expect(tokens).toContain('nike');
+      expect(tokens).toContain('running');
+      expect(tokens).toContain('shoes');
+      expect(tokens).not.toContain('and');
+      expect(tokens).not.toContain('between');
+      expect(tokens).not.toContain('3000');
+      expect(tokens).not.toContain('6000');
+      expect(tokens).not.toContain('kes');
+
+      // Candidate products (seed dataset simulation)
+      const lemon = {
+        name: 'Lemon',
+        description: 'Zesty and tangy lemons, versatile for cooking, baking, or making refreshing beverages.',
+        category: 'Groceries',
+        brand: 'FreshFarm',
+        price: 0.79,
+      };
+
+      const nikeShoes = {
+        name: 'Nike Air Jordan 1 Red And Black',
+        description: 'The Nike Air Jordan 1 in Red and Black is an iconic basketball sneaker.',
+        category: 'Fashion',
+        brand: 'Nike',
+        price: 149.99,
+      };
+
+      const matchTokenWord = (text: string, token: string): boolean => {
+        const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+      };
+
+      const lemonText = `${lemon.name} ${lemon.description} ${lemon.category} ${lemon.brand}`.toLowerCase();
+      const nikeText = `${nikeShoes.name} ${nikeShoes.description} ${nikeShoes.category} ${nikeShoes.brand}`.toLowerCase();
+
+      // Lemon must NOT match any sanitized token
+      const lemonMatches = tokens.some((t) => matchTokenWord(lemonText, t));
+      expect(lemonMatches).toBe(false);
+
+      // Nike shoes MUST match 'nike' and 'shoes' (via name/tokens)
+      const nikeMatches = tokens.some((t) => matchTokenWord(nikeText, t));
+      expect(nikeMatches).toBe(true);
+
+      // Brand requirement check: 'Nike' brand filter rejects lemon
+      const requestedBrand = 'Nike'.toLowerCase();
+      const lemonBrandMatch = (lemon.brand || '').toLowerCase().includes(requestedBrand);
+      expect(lemonBrandMatch).toBe(false);
+    });
+  });
 });
 

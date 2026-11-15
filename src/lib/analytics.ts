@@ -10,7 +10,7 @@ declare global {
   interface Window {
     gtag?: (
       command: string,
-      action: string,
+      targetOrParams?: string | Record<string, any>,
       params?: Record<string, any>
     ) => void;
     dataLayer?: any[];
@@ -70,10 +70,67 @@ export function setClientConsent(status: 'granted' | 'denied', source: 'cookie_b
       window.gtag('consent', 'update', {
         analytics_storage: status,
       });
+
+      // If consent was denied, immediately clear user_id from gtag state
+      if (status === 'denied') {
+        window.gtag('set', { user_id: null });
+      }
     }
   }
 
   return snapshot;
+}
+
+// ────────────────────────────────────────────────────────────
+// GA4 Authenticated User-ID Lifecycle Management
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Binds an authenticated human user's Firebase UID to GA4 user_id.
+ * Strictly gated on analytics_storage === 'granted'.
+ */
+export function bindAnalyticsUser(userId: string, properties: Record<string, any> = {}): void {
+  if (typeof window === 'undefined') return;
+  const consent = getClientConsent();
+  if (consent.analyticsStorage !== 'granted') return;
+
+  if (typeof window.gtag === 'function') {
+    window.gtag('set', {
+      user_id: userId,
+      ...properties,
+    });
+    window.gtag('event', 'login', { method: 'firebase_auth' });
+  }
+}
+
+/**
+ * Explicitly clears the GA4 user_id on logout to prevent session bleed.
+ */
+export function clearAnalyticsUser(): void {
+  if (typeof window === 'undefined') return;
+  const consent = getClientConsent();
+  if (consent.analyticsStorage !== 'granted') return;
+
+  if (typeof window.gtag === 'function') {
+    window.gtag('set', { user_id: null });
+    window.gtag('event', 'logout');
+  }
+}
+
+/**
+ * Handles account switching (e.g., customer to vendor) without firing duplicate page_views.
+ */
+export function handleAnalyticsAccountSwitch(newUserId: string, role: string): void {
+  if (typeof window === 'undefined') return;
+  const consent = getClientConsent();
+  if (consent.analyticsStorage !== 'granted') return;
+
+  if (typeof window.gtag === 'function') {
+    window.gtag('set', {
+      user_id: newUserId,
+      user_role: role,
+    });
+  }
 }
 
 // ────────────────────────────────────────────────────────────

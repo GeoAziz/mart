@@ -164,7 +164,7 @@ export interface AnalyticsOutboxRecord {
 // ────────────────────────────────────────────────────────────
 
 export interface VerifiedPaymentResult {
-  provider: 'mpesa' | 'stripe' | 'paypal';
+  provider: 'mpesa' | 'stripe' | 'paypal' | 'simulated';
   paymentId: string; // Provider transaction / receipt reference
   orderId: string;
   amount: number; // Major currency unit, e.g. 4500.00

@@ -10,6 +10,12 @@ import { Message, Conversation } from '@/lib/types'
 import { Send, Search } from 'lucide-react'
 import { format } from 'date-fns'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { toDate } from '@/lib/date'
+
+function formatMessageTime(timestamp: unknown): string {
+  const date = toDate(timestamp)
+  return date ? format(date, 'HH:mm') : ''
+}
 
 export default function MessagingCenter() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -93,7 +99,7 @@ export default function MessagingCenter() {
   }
 
   const filteredConversations = conversations.filter(conv => 
-    conv.participants.some(id => 
+    conv.participants.some(() =>
       Object.values(conv.participantNames)
         .some(name => name.toLowerCase().includes(searchQuery.toLowerCase()))
     )
@@ -138,12 +144,7 @@ export default function MessagingCenter() {
                       <div className="flex justify-between items-baseline">
                         <p className="font-medium truncate">{otherParticipantName}</p>
                         <span className="text-xs text-muted-foreground">
-                          {format(
-                            conv.lastMessage.timestamp instanceof Date
-                              ? conv.lastMessage.timestamp
-                              : conv.lastMessage.timestamp.toDate(),
-                            'HH:mm'
-                          )}
+                          {formatMessageTime(conv.lastMessage.timestamp)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
@@ -189,14 +190,7 @@ export default function MessagingCenter() {
                         >
                           <p className="text-sm">{msg.text}</p>
                           <p className="text-xs mt-1 opacity-70">
-                            {format(
-                              msg.timestamp instanceof Date
-                                ? msg.timestamp
-                                : (typeof msg.timestamp === 'object' && msg.timestamp !== null && typeof (msg.timestamp as any).toDate === 'function'
-                                    ? (msg.timestamp as any).toDate()
-                                    : msg.timestamp instanceof Date ? msg.timestamp : msg.timestamp?.toDate()),
-                              'HH:mm'
-                            )}
+                            {formatMessageTime(msg.timestamp)}
                           </p>
                         </div>
                       </div>

@@ -2,6 +2,7 @@ import { firestoreAdmin as db } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 import { validateStatusTransition } from '@/lib/order-state-machine';
 import { getClock } from '@/lib/clock';
+import { SecurityIsolationError } from '@/marketplace-activity-engine/safety/environment-guard';
 import type { Order } from '@/lib/types';
 import type {
   VerifiedPaymentResult,
@@ -219,6 +220,25 @@ export async function confirmOrderAndRecordPurchaseTransaction(
 
     const order = orderSnap.data() as Order;
     const outboxSnap = await transaction.get(outboxRef);
+
+    // ── Domain Service Self-Defense: Prevent Synthetic Order Confirmation in Production ──
+    const isSyntheticOrder =
+      (order as any).synthetic === true ||
+      (order as any).is_synthetic === true ||
+      (order as any).provenance === 'synthetic' ||
+      payment.provider === 'simulated';
+
+    if (isSyntheticOrder) {
+      const isEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+      const targetProject =
+        process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '';
+
+      if (!isEmulator && targetProject === 'mart-ke') {
+        throw new SecurityIsolationError(
+          `Domain Self-Defense: Synthetic order confirmation is strictly prohibited in production project 'mart-ke'.`
+        );
+      }
+    }
 
     // ── Check Reservation Expiration ──
     const nowMs = getClock().now();
